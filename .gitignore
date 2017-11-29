@@ -8,3 +8,5 @@ out-win/
 out-mac/
 out-linux/
 out/
+WurstSetup.iml
+src/test/

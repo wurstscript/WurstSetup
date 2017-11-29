@@ -53,6 +53,14 @@ task proguardDist(type: ProGuardTask) {
 }
 proguardDist.dependsOn dist
 
+task copy_jar(type: Copy) {
+    mkdir("downloads/")
+    from '/build/libs/'
+    into 'download/'
+}
+
+copy_jar.dependsOn(proguardDist)
+
 mainClassName = "file.SetupMain"
 
 task wrapper(type: Wrapper) {
