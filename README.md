@@ -1,3 +1,5 @@
+[![Build Status](https://travis-ci.org/wurstscript/WurstSetup.svg?branch=master)](https://travis-ci.org/wurstscript/WurstSetup)
+
 # WurstScript Setup App
 
 Allows automated installation of a wurstscript environment and project setup.
