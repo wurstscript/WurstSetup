@@ -55,8 +55,8 @@ proguardDist.dependsOn dist
 
 task copy_jar(type: Copy) {
     mkdir("downloads/")
-    from '/build/libs/'
-    into '/downloads/'
+    from 'build/libs/'
+    into 'downloads/'
 }
 
 copy_jar.dependsOn(proguardDist)
