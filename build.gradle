@@ -1,8 +1,23 @@
 import proguard.gradle.ProGuardTask
 
 apply plugin: 'java'
+apply plugin: 'kotlin'
 apply plugin: 'application'
 apply plugin: 'idea'
+
+String genDir = "$projectDir/src-gen"
+
+sourceSets {
+    main {
+        java {
+            srcDir 'src/main/java'
+            srcDir genDir
+        }
+        resources {
+            srcDir 'src/main/resources'
+        }
+    }
+}
 
 repositories {
     jcenter()
@@ -13,23 +28,77 @@ repositories {
 dependencies {
     // https://mvnrepository.com/artifact/org.eclipse.jgit/org.eclipse.jgit
     compile group: 'us.monoid.web', name: 'resty', version: '0.3.2'
-    compile group: 'org.eclipse.jgit', name: 'org.eclipse.jgit', version: '4.8.0.201706111038-r'
-    compile group: 'org.yaml', name: 'snakeyaml', version: '1.18'
+    compile group: 'org.eclipse.jgit', name: 'org.eclipse.jgit', version: '4.9.0.201710071750-r'
+    compile 'com.fasterxml.jackson.core:jackson-databind:2.9.0'
+    compile 'com.fasterxml.jackson.module:jackson-module-kotlin:2.9.0'
+    compile 'com.fasterxml.jackson.dataformat:jackson-dataformat-yaml:2.9.0'
     compile group: 'args4j', name: 'args4j', version: '2.33'
-    compile 'org.slf4j:slf4j-api:1.7.25'
+    compile "org.jetbrains.kotlin:kotlin-stdlib-jre8:$kotlin_version"
+    compile 'io.github.microutils:kotlin-logging:1.4.6'
+    compile 'org.slf4j:slf4j-log4j12:1.7.5'
+    testCompile 'org.testng:testng:6.1.1'
 }
 
 buildscript {
+    ext.kotlin_version = '1.2.0'
     repositories {
         flatDir dirs: 'src/main/resources/'
+        mavenCentral()
     }
     dependencies {
         classpath ':proguard'
+        classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlin_version"
     }
 }
 
-version '1.0.1'
+version '1.1.2'
 
+task versionInfoFile {
+    description "Generates a file CompileTimeInfo.java with version number etc."
+
+    doLast {
+        def dir = new File('./src-gen/file/')
+        dir.mkdirs()
+        def f = new File(dir, 'CompileTimeInfo.java')
+
+        String gitRevision = "unknown-version"
+        String gitRevisionlong = "unknown-version"
+
+        new ByteArrayOutputStream().withStream { os ->
+            def result = exec {
+                executable = 'git'
+                args = ['describe', '--tags', '--always']
+                standardOutput = os
+            }
+            gitRevision = os.toString().trim()
+        }
+
+        new ByteArrayOutputStream().withStream { os ->
+            def result = exec {
+                executable = 'git'
+                args = ['describe', '--tags', '--always', '--abbrev=0']
+                standardOutput = os
+            }
+            gitRevisionlong = os.toString().trim()
+        }
+
+        String setupVersion = "${version}-${gitRevision}"
+
+
+        String currentTime = new Date().format("yyyy/MM/dd KK:mm:ss")
+
+        f.text = """
+package file;
+
+public class CompileTimeInfo {
+\tpublic static final String time="${currentTime}";
+\tpublic static final String revision="${gitRevision}";
+\tpublic static final String revisionLong="${gitRevisionlong}";
+\tpublic static final String version="${setupVersion}";
+}"""
+
+    }
+}
 task dist(type: Jar) {
     from files(sourceSets.main.output.classesDir)
     from files(sourceSets.main.output.resourcesDir)
@@ -42,6 +111,7 @@ task dist(type: Jar) {
     }
 }
 dist.dependsOn classes
+dist.dependsOn versionInfoFile
 
 dist.archiveName = "${jar.baseName}.raw.${jar.extension}"
 
@@ -66,6 +136,18 @@ mainClassName = "file.SetupMain"
 task wrapper(type: Wrapper) {
     gradleVersion = '2.12'
 }
+compileKotlin {
+    kotlinOptions {
+        jvmTarget = "1.8"
+    }
+}
+compileTestKotlin {
+    kotlinOptions {
+        jvmTarget = "1.8"
+    }
+}
+
+
 
 
 

@@ -33,9 +33,11 @@
 -printmapping proguard.map
 
 -dontwarn org.slf4j.**
+-dontwarn org.apache.log4j.**
 -dontwarn org.apache.commons.logging.impl.**
 -dontwarn com.jcraft.jsch.jcraft.**
 -dontwarn org.javacc.**
+-dontwarn kotlin.reflect.**
 
 -keep class org.eclipse.jgit.lib.Repository
 -keep class org.eclipse.jgit.transport.RemoteConfig { *** removeURI(...); }
