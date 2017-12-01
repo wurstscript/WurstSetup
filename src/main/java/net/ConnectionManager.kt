@@ -10,10 +10,15 @@ enum class NetStatus {
 }
 
 object ConnectionManager {
-    val resty = Resty()
+    private val resty = Resty()
     var netStatus = NetStatus.CLIENT_OFFLINE
 
-    fun checkConnectivity() : NetStatus {
+    private fun getJson(url: String, path: String): JSONObject {
+        val response = resty.json(url).get(Resty.path(path)).toString()
+        return JSONObject(response)
+    }
+
+    fun checkConnectivity(): NetStatus {
         // If google can be reached, the client is not offline
         val json = resty.json("http://google.com")
         if (json == null || json.toString().isBlank()) {
@@ -32,16 +37,15 @@ object ConnectionManager {
     }
 
     fun getLatestSetupBuild(): Int {
-        val response = resty.json("http://peeeq.de/hudson/job/WurstSetup/lastSuccessfulBuild/api/json")
-                .get(Resty.path("actions[2].buildsByBranchName")).toString()
+        val response = getJson("http://peeeq.de/hudson/job/WurstSetup/lastSuccessfulBuild/api/json", "actions[2].buildsByBranchName")
         val innerObject = JSONObject(JSONObject(response).get("refs/remotes/origin/master").toString())
         return innerObject.get("buildNumber").toString().toInt()
     }
 
     fun getLatestCompilerBuild(): Int {
-        val response = resty.json("http://peeeq.de/hudson/job/Wurst/lastSuccessfulBuild/api/json")
-                .get(Resty.path("actions[2].buildsByBranchName")).toString()
-        val innerObject = JSONObject(JSONObject(response).get("refs/remotes/origin/master").toString())
+        val response = getJson("http://peeeq.de/hudson/job/Wurst/lastSuccessfulBuild/api/json", "actions[2].buildsByBranchName")
+        val innerObject = JSONObject(response.get("refs/remotes/origin/master").toString())
         return innerObject.get("buildNumber").toString().toInt()
     }
+
 }

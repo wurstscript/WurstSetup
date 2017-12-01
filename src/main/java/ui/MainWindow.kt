@@ -4,6 +4,7 @@ import file.WurstProjectConfig
 import file.WurstProjectConfigData
 import global.InstallationManager
 import global.Log
+import global.WinRegistry
 import mu.KotlinLogging
 import net.ConnectionManager
 import net.NetStatus
