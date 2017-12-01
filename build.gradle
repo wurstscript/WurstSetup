@@ -100,7 +100,7 @@ public class CompileTimeInfo {
     }
 }
 
-compileJava.dependsOn versionInfoFile
+compileKotlin.dependsOn versionInfoFile
 
 task dist(type: Jar) {
     from files(sourceSets.main.output.classesDir)
