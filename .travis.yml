@@ -12,4 +12,5 @@ cache:
     
 script:
   - ./gradlew clean
+  - ./gradlew versionInfoFile
   - ./gradlew proguardDist
