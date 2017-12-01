@@ -99,6 +99,9 @@ public class CompileTimeInfo {
 
     }
 }
+
+compileJava.dependsOn versionInfoFile
+
 task dist(type: Jar) {
     from files(sourceSets.main.output.classesDir)
     from files(sourceSets.main.output.resourcesDir)
