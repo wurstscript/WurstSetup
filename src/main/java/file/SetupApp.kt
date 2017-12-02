@@ -43,8 +43,9 @@ object SetupApp {
 
     fun handleArgs(setup: SetupMain) {
         if (ConnectionManager.netStatus == NetStatus.ONLINE && InstallationManager.isJenkinsBuilt(CompileTimeInfo.version)) {
-            log.info("setup outdated")
-            if (ConnectionManager.getLatestSetupBuild() > InstallationManager.getJenkinsBuildVer(CompileTimeInfo.version)) {
+            log.info("setup update check")
+            val latestSetupBuild = ConnectionManager.getLatestSetupBuild()
+            if (latestSetupBuild > InstallationManager.getJenkinsBuildVer(CompileTimeInfo.version)) {
                 SetupUpdateDialog("There is a more recent version of the setup tool available. It is highly recommended" +
                         " to update before making any further changes.")
             }
