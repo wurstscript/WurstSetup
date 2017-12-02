@@ -1,4 +1,4 @@
-[![Build Status](https://travis-ci.org/wurstscript/WurstSetup.svg?branch=master)](https://travis-ci.org/wurstscript/WurstSetup)
+[![Build Status](https://travis-ci.org/wurstscript/WurstSetup.svg?branch=master)](https://travis-ci.org/wurstscript/WurstSetup) [![codebeat badge](https://codebeat.co/badges/279cc0f7-8ff6-400a-a763-8861690962dc)](https://codebeat.co/projects/github-com-wurstscript-wurstsetup-master)
 
 # WurstScript Setup App
 
