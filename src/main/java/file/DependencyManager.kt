@@ -25,44 +25,10 @@ object DependencyManager {
             if (Files.exists(depFolder)) {
                 depFolders.add(depFolder.toAbsolutePath().toString())
                 // clean
-                try {
-                    FileRepository(depFolder.resolve(".git").toString()).use({ repository ->
-                        try {
-                            Git(repository).use { git ->
-                                git.clean().setCleanDirectories(true).setForce(true).call()
-                                git.stashCreate().call()
-                            }
-                        } catch (e: Exception) {
-                            Log.print("error when trying to clean repository\n")
-                            e.printStackTrace()
-                        }
-                    })
-                } catch (e: Exception) {
-                    Log.print("error when trying open repository")
-                    e.printStackTrace()
-                }
+                cleanRepo(depFolder)
 
                 // update
-                try {
-                    FileRepository(depFolder.resolve(".git").toString()).use({ repository ->
-                        try {
-                            Git(repository).use { git ->
-                                git.reset().call()
-                                val pullResult = git.pull().call()
-                                Log.print("done\n")
-                                println("Messages: " + pullResult.fetchResult)
-                            }
-                        } catch (e: Exception) {
-                            Log.print("error when trying to fetch remote\n")
-                            e.printStackTrace()
-                        }
-                    })
-                } catch (e: Exception) {
-                    Log.print("error when trying open repository")
-                    e.printStackTrace()
-                }
-
-
+                updateRepo(depFolder)
             } else {
                 try {
                     Files.createDirectories(depFolder)
@@ -73,14 +39,7 @@ object DependencyManager {
 
                 depFolders.add(depFolder.toAbsolutePath().toString())
                 // clone
-                try {
-                    Git.cloneRepository().setURI(dependency)
-                            .setDirectory(depFolder.toFile())
-                            .call().use { result -> Log.print("done\n") }
-                } catch (e: Exception) {
-                    Log.print("error!\n")
-                    e.printStackTrace()
-                }
+                cloneRepo(dependency, depFolder)
             }
         }
         if (!depFolders.isEmpty()) {
@@ -90,6 +49,57 @@ object DependencyManager {
                 e.printStackTrace()
             }
 
+        }
+    }
+
+    private fun cloneRepo(dependency: String, depFolder: Path) {
+        try {
+            Git.cloneRepository().setURI(dependency)
+                    .setDirectory(depFolder.toFile())
+                    .call().use { result -> Log.print("done\n") }
+        } catch (e: Exception) {
+            Log.print("error!\n")
+            e.printStackTrace()
+        }
+    }
+
+    private fun updateRepo(depFolder: Path) {
+        try {
+            FileRepository(depFolder.resolve(".git").toString()).use({ repository ->
+                try {
+                    Git(repository).use { git ->
+                        git.reset().call()
+                        val pullResult = git.pull().call()
+                        Log.print("done\n")
+                        println("Messages: " + pullResult.fetchResult)
+                    }
+                } catch (e: Exception) {
+                    Log.print("error when trying to fetch remote\n")
+                    e.printStackTrace()
+                }
+            })
+        } catch (e: Exception) {
+            Log.print("error when trying open repository")
+            e.printStackTrace()
+        }
+    }
+
+    private fun cleanRepo(depFolder: Path) {
+        try {
+            FileRepository(depFolder.resolve(".git").toString()).use({ repository ->
+                try {
+                    Git(repository).use { git ->
+                        git.clean().setCleanDirectories(true).setForce(true).call()
+                        git.stashCreate().call()
+                    }
+                } catch (e: Exception) {
+                    Log.print("error when trying to clean repository\n")
+                    e.printStackTrace()
+                }
+            })
+        } catch (e: Exception) {
+            Log.print("error when trying open repository")
+            e.printStackTrace()
         }
     }
 

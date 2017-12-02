@@ -535,7 +535,6 @@ abstract public class BaseTableLayout<C, T extends C, L extends BaseTableLayout,
     private void computeSize() {
         sizeInvalid = false;
 
-        Toolkit toolkit = this.toolkit;
         ArrayList<Cell> cells = this.cells;
 
         if (cells.size() > 0 && !cells.get(cells.size() - 1).endRow) endRow();
@@ -550,6 +549,62 @@ abstract public class BaseTableLayout<C, T extends C, L extends BaseTableLayout,
         expandHeight = ensureSize(expandHeight, rows);
 
         float spaceRightLast = 0;
+        computeCells(cells, spaceRightLast);
+
+        // Colspan with expand will expand all spanned columns if none of the spanned columns have expand.
+        outer:
+        for (Cell c : cells) {
+            if (c.ignore || c.expandX == 0) continue;
+            for (int column = c.column, nn = column + c.colspan; column < nn; column++)
+                if (expandWidth[column] != 0) continue outer;
+            for (int column = c.column, nn = column + c.colspan; column < nn; column++)
+                expandWidth[column] = c.expandX;
+        }
+
+        // Distribute any additional min and pref width added by colspanned cells to the columns spanned.
+        distributeRemaining(cells);
+
+        // Collect uniform size.
+        float uniformMinWidth = 0, uniformMinHeight = 0;
+        float uniformPrefWidth = 0, uniformPrefHeight = 0;
+        for (Cell c : cells) {
+            if (c.ignore) continue;
+
+            // Collect uniform sizes.
+            if (c.uniformX == Boolean.TRUE && c.colspan == 1) {
+                float hpadding = c.computedPadLeft + c.computedPadRight;
+                uniformMinWidth = Math.max(uniformMinWidth, columnMinWidth[c.column] - hpadding);
+                uniformPrefWidth = Math.max(uniformPrefWidth, columnPrefWidth[c.column] - hpadding);
+            }
+            if (c.uniformY == Boolean.TRUE) {
+                float vpadding = c.computedPadTop + c.computedPadBottom;
+                uniformMinHeight = Math.max(uniformMinHeight, rowMinHeight[c.row] - vpadding);
+                uniformPrefHeight = Math.max(uniformPrefHeight, rowPrefHeight[c.row] - vpadding);
+            }
+        }
+
+        // Size uniform cells to the same width/height.
+        if (uniformPrefWidth > 0 || uniformPrefHeight > 0) {
+            for (Cell c : cells) {
+                if (c.ignore) continue;
+                if (uniformPrefWidth > 0 && c.uniformX == Boolean.TRUE && c.colspan == 1) {
+                    float hpadding = c.computedPadLeft + c.computedPadRight;
+                    columnMinWidth[c.column] = uniformMinWidth + hpadding;
+                    columnPrefWidth[c.column] = uniformPrefWidth + hpadding;
+                }
+                if (uniformPrefHeight > 0 && c.uniformY == Boolean.TRUE) {
+                    float vpadding = c.computedPadTop + c.computedPadBottom;
+                    rowMinHeight[c.row] = uniformMinHeight + vpadding;
+                    rowPrefHeight[c.row] = uniformPrefHeight + vpadding;
+                }
+            }
+        }
+
+        // Determine table min and pref size.
+        determineMinMax();
+    }
+
+    private void computeCells(ArrayList<Cell> cells, float spaceRightLast) {
         for (Cell c : cells) {
             if (c.ignore) continue;
 
@@ -591,18 +646,30 @@ abstract public class BaseTableLayout<C, T extends C, L extends BaseTableLayout,
             rowPrefHeight[c.row] = Math.max(rowPrefHeight[c.row], prefHeight + vpadding);
             rowMinHeight[c.row] = Math.max(rowMinHeight[c.row], minHeight + vpadding);
         }
+    }
 
-        // Colspan with expand will expand all spanned columns if none of the spanned columns have expand.
-        outer:
-        for (Cell c : cells) {
-            if (c.ignore || c.expandX == 0) continue;
-            for (int column = c.column, nn = column + c.colspan; column < nn; column++)
-                if (expandWidth[column] != 0) continue outer;
-            for (int column = c.column, nn = column + c.colspan; column < nn; column++)
-                expandWidth[column] = c.expandX;
+    private void determineMinMax() {
+        tableMinWidth = 0;
+        tableMinHeight = 0;
+        tablePrefWidth = 0;
+        tablePrefHeight = 0;
+        for (int i = 0; i < columns; i++) {
+            tableMinWidth += columnMinWidth[i];
+            tablePrefWidth += columnPrefWidth[i];
         }
+        for (int i = 0; i < rows; i++) {
+            tableMinHeight += rowMinHeight[i];
+            tablePrefHeight += Math.max(rowMinHeight[i], rowPrefHeight[i]);
+        }
+        float hpadding = w(padLeft) + w(padRight);
+        float vpadding = h(padTop) + h(padBottom);
+        tableMinWidth = tableMinWidth + hpadding;
+        tableMinHeight = tableMinHeight + vpadding;
+        tablePrefWidth = Math.max(tablePrefWidth + hpadding, tableMinWidth);
+        tablePrefHeight = Math.max(tablePrefHeight + vpadding, tableMinHeight);
+    }
 
-        // Distribute any additional min and pref width added by colspanned cells to the columns spanned.
+    private void distributeRemaining(ArrayList<Cell> cells) {
         for (Cell c : cells) {
             if (c.ignore || c.colspan == 1) continue;
 
@@ -631,62 +698,6 @@ abstract public class BaseTableLayout<C, T extends C, L extends BaseTableLayout,
                 columnPrefWidth[column] += extraPrefWidth * ratio;
             }
         }
-
-        // Collect uniform size.
-        float uniformMinWidth = 0, uniformMinHeight = 0;
-        float uniformPrefWidth = 0, uniformPrefHeight = 0;
-        for (Cell c : cells) {
-            if (c.ignore) continue;
-
-            // Collect uniform sizes.
-            if (c.uniformX == Boolean.TRUE && c.colspan == 1) {
-                float hpadding = c.computedPadLeft + c.computedPadRight;
-                uniformMinWidth = Math.max(uniformMinWidth, columnMinWidth[c.column] - hpadding);
-                uniformPrefWidth = Math.max(uniformPrefWidth, columnPrefWidth[c.column] - hpadding);
-            }
-            if (c.uniformY == Boolean.TRUE) {
-                float vpadding = c.computedPadTop + c.computedPadBottom;
-                uniformMinHeight = Math.max(uniformMinHeight, rowMinHeight[c.row] - vpadding);
-                uniformPrefHeight = Math.max(uniformPrefHeight, rowPrefHeight[c.row] - vpadding);
-            }
-        }
-
-        // Size uniform cells to the same width/height.
-        if (uniformPrefWidth > 0 || uniformPrefHeight > 0) {
-            for (Cell c : cells) {
-                if (c.ignore) continue;
-                if (uniformPrefWidth > 0 && c.uniformX == Boolean.TRUE && c.colspan == 1) {
-                    float hpadding = c.computedPadLeft + c.computedPadRight;
-                    columnMinWidth[c.column] = uniformMinWidth + hpadding;
-                    columnPrefWidth[c.column] = uniformPrefWidth + hpadding;
-                }
-                if (uniformPrefHeight > 0 && c.uniformY == Boolean.TRUE) {
-                    float vpadding = c.computedPadTop + c.computedPadBottom;
-                    rowMinHeight[c.row] = uniformMinHeight + vpadding;
-                    rowPrefHeight[c.row] = uniformPrefHeight + vpadding;
-                }
-            }
-        }
-
-        // Determine table min and pref size.
-        tableMinWidth = 0;
-        tableMinHeight = 0;
-        tablePrefWidth = 0;
-        tablePrefHeight = 0;
-        for (int i = 0; i < columns; i++) {
-            tableMinWidth += columnMinWidth[i];
-            tablePrefWidth += columnPrefWidth[i];
-        }
-        for (int i = 0; i < rows; i++) {
-            tableMinHeight += rowMinHeight[i];
-            tablePrefHeight += Math.max(rowMinHeight[i], rowPrefHeight[i]);
-        }
-        float hpadding = w(padLeft) + w(padRight);
-        float vpadding = h(padTop) + h(padBottom);
-        tableMinWidth = tableMinWidth + hpadding;
-        tableMinHeight = tableMinHeight + vpadding;
-        tablePrefWidth = Math.max(tablePrefWidth + hpadding, tableMinWidth);
-        tablePrefHeight = Math.max(tablePrefHeight + vpadding, tableMinHeight);
     }
 
     /**
@@ -710,91 +721,17 @@ abstract public class BaseTableLayout<C, T extends C, L extends BaseTableLayout,
 
         // Size columns and rows between min and pref size using (preferred - min) size to weight distribution of extra space.
         float[] columnWeightedWidth;
-        float totalGrowWidth = tablePrefWidth - tableMinWidth;
-        if (totalGrowWidth == 0)
-            columnWeightedWidth = columnMinWidth;
-        else {
-            float extraWidth = Math.min(totalGrowWidth, Math.max(0, layoutWidth - tableMinWidth));
-            columnWeightedWidth = this.columnWeightedWidth = ensureSize(this.columnWeightedWidth, columns);
-            for (int i = 0; i < columns; i++) {
-                float growWidth = columnPrefWidth[i] - columnMinWidth[i];
-                float growRatio = growWidth / totalGrowWidth;
-                columnWeightedWidth[i] = columnMinWidth[i] + extraWidth * growRatio;
-            }
-        }
+        columnWeightedWidth = calculateWidth(layoutWidth);
 
         float[] rowWeightedHeight;
-        float totalGrowHeight = tablePrefHeight - tableMinHeight;
-        if (totalGrowHeight == 0)
-            rowWeightedHeight = rowMinHeight;
-        else {
-            rowWeightedHeight = this.rowWeightedHeight = ensureSize(this.rowWeightedHeight, rows);
-            float extraHeight = Math.min(totalGrowHeight, Math.max(0, layoutHeight - tableMinHeight));
-            for (int i = 0; i < rows; i++) {
-                float growHeight = rowPrefHeight[i] - rowMinHeight[i];
-                float growRatio = growHeight / totalGrowHeight;
-                rowWeightedHeight[i] = rowMinHeight[i] + extraHeight * growRatio;
-            }
-        }
+        rowWeightedHeight = calculateHeight(layoutHeight);
 
         // Determine widget and cell sizes (before expand or fill).
-        for (Cell c : cells) {
-            if (c.ignore) continue;
-
-            float spannedWeightedWidth = 0;
-            for (int column = c.column, nn = column + c.colspan; column < nn; column++)
-                spannedWeightedWidth += columnWeightedWidth[column];
-            float weightedHeight = rowWeightedHeight[c.row];
-
-            float prefWidth = w(c.prefWidth, c);
-            float prefHeight = h(c.prefHeight, c);
-            float minWidth = w(c.minWidth, c);
-            float minHeight = h(c.minHeight, c);
-            float maxWidth = w(c.maxWidth, c);
-            float maxHeight = h(c.maxHeight, c);
-            if (prefWidth < minWidth) prefWidth = minWidth;
-            if (prefHeight < minHeight) prefHeight = minHeight;
-            if (maxWidth > 0 && prefWidth > maxWidth) prefWidth = maxWidth;
-            if (maxHeight > 0 && prefHeight > maxHeight) prefHeight = maxHeight;
-
-            c.widgetWidth = Math.min(spannedWeightedWidth - c.computedPadLeft - c.computedPadRight, prefWidth);
-            c.widgetHeight = Math.min(weightedHeight - c.computedPadTop - c.computedPadBottom, prefHeight);
-
-            if (c.colspan == 1) columnWidth[c.column] = Math.max(columnWidth[c.column], spannedWeightedWidth);
-            rowHeight[c.row] = Math.max(rowHeight[c.row], weightedHeight);
-        }
+        determineSizes(cells, columnWeightedWidth, rowWeightedHeight);
 
         // Distribute remaining space to any expanding columns/rows.
-        if (totalExpandWidth > 0) {
-            float extra = layoutWidth - hpadding;
-            for (int i = 0; i < columns; i++)
-                extra -= columnWidth[i];
-            float used = 0;
-            int lastIndex = 0;
-            for (int i = 0; i < columns; i++) {
-                if (expandWidth[i] == 0) continue;
-                float amount = extra * expandWidth[i] / totalExpandWidth;
-                columnWidth[i] += amount;
-                used += amount;
-                lastIndex = i;
-            }
-            columnWidth[lastIndex] += extra - used;
-        }
-        if (totalExpandHeight > 0) {
-            float extra = layoutHeight - vpadding;
-            for (int i = 0; i < rows; i++)
-                extra -= rowHeight[i];
-            float used = 0;
-            int lastIndex = 0;
-            for (int i = 0; i < rows; i++) {
-                if (expandHeight[i] == 0) continue;
-                float amount = extra * expandHeight[i] / totalExpandHeight;
-                rowHeight[i] += amount;
-                used += amount;
-                lastIndex = i;
-            }
-            rowHeight[lastIndex] += extra - used;
-        }
+        distributeSpace(layoutWidth, hpadding, totalExpandWidth);
+        distributeSpace(layoutHeight, vpadding, totalExpandHeight);
 
         // Distribute any additional width added by colspanned cells to the columns spanned.
         for (Cell c : cells) {
@@ -834,6 +771,81 @@ abstract public class BaseTableLayout<C, T extends C, L extends BaseTableLayout,
             y += (layoutHeight - tableHeight) / 2;
 
         // Position widgets within cells.
+        positionWidgets(cells, x, y);
+        float currentX;
+        float currentY;
+
+        // Draw debug widgets and bounds.
+        if (debug == Debug.none) return;
+        drawDebug(layoutX, layoutY, layoutWidth, layoutHeight, toolkit, cells, hpadding, vpadding, tableWidth, tableHeight, x, y);
+    }
+
+    private void drawDebug(float layoutX, float layoutY, float layoutWidth, float layoutHeight, Toolkit toolkit, ArrayList<Cell> cells, float hpadding, float
+            vpadding, float tableWidth, float tableHeight, float x, float y) {
+        float currentX;
+        float currentY;
+        toolkit.clearDebugRectangles(this);
+        currentX = x;
+        currentY = y;
+        if (debug == Debug.table || debug == Debug.all) {
+            toolkit.addDebugRectangle(this, Debug.table, layoutX, layoutY, layoutWidth, layoutHeight);
+            toolkit.addDebugRectangle(this, Debug.table, x, y, tableWidth - hpadding, tableHeight - vpadding);
+        }
+        for (Cell c : cells) {
+            if (c.ignore) continue;
+
+            // Widget bounds.
+            if (debug == Debug.widget || debug == Debug.all)
+                toolkit.addDebugRectangle(this, Debug.widget, c.widgetX, c.widgetY, c.widgetWidth, c.widgetHeight);
+
+            // Cell bounds.
+            float spannedCellWidth = 0;
+            for (int column = c.column, nn = column + c.colspan; column < nn; column++)
+                spannedCellWidth += columnWidth[column];
+            spannedCellWidth -= c.computedPadLeft + c.computedPadRight;
+            currentX += c.computedPadLeft;
+            if (debug == Debug.cell || debug == Debug.all) {
+                toolkit.addDebugRectangle(this, Debug.cell, currentX, currentY + c.computedPadTop, spannedCellWidth, rowHeight[c.row]
+                        - c.computedPadTop - c.computedPadBottom);
+            }
+
+            if (c.endRow) {
+                currentX = x;
+                currentY += rowHeight[c.row];
+            } else
+                currentX += spannedCellWidth + c.computedPadRight;
+        }
+    }
+
+    private void determineSizes(ArrayList<Cell> cells, float[] columnWeightedWidth, float[] rowWeightedHeight) {
+        for (Cell c : cells) {
+            if (c.ignore) continue;
+
+            float spannedWeightedWidth = 0;
+            for (int column = c.column, nn = column + c.colspan; column < nn; column++)
+                spannedWeightedWidth += columnWeightedWidth[column];
+            float weightedHeight = rowWeightedHeight[c.row];
+
+            float prefWidth = w(c.prefWidth, c);
+            float prefHeight = h(c.prefHeight, c);
+            float minWidth = w(c.minWidth, c);
+            float minHeight = h(c.minHeight, c);
+            float maxWidth = w(c.maxWidth, c);
+            float maxHeight = h(c.maxHeight, c);
+            if (prefWidth < minWidth) prefWidth = minWidth;
+            if (prefHeight < minHeight) prefHeight = minHeight;
+            if (maxWidth > 0 && prefWidth > maxWidth) prefWidth = maxWidth;
+            if (maxHeight > 0 && prefHeight > maxHeight) prefHeight = maxHeight;
+
+            c.widgetWidth = Math.min(spannedWeightedWidth - c.computedPadLeft - c.computedPadRight, prefWidth);
+            c.widgetHeight = Math.min(weightedHeight - c.computedPadTop - c.computedPadBottom, prefHeight);
+
+            if (c.colspan == 1) columnWidth[c.column] = Math.max(columnWidth[c.column], spannedWeightedWidth);
+            rowHeight[c.row] = Math.max(rowHeight[c.row], weightedHeight);
+        }
+    }
+
+    private void positionWidgets(ArrayList<Cell> cells, float x, float y) {
         float currentX = x, currentY = y;
         for (Cell c : cells) {
             if (c.ignore) continue;
@@ -876,39 +888,57 @@ abstract public class BaseTableLayout<C, T extends C, L extends BaseTableLayout,
             } else
                 currentX += spannedCellWidth + c.computedPadRight;
         }
+    }
 
-        // Draw debug widgets and bounds.
-        if (debug == Debug.none) return;
-        toolkit.clearDebugRectangles(this);
-        currentX = x;
-        currentY = y;
-        if (debug == Debug.table || debug == Debug.all) {
-            toolkit.addDebugRectangle(this, Debug.table, layoutX, layoutY, layoutWidth, layoutHeight);
-            toolkit.addDebugRectangle(this, Debug.table, x, y, tableWidth - hpadding, tableHeight - vpadding);
-        }
-        for (Cell c : cells) {
-            if (c.ignore) continue;
-
-            // Widget bounds.
-            if (debug == Debug.widget || debug == Debug.all)
-                toolkit.addDebugRectangle(this, Debug.widget, c.widgetX, c.widgetY, c.widgetWidth, c.widgetHeight);
-
-            // Cell bounds.
-            float spannedCellWidth = 0;
-            for (int column = c.column, nn = column + c.colspan; column < nn; column++)
-                spannedCellWidth += columnWidth[column];
-            spannedCellWidth -= c.computedPadLeft + c.computedPadRight;
-            currentX += c.computedPadLeft;
-            if (debug == Debug.cell || debug == Debug.all) {
-                toolkit.addDebugRectangle(this, Debug.cell, currentX, currentY + c.computedPadTop, spannedCellWidth, rowHeight[c.row]
-                        - c.computedPadTop - c.computedPadBottom);
+    private void distributeSpace(float layoutWidth, float hpadding, float totalExpandWidth) {
+        if (totalExpandWidth > 0) {
+            float extra = layoutWidth - hpadding;
+            for (int i = 0; i < columns; i++)
+                extra -= columnWidth[i];
+            float used = 0;
+            int lastIndex = 0;
+            for (int i = 0; i < columns; i++) {
+                if (expandWidth[i] == 0) continue;
+                float amount = extra * expandWidth[i] / totalExpandWidth;
+                columnWidth[i] += amount;
+                used += amount;
+                lastIndex = i;
             }
-
-            if (c.endRow) {
-                currentX = x;
-                currentY += rowHeight[c.row];
-            } else
-                currentX += spannedCellWidth + c.computedPadRight;
+            columnWidth[lastIndex] += extra - used;
         }
+    }
+
+    private float[] calculateHeight(float layoutHeight) {
+        float[] rowWeightedHeight;
+        float totalGrowHeight = tablePrefHeight - tableMinHeight;
+        if (totalGrowHeight == 0)
+            rowWeightedHeight = rowMinHeight;
+        else {
+            rowWeightedHeight = this.rowWeightedHeight = ensureSize(this.rowWeightedHeight, rows);
+            float extraHeight = Math.min(totalGrowHeight, Math.max(0, layoutHeight - tableMinHeight));
+            for (int i = 0; i < rows; i++) {
+                float growHeight = rowPrefHeight[i] - rowMinHeight[i];
+                float growRatio = growHeight / totalGrowHeight;
+                rowWeightedHeight[i] = rowMinHeight[i] + extraHeight * growRatio;
+            }
+        }
+        return rowWeightedHeight;
+    }
+
+    private float[] calculateWidth(float layoutWidth) {
+        float[] columnWeightedWidth;
+        float totalGrowWidth = tablePrefWidth - tableMinWidth;
+        if (totalGrowWidth == 0)
+            columnWeightedWidth = columnMinWidth;
+        else {
+            float extraWidth = Math.min(totalGrowWidth, Math.max(0, layoutWidth - tableMinWidth));
+            columnWeightedWidth = this.columnWeightedWidth = ensureSize(this.columnWeightedWidth, columns);
+            for (int i = 0; i < columns; i++) {
+                float growWidth = columnPrefWidth[i] - columnMinWidth[i];
+                float growRatio = growWidth / totalGrowWidth;
+                columnWeightedWidth[i] = columnMinWidth[i] + extraWidth * growRatio;
+            }
+        }
+        return columnWeightedWidth;
     }
 }
