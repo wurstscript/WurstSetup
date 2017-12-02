@@ -35,8 +35,8 @@ object SetupApp {
         val ownFile = Paths.get(url.toURI())
         log.info("path: " + url)
         log.info("file: " + ownFile.toAbsolutePath())
-        if (ownFile.toString().endsWith(".jar") && ownFile.parent.fileName.toString() != ".wurst") {
-            println("copy jar")
+        if (ownFile != null && Files.exists(ownFile) && ownFile.toString().endsWith(".jar") && ownFile.parent.fileName.toString() != ".wurst") {
+            log.info("copy jar")
             Files.copy(ownFile, Paths.get(InstallationManager.installDir.toString(), "WurstSetup.jar"), StandardCopyOption.REPLACE_EXISTING)
         }
     }

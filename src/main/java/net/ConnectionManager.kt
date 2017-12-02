@@ -37,12 +37,14 @@ object ConnectionManager {
     }
 
     fun getLatestSetupBuild(): Int {
+        if(netStatus != NetStatus.ONLINE) return 0
         val response = getJson("http://peeeq.de/hudson/job/WurstSetup/lastSuccessfulBuild/api/json", "actions[2].buildsByBranchName")
-        val innerObject = JSONObject(JSONObject(response).get("refs/remotes/origin/master").toString())
+        val innerObject = JSONObject(response.get("refs/remotes/origin/master").toString())
         return innerObject.get("buildNumber").toString().toInt()
     }
 
     fun getLatestCompilerBuild(): Int {
+        if(netStatus != NetStatus.ONLINE) return 0
         val response = getJson("http://peeeq.de/hudson/job/Wurst/lastSuccessfulBuild/api/json", "actions[2].buildsByBranchName")
         val innerObject = JSONObject(response.get("refs/remotes/origin/master").toString())
         return innerObject.get("buildNumber").toString().toInt()
