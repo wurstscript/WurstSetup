@@ -264,26 +264,11 @@ object MainWindow : JFrame() {
                 }
             })
             projectInputTable.addCell(projectNameTF).growX()
-            importButton = SetupButton("Import")
             importButton.addMouseListener(object : MouseAdapter() {
                 override fun mouseClicked(arg0: MouseEvent?) {
                     if (importButton.isEnabled && !progressBar.isIndeterminate) {
                         if (importChooser!!.showOpenDialog(that) == JFileChooser.APPROVE_OPTION) {
-                            try {
-                                val buildFile = importChooser!!.selectedFile.toPath()
-                                val config = WurstProjectConfig.loadProject(buildFile)
-                                if (config != null) {
-                                    projectNameTF.text = config.projectName
-                                    projectRootTF.text = buildFile.parent.toString()
-                                    dependencyTF!!.text = config.dependencies.stream().map { i -> i.substring(i.lastIndexOf("/") + 1) }.collect(Collectors.joining(", "))
-                                    btnCreate.text = "Update Project"
-                                    selectedConfig = config
-                                    Log.print("Use the \"Update Project\" button to update config and dependencies.\n")
-                                }
-                            } catch (e: IOException) {
-                                e.printStackTrace()
-                            }
-
+                            handleImport()
                         }
                     }
                 }
@@ -360,7 +345,7 @@ object MainWindow : JFrame() {
             manageDependencies.addMouseListener(object : MouseAdapter() {
                 override fun mouseClicked(arg0: MouseEvent?) {
                     log.info("Adding dependency")
-                    val url = JOptionPane.showInputDialog("Enter git remote addres (https://github.com/user/project)")
+                    val url = JOptionPane.showInputDialog("Enter git remote address (https://github.com/user/project)")
                     if (url.isNotEmpty()) {
                         log.info("Adding <{}>", url)
                         if (dependencies.contains(url)) {
@@ -378,6 +363,24 @@ object MainWindow : JFrame() {
             configTable.addCell(dependencyTable).growX()
 
             contentTable!!.addCell(configTable).growX().pad(2f)
+        }
+
+        private fun handleImport() {
+            try {
+                val buildFile = importChooser!!.selectedFile.toPath()
+                val config = WurstProjectConfig.loadProject(buildFile)
+                if (config != null) {
+                    projectNameTF.text = config.projectName
+                    projectRootTF.text = buildFile.parent.toString()
+                    dependencyTF!!.text = config.dependencies.stream().map { i -> i.substring(i.lastIndexOf("/") + 1) }.collect(Collectors.joining(", "))
+                    dependencies = ArrayList(config.dependencies)
+                    btnCreate.text = "Update Project"
+                    selectedConfig = config
+                    Log.print("Use the \"Update Project\" button to update config and dependencies.\n")
+                }
+            } catch (e: IOException) {
+                e.printStackTrace()
+            }
         }
 
         fun refreshComponents() {
