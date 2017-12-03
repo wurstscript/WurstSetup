@@ -66,5 +66,3 @@ object SetupApp {
         }
     }
 }
-
-}
