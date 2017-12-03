@@ -48,21 +48,23 @@ object SetupApp {
             if (latestSetupBuild > InstallationManager.getJenkinsBuildVer(CompileTimeInfo.version)) {
                 SetupUpdateDialog("There is a more recent version of the setup tool available. It is highly recommended" +
                         " to update before making any further changes.")
+                return
             }
+        }
+
+        log.info("setup uptodate")
+        if (!setup.silent) {
+            log.info("is GUI launch")
+            UiManager.initUI()
         } else {
-            log.info("setup uptodate")
-            if (!setup.silent) {
-                log.info("is GUI launch")
-                UiManager.initUI()
-            } else {
-                if (setup.checkWurstUpdate) {
-                    println("silent compiler update check")
-                    if (InstallationManager.status == InstallationManager.InstallationStatus.INSTALLED_OUTDATED) {
-                        UpdateFoundDialog("A Wurst compiler update has been found!")
-                    }
+            if (setup.checkWurstUpdate) {
+                println("silent compiler update check")
+                if (InstallationManager.status == InstallationManager.InstallationStatus.INSTALLED_OUTDATED) {
+                    UpdateFoundDialog("A Wurst compiler update has been found!")
                 }
             }
         }
     }
+}
 
 }
