@@ -346,7 +346,7 @@ object MainWindow : JFrame() {
                 override fun mouseClicked(arg0: MouseEvent?) {
                     log.info("Adding dependency")
                     val url = JOptionPane.showInputDialog("Enter git remote address (https://github.com/user/project)")
-                    if (url.isNotEmpty()) {
+                    if (url != null && url.isNotEmpty()) {
                         log.info("Adding <{}>", url)
                         if (dependencies.contains(url)) {
                             Log.print("This git repo is already added")
