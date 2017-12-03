@@ -72,7 +72,7 @@ class SetupMain {
                 val pw = PrintWriter(sw)
                 exception.printStackTrace(pw)
                 val jTextField = JTextArea()
-                jTextField.text = "Please report this crash with the following info:\n" + sw.toString()
+                jTextField.text = "Please report this crash with the following info:\nVersion: " + CompileTimeInfo.version + "\n" + sw.toString()
                 jTextField.isEditable = false
                 JOptionPane.showMessageDialog(null, jTextField, "Sorry, Exception occured :(", JOptionPane.ERROR_MESSAGE)
             }
