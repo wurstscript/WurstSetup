@@ -10,7 +10,7 @@
     </appender>
 
     <appender name="default.file" class="org.apache.log4j.FileAppender">
-        <param name="file" value="setup.log" />
+        <param name="file" value="${user.home}/.wurst/logs/setup.log" />
         <param name="append" value="false" />
         <param name="threshold" value="debug" />
         <layout class="org.apache.log4j.PatternLayout">
