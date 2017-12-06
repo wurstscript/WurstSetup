@@ -75,11 +75,11 @@ object WinRegistry {
 
     @Throws(IllegalArgumentException::class, IllegalAccessException::class, InvocationTargetException::class)
     private fun readString(root: Preferences, hkey: Int, key: String, value: String): String? {
-        val handles = regOpenKey.invoke(root, hkey, toCstr(key), KEY_READ) as IntArray
-        if (handles[1] != REG_SUCCESS) {
+        val handles = regOpenKey.invoke(root, hkey, toCstr(key), KEY_READ) as? IntArray
+        if (handles == null || handles[1] != REG_SUCCESS) {
             return null
         }
-        val valb = regQueryValueEx.invoke(root, handles[0], toCstr(value)) as ByteArray
+        val valb = regQueryValueEx.invoke(root, handles[0], toCstr(value)) as? ByteArray ?: return null
         regCloseKey.invoke(root, handles[0])
         return String(valb).trim { it <= ' ' }
     }
