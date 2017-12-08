@@ -48,6 +48,10 @@ object InstallationManager {
 
     /** Gets the version of the wurstscript.jar via cli */
     fun getVersionFomJar() {
+        if(!Files.isWritable(compilerJar)) {
+            showWurstInUse()
+            return
+        }
         val proc = Runtime.getRuntime().exec("java -jar " + compilerJar.toAbsolutePath() + " --version")
         proc.waitFor()
         val input = proc.inputStream.bufferedReader().use { it.readText() }.trim()
@@ -55,8 +59,7 @@ object InstallationManager {
 
         if (err.contains("AccessDeniedException", true)) {
             // If the err output contains this exception, the .jar is currently running
-            ErrorDialog("The Wurst compiler is currently in use.\n" +
-                    "Please close all running instances and vscode, then retry.", true)
+            showWurstInUse()
         } else if (err.contains("Exception")) {
             status = InstallationStatus.INSTALLED_OUTDATED
         } else {
@@ -65,6 +68,11 @@ object InstallationManager {
                 status = InstallationStatus.INSTALLED_OUTDATED
             }
         }
+    }
+
+    private fun showWurstInUse() {
+        ErrorDialog("The Wurst compiler is currently in use.\n" +
+                "Please close all running instances and vscode, then retry.", true)
     }
 
     fun handleUpdate() {
