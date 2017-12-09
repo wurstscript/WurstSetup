@@ -20,13 +20,13 @@ object ConnectionManager {
 
     fun checkConnectivity(): NetStatus {
         // If google can be reached, the client is not offline
-        val json = resty.json("http://google.com")
+        val json = resty.json("https://google.com")
         if (json == null || json.toString().isBlank()) {
             netStatus = NetStatus.CLIENT_OFFLINE
             return netStatus
         }
 
-        val wurstResponse = resty.json("http://peeeq.de/hudson/job/Wurst/lastSuccessfulBuild/api/json")
+        val wurstResponse = resty.json("https://peeeq.de/hudson/job/Wurst/lastSuccessfulBuild/api/json")
         if (wurstResponse == null || wurstResponse.toString().isBlank()) {
             netStatus = NetStatus.SERVER_OFFLINE
             return netStatus
@@ -38,14 +38,14 @@ object ConnectionManager {
 
     fun getLatestSetupBuild(): Int {
         if(netStatus != NetStatus.ONLINE) return 0
-        val response = getJson("http://peeeq.de/hudson/job/WurstSetup/lastSuccessfulBuild/api/json", "actions[2].buildsByBranchName")
+        val response = getJson("https://peeeq.de/hudson/job/WurstSetup/lastSuccessfulBuild/api/json", "actions[2].buildsByBranchName")
         val innerObject = JSONObject(response.get("refs/remotes/origin/master").toString())
         return innerObject.get("buildNumber").toString().toInt()
     }
 
     fun getLatestCompilerBuild(): Int {
         if(netStatus != NetStatus.ONLINE) return 0
-        val response = getJson("http://peeeq.de/hudson/job/Wurst/lastSuccessfulBuild/api/json", "actions[2].buildsByBranchName")
+        val response = getJson("https://peeeq.de/hudson/job/Wurst/lastSuccessfulBuild/api/json", "actions[2].buildsByBranchName")
         val innerObject = JSONObject(response.get("refs/remotes/origin/master").toString())
         return innerObject.get("buildNumber").toString().toInt()
     }
