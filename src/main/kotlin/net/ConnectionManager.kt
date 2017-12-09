@@ -1,7 +1,9 @@
 package net
 
+import mu.KotlinLogging
 import us.monoid.json.JSONObject
 import us.monoid.web.Resty
+import java.io.IOException
 
 enum class NetStatus {
     CLIENT_OFFLINE,
@@ -10,6 +12,7 @@ enum class NetStatus {
 }
 
 object ConnectionManager {
+    private val log = KotlinLogging.logger {}
     private val resty = Resty()
     var netStatus = NetStatus.CLIENT_OFFLINE
 
@@ -20,10 +23,14 @@ object ConnectionManager {
 
     fun checkConnectivity(): NetStatus {
         // If google can be reached, the client is not offline
-        val json = resty.json("https://google.com")
-        if (json == null || json.toString().isBlank()) {
-            netStatus = NetStatus.CLIENT_OFFLINE
-            return netStatus
+        try {
+            val json = resty.json("https://google.com")
+            if (json == null || json.toString().isBlank()) {
+                netStatus = NetStatus.CLIENT_OFFLINE
+                return netStatus
+            }
+        } catch (e: IOException) {
+            log.info("couldn't contact google: " + e.localizedMessage)
         }
 
         val wurstResponse = resty.json("https://peeeq.de/hudson/job/Wurst/lastSuccessfulBuild/api/json")
