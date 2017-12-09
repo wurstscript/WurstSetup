@@ -29,7 +29,6 @@ object ZipArchiveExtractor {
         val entries = zipFile.entries()
 
         val buffer = ByteArray(16384)
-        var len: Int
         while (entries.hasMoreElements()) {
             val entry = entries.nextElement() as ZipEntry
 
