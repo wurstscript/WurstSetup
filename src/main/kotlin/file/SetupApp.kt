@@ -31,7 +31,7 @@ object SetupApp {
     }
 
     private fun copyJar() {
-        var url = InstallationManager::class.java.protectionDomain.codeSource.location
+        val url = InstallationManager::class.java.protectionDomain.codeSource.location
         val ownFile = Paths.get(url.toURI())
         log.info("path: " + url)
         log.info("file: " + ownFile.toAbsolutePath())

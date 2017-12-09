@@ -41,7 +41,7 @@ object WurstProjectConfig {
         Log.print("Loading project..")
         if (Files.exists(buildFile) && buildFile.fileName.toString().equals("wurst.build", ignoreCase = true)) {
             val config = YamlHelper.loadProjectConfig(buildFile)
-            var projectRoot = buildFile.parent
+            val projectRoot = buildFile.parent
             if (config.projectName.isEmpty()) {
                 config.projectName = projectRoot!!.fileName.toString()
                 saveProjectConfig(projectRoot, config)

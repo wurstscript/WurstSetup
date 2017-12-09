@@ -317,7 +317,7 @@ object MainWindow : JFrame() {
                 try {
                     var wc3Path = WinRegistry.readString(WinRegistry.HKEY_CURRENT_USER, "SOFTWARE\\Blizzard Entertainment\\Warcraft III", "InstallPath")
                     if (wc3Path != null) {
-                        if (!wc3Path.endsWith(File.separator)) wc3Path = wc3Path + File.separator
+                        if (!wc3Path.endsWith(File.separator)) wc3Path += File.separator
                         val gameFolder = File(wc3Path)
                         if (gameFolder.exists()) {
                             gamePathTF!!.text = wc3Path
@@ -519,10 +519,10 @@ object MainWindow : JFrame() {
     private fun centerWindow() {
         val screenBounds = graphicsConfiguration.bounds
 
-        val center_x = screenBounds.x + screenBounds.width / 2
-        val center_y = screenBounds.y + screenBounds.height / 2
+        val centerX = screenBounds.x + screenBounds.width / 2
+        val centerY = screenBounds.y + screenBounds.height / 2
 
-        setLocation(center_x - width / 2, center_y - height / 2)
+        setLocation(centerX - width / 2, centerY - height / 2)
     }
 
     class SetupButton internal constructor(buttonTag: String) : JButton(buttonTag) {

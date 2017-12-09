@@ -41,7 +41,7 @@ object DependencyManager {
         }
         if (!depFolders.isEmpty()) {
             try {
-                Files.write(projectRoot!!.resolve("wurst.dependencies"), depFolders, Charset.defaultCharset())
+                Files.write(projectRoot.resolve("wurst.dependencies"), depFolders, Charset.defaultCharset())
             } catch (e: IOException) {
                 e.printStackTrace()
             }
