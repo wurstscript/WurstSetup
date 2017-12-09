@@ -26,13 +26,13 @@ repositories {
 }
 
 dependencies {
-    // https://mvnrepository.com/artifact/org.eclipse.jgit/org.eclipse.jgit
     compile group: 'us.monoid.web', name: 'resty', version: '0.3.2'
     compile group: 'org.eclipse.jgit', name: 'org.eclipse.jgit', version: '4.9.0.201710071750-r'
     compile 'com.fasterxml.jackson.core:jackson-databind:2.9.0'
     compile 'com.fasterxml.jackson.module:jackson-module-kotlin:2.9.0'
     compile 'com.fasterxml.jackson.dataformat:jackson-dataformat-yaml:2.9.0'
     compile group: 'args4j', name: 'args4j', version: '2.33'
+    compile 'com.github.Frotty:SwingDarkFlatTable:0a4eaa29eb'
     compile "org.jetbrains.kotlin:kotlin-stdlib-jre8:$kotlin_version"
     compile 'io.github.microutils:kotlin-logging:1.4.6'
     compile 'org.slf4j:slf4j-log4j12:1.7.5'
