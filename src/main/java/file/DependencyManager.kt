@@ -1,6 +1,7 @@
 package file
 
 import global.Log
+import mu.KotlinLogging
 import org.eclipse.jgit.api.Git
 import org.eclipse.jgit.internal.storage.file.FileRepository
 import java.io.IOException
@@ -13,16 +14,20 @@ import java.util.*
  * Created by Frotty on 17.07.2017.
  */
 object DependencyManager {
+    private val log = KotlinLogging.logger {}
 
     fun updateDependencies(projectRoot: Path, projectConfig: WurstProjectConfigData) {
         val depFolders = ArrayList<String>()
         // Iterate through git dependencies
+        log.info("updating dependencies")
         Log.print("Updating dependencies...\n")
         for (dependency in projectConfig.dependencies) {
             val dependencyName = dependency.substring(dependency.lastIndexOf("/") + 1)
+            log.info("updating dependency $dependencyName")
             Log.print("Updating dependency - $dependencyName ..")
             val depFolder = projectRoot.resolve("_build/dependencies/" + dependencyName)
             if (Files.exists(depFolder)) {
+                log.info("depencency exists locally")
                 depFolders.add(depFolder.toAbsolutePath().toString())
                 // clean
                 cleanRepo(depFolder)
@@ -71,7 +76,7 @@ object DependencyManager {
                         git.reset().call()
                         val pullResult = git.pull().call()
                         Log.print("done\n")
-                        println("Messages: " + pullResult.fetchResult)
+                        log.info ("Pull was: " + pullResult.isSuccessful)
                     }
                 } catch (e: Exception) {
                     Log.print("error when trying to fetch remote\n")
@@ -91,6 +96,7 @@ object DependencyManager {
                     Git(repository).use { git ->
                         git.clean().setCleanDirectories(true).setForce(true).call()
                         git.stashCreate().call()
+                        log.info("cleaned repo")
                     }
                 } catch (e: Exception) {
                     Log.print("error when trying to clean repository\n")

@@ -471,7 +471,7 @@ object MainWindow : JFrame() {
             val projectRoot = Paths.get(projectRootTF.text)
             if (Files.exists(gameRoot)) {
                 log.info("Update project. gamepath <{}>, root <{}>", gameRoot, projectRoot)
-                ProjectUpdateWorker(gameRoot, projectRoot, selectedConfig!!).execute()
+                ProjectUpdateWorker(projectRoot, gameRoot, selectedConfig!!).execute()
             }
         }
 
