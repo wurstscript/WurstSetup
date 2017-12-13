@@ -1,6 +1,7 @@
 package global
 
 import file.Download
+import mu.KotlinLogging
 import net.ConnectionManager
 import net.NetStatus
 import ui.ErrorDialog
@@ -16,6 +17,7 @@ import java.util.regex.Pattern
  * Manages the global Wurst installation located inside the ~/.wurst directory
  */
 object InstallationManager {
+    private val log = KotlinLogging.logger {}
     private val FOLDER_PATH = ".wurst"
     private val CONFIG_FILE_NAME = "wurst_config.yml"
     private val COMPILER_FILE_NAME = "wurstscript.jar"
@@ -31,8 +33,9 @@ object InstallationManager {
     var latestCompilerVersion = 0
 
     fun verifyInstallation(): InstallationStatus {
+        log.info("verify Install")
         status = InstallationStatus.NOT_INSTALLED
-        if (Files.exists(installDir) && Files.exists(configFile) && Files.exists(compilerJar)) {
+        if (Files.exists(installDir) && Files.exists(compilerJar)) {
 //            wurstConfig = YamlHelper.yaml.loadAs(String(Files.readAllBytes(configFile)), WurstConfigData::class.java)
             status = InstallationStatus.INSTALLED_UNKNOWN
             getVersionFomJar()
@@ -66,6 +69,8 @@ object InstallationManager {
             if (isJenkinsBuilt(input)) {
                 currentCompilerVersion = getJenkinsBuildVer(input)
                 status = InstallationStatus.INSTALLED_OUTDATED
+            } else {
+                throw Error("Installation failed!")
             }
         }
     }
@@ -78,6 +83,7 @@ object InstallationManager {
     fun handleUpdate() {
         val isFreshInstall = status == InstallationStatus.NOT_INSTALLED
         try {
+            log.info (if (isFreshInstall) "isInstall" else "isUpdate")
             Log.print(if (isFreshInstall) "Installing WurstScript..\n" else "Updating WursScript..\n")
             Log.print("Downloading compiler..")
             val compilerFile = Download.downloadCompiler()
