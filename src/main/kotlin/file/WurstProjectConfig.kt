@@ -168,8 +168,12 @@ object WurstProjectConfig {
 
     }
 
-    private val VSCODE_MIN_CONFIG = "{\n" +
-            "    \"wurst.wurstJar\": \"%wurstjar%\",\n" +
-            "    \"wurst.wc3path\": \"%gamepath%\"\n" +
+    private val VSCODE_MIN_CONFIG =
+            "{\n" +
+            "   \"wurst.wurstJar\": \"%wurstjar%\",\n" +
+            "   \"wurst.wc3path\": \"%gamepath%\",\n" +
+            "   \"files.associations\": {\n" +
+            "       \"wurst.build\": \"yaml\"\n" +
+            "   }\n" +
             "}"
 }
