@@ -12,7 +12,6 @@ import java.nio.file.Paths
 import java.util.regex.Pattern
 
 
-
 /**
  * Manages the global Wurst installation located inside the ~/.wurst directory
  */
@@ -38,7 +37,11 @@ object InstallationManager {
         if (Files.exists(installDir) && Files.exists(compilerJar)) {
 //            wurstConfig = YamlHelper.yaml.loadAs(String(Files.readAllBytes(configFile)), WurstConfigData::class.java)
             status = InstallationStatus.INSTALLED_UNKNOWN
-            getVersionFomJar()
+            try {
+                getVersionFomJar()
+            } catch (_: Error) {
+                log.warn("Installation is custom.")
+            }
         }
         if (ConnectionManager.netStatus == NetStatus.ONLINE) {
             latestCompilerVersion = ConnectionManager.getLatestCompilerBuild()
@@ -51,7 +54,7 @@ object InstallationManager {
 
     /** Gets the version of the wurstscript.jar via cli */
     fun getVersionFomJar() {
-        if(!Files.isWritable(compilerJar)) {
+        if (!Files.isWritable(compilerJar)) {
             showWurstInUse()
             return
         }
@@ -83,7 +86,7 @@ object InstallationManager {
     fun handleUpdate() {
         val isFreshInstall = status == InstallationStatus.NOT_INSTALLED
         try {
-            log.info (if (isFreshInstall) "isInstall" else "isUpdate")
+            log.info(if (isFreshInstall) "isInstall" else "isUpdate")
             Log.print(if (isFreshInstall) "Installing WurstScript..\n" else "Updating WursScript..\n")
             Log.print("Downloading compiler..")
             val compilerFile = Download.downloadCompiler()
