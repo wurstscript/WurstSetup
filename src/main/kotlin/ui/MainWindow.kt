@@ -409,20 +409,23 @@ object MainWindow : JFrame() {
                         lblCurVerNumber.foreground = Color.DARK_GRAY
                     }
                     InstallationManager.InstallationStatus.INSTALLED_UPTODATE -> {
-                        lblCurVerNumber.text = InstallationManager.currentCompilerVersion.toString()
+                        lblCurVerNumber.text = getVersionString()
                         lblCurVerNumber.foreground = Color.decode("#005719")
                         btnCreate.isEnabled = true
                         btnUpdate.text = "Compiler up to date"
                         btnUpdate.isEnabled = false
                     }
                     InstallationManager.InstallationStatus.INSTALLED_UNKNOWN, InstallationManager.InstallationStatus.INSTALLED_OUTDATED -> {
-                        lblCurVerNumber.text = InstallationManager.currentCompilerVersion.toString()
+                        lblCurVerNumber.text = getVersionString()
                         lblCurVerNumber.foreground = Color.decode("#702D2D")
                         btnUpdate.text = "Update WurstScript"
                     }
                 }
             })
         }
+
+        private fun getVersionString() =
+                if (InstallationManager.currentCompilerVersion > 0) InstallationManager.currentCompilerVersion.toString() else "(unofficial build)"
 
         private fun disableButtons() {
             btnCreate.isEnabled = false

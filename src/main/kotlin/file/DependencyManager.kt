@@ -88,8 +88,8 @@ object DependencyManager {
                     Git(repository).use { git ->
                         git.reset().call()
                         val pullResult = git.pull().call()
-                        Log.print("done\n")
-                        log.info("Pull was: " + pullResult.isSuccessful)
+                        Log.print("done (success=" + pullResult.isSuccessful + "\n")
+                        log.info("Was pull successful?: " + pullResult.isSuccessful)
                     }
                 } catch (e: Exception) {
                     Log.print("error when trying to fetch remote\n")
