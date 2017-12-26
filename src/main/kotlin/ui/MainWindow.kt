@@ -148,9 +148,11 @@ object MainWindow : JFrame() {
             jTextArea.background = Color(46, 46, 46)
             jTextArea.foreground = Color(255, 255, 255)
             jTextArea.font = Font(Font.MONOSPACED, Font.PLAIN, 12)
-            val caret = jTextArea.caret as DefaultCaret
-            caret.updatePolicy = DefaultCaret.ALWAYS_UPDATE
-            caret.isSelectionVisible = true
+            if (jTextArea.caret is DefaultCaret) {
+                val caret = jTextArea.caret as DefaultCaret
+                caret.updatePolicy = DefaultCaret.ALWAYS_UPDATE
+                caret.isSelectionVisible = true
+            }
             jTextArea.isEditable = false
             jTextArea.margin = Insets(2, 2, 2, 2)
             val scrollPane = JScrollPane(jTextArea)

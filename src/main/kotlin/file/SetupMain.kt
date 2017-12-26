@@ -7,7 +7,6 @@ import java.io.File
 import java.io.IOException
 import java.io.PrintWriter
 import java.io.StringWriter
-import java.util.*
 import javax.swing.JOptionPane
 import javax.swing.JTextArea
 import javax.swing.UIManager
@@ -35,7 +34,7 @@ class SetupMain {
         setupExceptionHandler()
         val parser = CmdLineParser(this)
         try {
-            parser.parseArgument(Arrays.asList(*args))
+            parser.parseArgument(*args)
         } catch (e: CmdLineException) {
             // handling of wrong arguments
             System.err.println(e.message)

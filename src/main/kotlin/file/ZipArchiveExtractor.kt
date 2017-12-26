@@ -7,7 +7,6 @@ import java.io.File
 import java.io.FileOutputStream
 import java.nio.file.Files
 import java.nio.file.Path
-import java.util.zip.ZipEntry
 import java.util.zip.ZipFile
 
 object ZipArchiveExtractor {
@@ -30,7 +29,7 @@ object ZipArchiveExtractor {
 
         val buffer = ByteArray(16384)
         while (entries.hasMoreElements()) {
-            val entry = entries.nextElement() as ZipEntry
+            val entry = entries.nextElement()
 
             val entryFileName = entry.name
 
