@@ -64,16 +64,18 @@ object InstallationManager {
         val input = proc.inputStream.bufferedReader().use { it.readText() }.trim()
         val err = proc.errorStream.bufferedReader().use { it.readText() }
 
-        if (err.contains("AccessDeniedException", true)) {
-            // If the err output contains this exception, the .jar is currently running
-            showWurstInUse()
-        } else if (err.contains("Exception")) {
-            status = InstallationStatus.INSTALLED_OUTDATED
-        } else {
-            if (isJenkinsBuilt(input)) {
-                currentCompilerVersion = getJenkinsBuildVer(input)
-                status = InstallationStatus.INSTALLED_OUTDATED
-            } else {
+        when {
+            err.contains("AccessDeniedException", true) -> // If the err output contains this exception, the .jar is currently running
+                showWurstInUse()
+            err.contains("Exception") -> status = InstallationStatus.INSTALLED_OUTDATED
+            else -> {
+                val lines = input.split(System.getProperty("line.separator"))
+                lines.forEach({ line ->
+                    if (isJenkinsBuilt(line)) {
+                        currentCompilerVersion = getJenkinsBuildVer(line)
+                        status = InstallationStatus.INSTALLED_OUTDATED
+                    }
+                })
                 throw Error("Installation failed!")
             }
         }

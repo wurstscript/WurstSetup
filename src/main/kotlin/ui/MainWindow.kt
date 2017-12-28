@@ -1,5 +1,6 @@
 package ui
 
+import file.CompileTimeInfo
 import file.WurstProjectConfig
 import file.WurstProjectConfigData
 import global.InstallationManager
@@ -89,7 +90,7 @@ object MainWindow : JFrame() {
         var btnCreate: SetupButton = SetupButton("Create Project")
         var btnUpdate: SetupButton = SetupButton("Install WurstScript")
         var importButton: SetupButton = SetupButton("Import")
-        var jTextArea = JTextArea("Ready.\n")
+        var jTextArea = JTextArea("Ready version: " + CompileTimeInfo.version + "\n")
         var projectNameTF: JTextField = JTextField("MyWurstProject")
         var projectRootTF: JTextField = JTextField(saveChooser!!.currentDirectory.absolutePath + File.separator + projectNameTF.text)
         var dependencyTF: JTextField? = null
