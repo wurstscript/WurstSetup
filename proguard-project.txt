@@ -33,7 +33,7 @@
 -printmapping proguard.map
 
 -dontwarn org.slf4j.**
--dontwarn org.apache.log4j.**
+-dontwarn ch.qos.logback.**
 -dontwarn org.apache.commons.logging.impl.**
 -dontwarn com.jcraft.jsch.jcraft.**
 -dontwarn org.javacc.**

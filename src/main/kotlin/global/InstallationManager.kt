@@ -9,6 +9,7 @@ import ui.MainWindow
 import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.Paths
+import java.util.concurrent.TimeUnit
 import java.util.regex.Pattern
 
 
@@ -59,7 +60,7 @@ object InstallationManager {
             return
         }
         val proc = Runtime.getRuntime().exec("java -jar " + compilerJar.toAbsolutePath() + " --version")
-        proc.waitFor()
+        proc.waitFor(100, TimeUnit.MILLISECONDS);
         val input = proc.inputStream.bufferedReader().use { it.readText() }.trim()
         val err = proc.errorStream.bufferedReader().use { it.readText() }
 
@@ -113,7 +114,7 @@ object InstallationManager {
                 Log.print("error\n")
                 ErrorDialog("Could not extract patch files.\nWurst might still be in use.\nMake sure to close VSCode before updating.", false)
             }
-            MainWindow.ui?.refreshComponents()
+            MainWindow.ui?.refreshComponents(true)
         } catch (e: Exception) {
             Log.print("\n===ERROR COMPILER UPDATE===\n" + e.message + "\nPlease report here: github.com/wurstscript/WurstScript/issues\n")
         }

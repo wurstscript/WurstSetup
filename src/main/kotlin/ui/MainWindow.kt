@@ -171,7 +171,7 @@ object MainWindow : JFrame() {
             UiStyle.setStyle(contentTable!!)
 
 
-            refreshComponents()
+            refreshComponents(false)
         }
 
         private fun setupTopBar() {
@@ -385,10 +385,12 @@ object MainWindow : JFrame() {
             }
         }
 
-        fun refreshComponents() {
+        fun refreshComponents(verify: Boolean) {
             SwingUtilities.invokeLater({
-                ConnectionManager.checkConnectivity()
-                InstallationManager.verifyInstallation()
+                if(verify) {
+                    ConnectionManager.checkConnectivity()
+                    InstallationManager.verifyInstallation()
+                }
                 progressBar.isIndeterminate = false
                 importButton.isEnabled = true
                 when (ConnectionManager.netStatus) {
