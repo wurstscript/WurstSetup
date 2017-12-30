@@ -83,10 +83,10 @@ object DependencyManager {
 
     private fun updateRepo(depFolder: Path) {
         try {
-            FileRepository(depFolder.resolve(".git").toString()).use({ repository ->
+            FileRepository(depFolder.resolve(".git").toFile()).use({ repository ->
                 try {
                     Git(repository).use { git ->
-                        git.reset().call()
+                        git.fetch().call()
                         val pullResult = git.pull().call()
                         Log.print("done (success=" + pullResult.isSuccessful + ")\n")
                         log.info("Was pull successful?: " + pullResult.isSuccessful)
@@ -104,11 +104,12 @@ object DependencyManager {
 
     private fun cleanRepo(depFolder: Path) {
         try {
-            FileRepository(depFolder.resolve(".git").toString()).use({ repository ->
+            FileRepository(depFolder.resolve(".git").toFile()).use({ repository ->
                 try {
                     Git(repository).use { git ->
                         git.clean().setCleanDirectories(true).setForce(true).call()
-                        git.stashCreate().call()
+                        git.checkout().setAllPaths(true).call()
+                        git.reset().call()
                         log.info("cleaned repo")
                     }
                 } catch (e: Exception) {
