@@ -33,18 +33,30 @@ object ConnectionManager {
             log.info("couldn't contact google: " + e.localizedMessage)
         }
 
-        val wurstResponse = resty.json("https://peeeq.de/hudson/job/Wurst/lastSuccessfulBuild/api/json")
-        if (wurstResponse == null || wurstResponse.toString().isBlank()) {
-            netStatus = NetStatus.SERVER_OFFLINE
-            return netStatus
+        contactWurstServer("https://peeeq.de/hudson/job/Wurst/lastSuccessfulBuild/api/json")
+        if (netStatus == NetStatus.SERVER_OFFLINE) {
+            contactWurstServer("http://peeeq.de/hudson/job/Wurst/lastSuccessfulBuild/api/json")
         }
 
-        netStatus = NetStatus.ONLINE
         return netStatus
     }
 
+    private fun contactWurstServer(url: String) {
+        try {
+            val wurstResponse = resty.json(url)
+            if (wurstResponse == null || wurstResponse.toString().isBlank()) {
+                netStatus = NetStatus.SERVER_OFFLINE
+            } else {
+                netStatus = NetStatus.ONLINE
+            }
+        } catch (e: IOException) {
+            log.info("couldn't contact wurst jenkins: " + e.localizedMessage)
+            netStatus = NetStatus.SERVER_OFFLINE
+        }
+    }
+
     fun getBuildNumber(url: String, branch: String): Int {
-        if(netStatus != NetStatus.ONLINE) return 0
+        if (netStatus != NetStatus.ONLINE) return 0
         val response = getJson(url, "actions[2].buildsByBranchName")
         val innerObject = JSONObject(response.get(branch).toString())
         return innerObject.get("buildNumber").toString().toInt()
