@@ -423,6 +423,7 @@ object MainWindow : JFrame() {
                     InstallationManager.InstallationStatus.INSTALLED_UNKNOWN, InstallationManager.InstallationStatus.INSTALLED_OUTDATED -> {
                         lblCurVerNumber.text = getVersionString()
                         lblCurVerNumber.foreground = Color.decode("#702D2D")
+                        btnCreate.isEnabled = true
                         btnUpdate.text = "Update WurstScript"
                     }
                 }
@@ -477,7 +478,9 @@ object MainWindow : JFrame() {
         private fun handleUpdateProject() {
             val gameRoot = Paths.get(gamePathTF!!.text)
             val projectRoot = Paths.get(projectRootTF.text)
-            if (Files.exists(gameRoot)) {
+            if (Files.exists(gameRoot) && selectedConfig != null) {
+                selectedConfig?.dependencies?.clear()
+                selectedConfig?.dependencies?.addAll(dependencies)
                 log.info("Update project. gamepath <{}>, root <{}>", gameRoot, projectRoot)
                 ProjectUpdateWorker(projectRoot, gameRoot, selectedConfig!!).execute()
             }
