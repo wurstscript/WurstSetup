@@ -388,7 +388,7 @@ object MainWindow : JFrame() {
 
         fun refreshComponents(verify: Boolean) {
             SwingUtilities.invokeLater({
-                if(verify) {
+                if (verify) {
                     ConnectionManager.checkConnectivity()
                     InstallationManager.verifyInstallation()
                 }
@@ -479,8 +479,8 @@ object MainWindow : JFrame() {
             val gameRoot = Paths.get(gamePathTF!!.text)
             val projectRoot = Paths.get(projectRootTF.text)
             if (Files.exists(gameRoot) && selectedConfig != null) {
-                selectedConfig?.dependencies?.clear()
-                selectedConfig?.dependencies?.addAll(dependencies)
+                dependencies.forEach(
+                        { e -> if (!selectedConfig?.dependencies?.contains(e)!!) selectedConfig?.dependencies?.add(e) })
                 log.info("Update project. gamepath <{}>, root <{}>", gameRoot, projectRoot)
                 ProjectUpdateWorker(projectRoot, gameRoot, selectedConfig!!).execute()
             }
