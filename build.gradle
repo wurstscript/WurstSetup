@@ -27,7 +27,7 @@ repositories {
 
 dependencies {
     compile group: 'us.monoid.web', name: 'resty', version: '0.3.2'
-    compile group: 'org.eclipse.jgit', name: 'org.eclipse.jgit', version: '4.9.0.201710071750-r'
+    compile group: 'org.eclipse.jgit', name: 'org.eclipse.jgit', version: '4.9.2.201712150930-r'
     compile 'com.fasterxml.jackson.core:jackson-databind:2.9.0'
     compile 'com.fasterxml.jackson.module:jackson-module-kotlin:2.9.0'
     compile 'com.fasterxml.jackson.dataformat:jackson-dataformat-yaml:2.9.0'
