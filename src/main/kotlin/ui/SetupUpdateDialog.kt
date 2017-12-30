@@ -42,18 +42,18 @@ class SetupUpdateDialog(message: String) : JDialog() {
         uiStyle()
         getRootPane().defaultButton = buttonVisit
 
-        buttonDeny!!.addActionListener { e ->
+        buttonDeny!!.addActionListener {
             dispose()
             UiManager.initUI()
         }
 
-        buttonSnooze!!.addActionListener { e ->
+        buttonSnooze!!.addActionListener {
             dispose()
             UiManager.initUI()
         }
 
-        buttonVisit!!.addActionListener { e ->
-            openWebpage(URL("https://wurstscript.github.io/"))
+        buttonVisit!!.addActionListener {
+            openWebpage(URL("https://wurstlang.org/"))
             System.exit(0)
         }
 

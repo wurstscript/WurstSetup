@@ -12,6 +12,10 @@ enum class NetStatus {
 }
 
 object ConnectionManager {
+    val WURST_SETUP_URL = "peeeq.de/hudson/job/WurstSetup/lastSuccessfulBuild/api/json"
+    val WURST_COMPILER_URL = "peeeq.de/hudson/job/Wurst/lastSuccessfulBuild/api/json"
+    val MASTER_BRANCH = "refs/remotes/origin/master"
+
     private val log = KotlinLogging.logger {}
     private val resty = Resty()
     var netStatus = NetStatus.CLIENT_OFFLINE
@@ -33,9 +37,9 @@ object ConnectionManager {
             log.info("couldn't contact google: " + e.localizedMessage)
         }
 
-        contactWurstServer("https://peeeq.de/hudson/job/Wurst/lastSuccessfulBuild/api/json")
+        contactWurstServer("https://" + WURST_COMPILER_URL)
         if (netStatus == NetStatus.SERVER_OFFLINE) {
-            contactWurstServer("http://peeeq.de/hudson/job/Wurst/lastSuccessfulBuild/api/json")
+            contactWurstServer("http://" + WURST_COMPILER_URL)
         }
 
         return netStatus
@@ -63,11 +67,19 @@ object ConnectionManager {
     }
 
     fun getLatestSetupBuild(): Int {
-        return getBuildNumber("https://peeeq.de/hudson/job/WurstSetup/lastSuccessfulBuild/api/json", "refs/remotes/origin/master")
+        return try {
+            getBuildNumber("https://" + WURST_SETUP_URL, MASTER_BRANCH)
+        } catch (e: IOException) {
+            getBuildNumber("http://" + WURST_SETUP_URL, MASTER_BRANCH)
+        }
     }
 
     fun getLatestCompilerBuild(): Int {
-        return getBuildNumber("https://peeeq.de/hudson/job/Wurst/lastSuccessfulBuild/api/json", "refs/remotes/origin/master")
+        return try {
+            getBuildNumber("https://" + WURST_COMPILER_URL, MASTER_BRANCH)
+        } catch (e: IOException) {
+            getBuildNumber("http://" + WURST_COMPILER_URL, MASTER_BRANCH)
+        }
     }
 
 }
