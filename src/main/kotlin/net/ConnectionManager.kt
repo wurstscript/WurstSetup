@@ -28,7 +28,7 @@ object ConnectionManager {
     fun checkConnectivity(): NetStatus {
         // If google can be reached, the client is not offline
         try {
-            val json = resty.json("https://google.com")
+            val json = resty.json("http://google.com")
             if (json == null || json.toString().isBlank()) {
                 netStatus = NetStatus.CLIENT_OFFLINE
                 return netStatus

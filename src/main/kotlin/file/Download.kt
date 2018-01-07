@@ -9,7 +9,8 @@ import java.nio.file.Path
 
 object Download {
 
-    private val baseUrl = "http://peeeq.de/hudson/job/Wurst/lastSuccessfulBuild/artifact/downloads/"
+    private val baseUrl = "peeeq.de/hudson/job/Wurst/lastSuccessfulBuild/artifact/downloads/"
+    private val bareboneUrl = "github.com/wurstscript/WurstBareboneTemplate/archive/master.zip"
     private val compileName = "wurstpack_compiler.zip"
 
     @Throws(IOException::class)
@@ -28,11 +29,19 @@ object Download {
 
     @Throws(IOException::class)
     fun downloadCompiler(): Path {
-        return downloadFile(baseUrl + compileName, File.createTempFile("tempWurstCompiler", ".zip").toPath())
+        return try {
+            downloadFile("https://" + baseUrl + compileName, File.createTempFile("tempWurstCompiler", ".zip").toPath())
+        } catch (e: IOException) {
+            downloadFile("http://" + baseUrl + compileName, File.createTempFile("tempWurstCompiler", ".zip").toPath())
+        }
     }
 
     @Throws(IOException::class)
     fun downloadBareboneProject(): Path {
-        return downloadFile("https://github.com/wurstscript/WurstBareboneTemplate/archive/master.zip", File.createTempFile("tempProject", ".zip").toPath())
+        return try {
+            downloadFile("https://" + bareboneUrl, File.createTempFile("tempProject", ".zip").toPath())
+        } catch (e: IOException) {
+            downloadFile("http://" + bareboneUrl, File.createTempFile("tempProject", ".zip").toPath())
+        }
     }
 }
