@@ -9,6 +9,7 @@ import java.nio.file.Path
 import java.nio.file.StandardOpenOption
 import java.util.*
 import javax.swing.JOptionPane
+import kotlin.collections.ArrayList
 
 
 /**
@@ -16,7 +17,7 @@ import javax.swing.JOptionPane
  */
 
 data class WurstProjectConfigData(var projectName: String = "DefaultName",
-                                  val dependencies: MutableList<String> = Arrays.asList("https://github.com/wurstscript/wurstStdlib2"),
+                                  val dependencies: ArrayList<String> = ArrayList(Arrays.asList("https://github.com/wurstscript/wurstStdlib2")),
                                   val buildMapData: WurstProjectBuildMapData = WurstProjectBuildMapData())
 
 data class WurstProjectBuildMapData(val name: String = "DefaultName",
