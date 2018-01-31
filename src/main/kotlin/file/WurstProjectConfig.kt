@@ -2,6 +2,7 @@ package file
 
 import global.InstallationManager
 import global.Log
+import mu.KotlinLogging
 import ui.MainWindow
 import java.io.IOException
 import java.nio.file.Files
@@ -25,7 +26,7 @@ data class WurstProjectBuildMapData(val name: String = "DefaultName",
                                     val author: String = "DefaultAuthor")
 
 object WurstProjectConfig {
-
+    private val log = KotlinLogging.logger {}
     fun handleCreate(projectRoot: Path, gameRoot: Path?, projectConfig: WurstProjectConfigData) {
         try {
             createProject(projectRoot, gameRoot, projectConfig)
@@ -56,7 +57,8 @@ object WurstProjectConfig {
     @Throws(Exception::class)
     private fun createProject(projectRoot: Path, gameRoot: Path?, projectConfig: WurstProjectConfigData) {
         Log.print("Creating project root..")
-        if (Files.exists(projectRoot)) {
+        if (Files.exists(projectRoot) && Files.list(projectRoot).filter({ !Files.isDirectory(it) }).findAny().isPresent) {
+            log.error("Project root already exists and contains files")
             Log.print("\nError: Project root already exists!\n")
         } else {
             Files.createDirectories(projectRoot)

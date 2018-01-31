@@ -75,6 +75,18 @@ object SetupApp {
                         UpdateFoundDialog("A Wurst compiler update has been found!")
                     }
                 }
+            } else if (setup.createProject) {
+                log.info("is create project")
+                if (setup.projectDir != null) {
+                    log.info("project dir exists")
+                    WurstProjectConfig.handleCreate(setup.projectDir!!, null, WurstProjectConfigData())
+                }
+            } else if (setup.updateProject) {
+                log.info("is update project")
+                if (setup.projectDir != null) {
+                    log.info("project dir exists")
+                    WurstProjectConfig.handleUpdate(setup.projectDir!!, null, WurstProjectConfig.loadProject(setup.projectDir!!.resolve("wurst.build"))!!)
+                }
             }
         }
     }

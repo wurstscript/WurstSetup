@@ -5,6 +5,8 @@ import org.kohsuke.args4j.CmdLineParser
 import org.kohsuke.args4j.Option
 import java.io.File
 import java.io.IOException
+import java.nio.file.Files
+import java.nio.file.Path
 
 class SetupMain {
 
@@ -20,11 +22,19 @@ class SetupMain {
     @Option(name = "-updateInstallation", usage = "updates your current wurst installation")
     var updateInstall = false
 
-    private var projectDir: File? = null
+    @Option(name = "-createProject", usage = "creates a project at the projectDir location")
+    var createProject = false
 
-    @Option(name = "-projectdir", usage = "sets the project dir to check dependencies for")
-    fun setDir(dir: File) {
-        if (dir.exists()) {
+    @Option(name = "-updateProject", usage = "updates the project at the projectDir location")
+    var updateProject = false
+
+    var projectDir: Path? = null
+
+    @Option(name = "-projectDir", usage = "sets the project dir to check dependencies for")
+    fun setDir(file: File) {
+        val dir = file.toPath()
+        Files.createDirectories(dir)
+        if (Files.exists(dir)) {
             projectDir = dir
         }
     }
