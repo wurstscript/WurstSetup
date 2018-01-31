@@ -12,9 +12,9 @@ enum class NetStatus {
 }
 
 object ConnectionManager {
-    val WURST_SETUP_URL = "peeeq.de/hudson/job/WurstSetup/lastSuccessfulBuild/api/json"
-    val WURST_COMPILER_URL = "peeeq.de/hudson/job/Wurst/lastSuccessfulBuild/api/json"
-    val MASTER_BRANCH = "refs/remotes/origin/master"
+    const val WURST_SETUP_URL = "peeeq.de/hudson/job/WurstSetup/lastSuccessfulBuild/api/json"
+    const val WURST_COMPILER_URL = "peeeq.de/hudson/job/Wurst/lastSuccessfulBuild/api/json"
+    const val MASTER_BRANCH = "refs/remotes/origin/master"
 
     private val log = KotlinLogging.logger {}
     private val resty = Resty()

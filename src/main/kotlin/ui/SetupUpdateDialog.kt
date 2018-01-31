@@ -20,9 +20,9 @@ class SetupUpdateDialog(message: String) : JDialog() {
     private val contentPane: JPanel = JPanel(GridBagLayout())
     private val contentTable = Table()
 
-    private var buttonVisit: SetupButton? = null
-    private var buttonSnooze: SetupButton? = null
-    private var buttonDeny: SetupButton? = null
+    private val buttonVisit = SetupButton("Open Website")
+    private val buttonSnooze = SetupButton("Later")
+    private val buttonDeny = SetupButton("Close")
 
     init {
         title = "Notification"
@@ -42,17 +42,17 @@ class SetupUpdateDialog(message: String) : JDialog() {
         uiStyle()
         getRootPane().defaultButton = buttonVisit
 
-        buttonDeny!!.addActionListener {
+        buttonDeny.addActionListener {
             dispose()
             UiManager.initUI()
         }
 
-        buttonSnooze!!.addActionListener {
+        buttonSnooze.addActionListener {
             dispose()
             UiManager.initUI()
         }
 
-        buttonVisit!!.addActionListener {
+        buttonVisit.addActionListener {
             openWebpage(URL("https://wurstlang.org/"))
             System.exit(0)
         }
@@ -72,15 +72,11 @@ class SetupUpdateDialog(message: String) : JDialog() {
         contentTable.row()
 
         val buttonTable = Table()
-        buttonVisit = SetupButton("Open Website")
         buttonTable.addCell(buttonVisit).pad(0f, 6f, 0f, 6f)
-        buttonSnooze = SetupButton("Later")
         buttonTable.addCell(buttonSnooze).pad(0f, 6f, 0f, 6f)
-        buttonDeny = SetupButton("Close")
         buttonTable.addCell(buttonDeny).pad(0f, 6f, 0f, 6f)
 
         contentTable.addCell(buttonTable).growX().padTop(6f)
-
     }
 
     private fun uiStyle() {

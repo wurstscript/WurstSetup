@@ -18,9 +18,9 @@ import java.util.regex.Pattern
  */
 object InstallationManager {
     private val log = KotlinLogging.logger {}
-    private val FOLDER_PATH = ".wurst"
-    private val CONFIG_FILE_NAME = "wurst_config.yml"
-    private val COMPILER_FILE_NAME = "wurstscript.jar"
+    private const val FOLDER_PATH = ".wurst"
+    private const val CONFIG_FILE_NAME = "wurst_config.yml"
+    private const val COMPILER_FILE_NAME = "wurstscript.jar"
 
     val installDir: Path = Paths.get(System.getProperty("user.home"), FOLDER_PATH)
     val configFile: Path = installDir.resolve(CONFIG_FILE_NAME)
@@ -62,7 +62,7 @@ object InstallationManager {
             return
         }
         val proc = Runtime.getRuntime().exec("java -jar " + compilerJar.toAbsolutePath() + " --version")
-        proc.waitFor(100, TimeUnit.MILLISECONDS);
+        proc.waitFor(100, TimeUnit.MILLISECONDS)
         val input = proc.inputStream.bufferedReader().use { it.readText() }.trim()
         val err = proc.errorStream.bufferedReader().use { it.readText() }
 
@@ -121,7 +121,7 @@ object InstallationManager {
                 log.error("error")
                 ErrorDialog("Could not extract patch files.\nWurst might still be in use.\nMake sure to close VSCode before updating.", false)
             }
-            MainWindow.ui?.refreshComponents(true)
+            MainWindow.ui.refreshComponents(true)
         } catch (e: Exception) {
             log.error("exception: ", e)
             Log.print("\n===ERROR COMPILER UPDATE===\n" + e.message + "\nPlease report here: github.com/wurstscript/WurstScript/issues\n")
@@ -129,7 +129,7 @@ object InstallationManager {
 
     }
 
-    private val jenkinsVerPattern = Pattern.compile("\\d\\.\\d\\.\\d\\.\\d(?:-\\w+)+-(\\d+)")!!
+    private val jenkinsVerPattern = Pattern.compile("\\d\\.\\d\\.\\d\\.\\d(?:-\\w+)+-(\\d+)")
 
     fun isJenkinsBuilt(version: String): Boolean {
         val matcher = jenkinsVerPattern.matcher(version)

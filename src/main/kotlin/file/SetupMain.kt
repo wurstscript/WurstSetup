@@ -34,7 +34,7 @@ class SetupMain {
         ExceptionHandler.setupExceptionHandler()
         val parser = CmdLineParser(this)
         try {
-            parser.parseArgument(*args)
+            parser.parseArgument(args.asList())
         } catch (e: CmdLineException) {
             // handling of wrong arguments
             System.err.println(e.message)

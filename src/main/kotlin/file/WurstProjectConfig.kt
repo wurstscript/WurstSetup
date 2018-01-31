@@ -29,7 +29,7 @@ object WurstProjectConfig {
     fun handleCreate(projectRoot: Path, gameRoot: Path?, projectConfig: WurstProjectConfigData) {
         try {
             createProject(projectRoot, gameRoot, projectConfig)
-            MainWindow.ui!!.refreshComponents(true)
+            MainWindow.ui.refreshComponents(true)
         } catch (e: Exception) {
             Log.print("\n===ERROR PROJECT CREATE===\n" + e.message + "\nPlease report here: github.com/wurstscript/WurstScript/issues\n")
         }
@@ -44,7 +44,7 @@ object WurstProjectConfig {
             val config = YamlHelper.loadProjectConfig(buildFile)
             val projectRoot = buildFile.parent
             if (config.projectName.isEmpty()) {
-                config.projectName = projectRoot!!.fileName.toString()
+                config.projectName = projectRoot?.fileName.toString()
                 saveProjectConfig(projectRoot, config)
             }
             Log.print("done\n")
@@ -136,9 +136,9 @@ object WurstProjectConfig {
         if (!Files.exists(projectRoot)) {
             throw IOException("Project root does not exist!")
         }
-        val vsCode = projectRoot!!.resolve(".vscode/settings.json")
+        val vsCode = projectRoot?.resolve(".vscode/settings.json")
         if (!Files.exists(vsCode)) {
-            Files.createDirectories(vsCode.parent)
+            Files.createDirectories(vsCode?.parent)
             Files.write(vsCode, VSCODE_MIN_CONFIG.toByteArray(), StandardOpenOption.CREATE_NEW)
         }
         var json = String(Files.readAllBytes(vsCode))
@@ -160,7 +160,7 @@ object WurstProjectConfig {
             DependencyManager.updateDependencies(projectRoot, config)
 
             Log.print("Project successfully updated!\nReload vscode to apply the changed dependencies.\n")
-            MainWindow.ui!!.refreshComponents(true)
+            MainWindow.ui.refreshComponents(true)
         } catch (e: Exception) {
             e.printStackTrace()
             Log.print("\n===ERROR PROJECT UPDATE===\n" + e.message + "\nPlease report here: github.com/wurstscript/WurstScript/issues\n")

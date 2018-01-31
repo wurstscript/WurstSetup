@@ -10,9 +10,9 @@ import java.nio.file.Path
 
 object Download {
 
-    private val baseUrl = "peeeq.de/hudson/job/Wurst/lastSuccessfulBuild/artifact/downloads/"
-    private val bareboneUrl = "github.com/wurstscript/WurstBareboneTemplate/archive/master.zip"
-    private val compileName = "wurstpack_compiler.zip"
+    private const val baseUrl = "peeeq.de/hudson/job/Wurst/lastSuccessfulBuild/artifact/downloads/"
+    private const val bareboneUrl = "github.com/wurstscript/WurstBareboneTemplate/archive/master.zip"
+    private const val compileName = "wurstpack_compiler.zip"
 
     @Throws(IOException::class)
     private fun downloadFile(url: String, targetFile: Path): Path {

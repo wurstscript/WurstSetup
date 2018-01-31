@@ -15,9 +15,9 @@ class UpdateFoundDialog(message: String) : JDialog() {
     private val contentPane: JPanel = JPanel(GridBagLayout())
     private val contentTable = Table()
 
-    private var buttonUpdate: SetupButton? = null
-    private var buttonSnooze: SetupButton? = null
-    private var buttonDeny: SetupButton? = null
+    private val buttonUpdate = SetupButton("Update")
+    private val buttonSnooze = SetupButton("Later")
+    private val buttonDeny = SetupButton("Close")
 
     init {
         title = "Notification"
@@ -37,15 +37,15 @@ class UpdateFoundDialog(message: String) : JDialog() {
         uiStyle()
         getRootPane().defaultButton = buttonUpdate
 
-        buttonDeny!!.addActionListener { e ->
+        buttonDeny.addActionListener { e ->
             System.exit(0)
         }
 
-        buttonSnooze!!.addActionListener { e ->
+        buttonSnooze.addActionListener { e ->
             System.exit(0)
         }
 
-        buttonUpdate!!.addActionListener { e ->
+        buttonUpdate.addActionListener { e ->
             UiManager.initUI()
         }
 
@@ -64,11 +64,8 @@ class UpdateFoundDialog(message: String) : JDialog() {
         contentTable.row()
 
         val buttonTable = Table()
-        buttonUpdate = SetupButton("Update")
         buttonTable.addCell(buttonUpdate).pad(0f, 6f, 0f, 6f)
-        buttonSnooze = SetupButton("Later")
         buttonTable.addCell(buttonSnooze).pad(0f, 6f, 0f, 6f)
-        buttonDeny = SetupButton("Close")
         buttonTable.addCell(buttonDeny).pad(0f, 6f, 0f, 6f)
 
         contentTable.addCell(buttonTable).growX().padTop(6f)

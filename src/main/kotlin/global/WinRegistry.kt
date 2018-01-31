@@ -6,11 +6,11 @@ import java.util.prefs.Preferences
 
 // source: http://stackoverflow.com/questions/62289/read-write-to-windows-registry-using-java
 object WinRegistry {
-    val HKEY_CURRENT_USER = 0x80000001.toInt()
+    const val HKEY_CURRENT_USER = 0x80000001.toInt()
 
-    private val HKEY_LOCAL_MACHINE = 0x80000002.toInt()
-    private val REG_SUCCESS = 0
-    private val KEY_READ = 0x20019
+    private const val HKEY_LOCAL_MACHINE = 0x80000002.toInt()
+    private const val REG_SUCCESS = 0
+    private const val KEY_READ = 0x20019
     private val userRoot = Preferences.userRoot()
     private val systemRoot = Preferences.systemRoot()
     private val userClass = userRoot.javaClass

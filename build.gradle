@@ -47,7 +47,7 @@ test {
 
 jacocoTestReport {
     reports {
-        xml.enabled true
+        xml.enabled = true
     }
 }
 
@@ -82,7 +82,7 @@ task versionInfoFile {
         String gitRevisionlong = "unknown-version"
 
         new ByteArrayOutputStream().withStream { os ->
-            def result = exec {
+            exec {
                 executable = 'git'
                 args = ['describe', '--tags', '--always']
                 standardOutput = os
@@ -91,7 +91,7 @@ task versionInfoFile {
         }
 
         new ByteArrayOutputStream().withStream { os ->
-            def result = exec {
+            exec {
                 executable = 'git'
                 args = ['describe', '--tags', '--always', '--abbrev=0']
                 standardOutput = os

@@ -11,7 +11,6 @@ import net.ConnectionManager
 import net.NetStatus
 import tablelayout.Table
 import workers.CompilerUpdateWorker
-import workers.DependencyVerifierWorker
 import workers.ProjectCreateWorker
 import workers.ProjectUpdateWorker
 import java.awt.*
@@ -39,7 +38,14 @@ import javax.swing.text.DefaultCaret
 
 object MainWindow : JFrame() {
     private val log = KotlinLogging.logger {}
-    var ui: UI? = null
+    private val exitIcon by lazy { ImageIcon(ImageIO.read(MainWindow::class.java.getResourceAsStream("/exitup.png"))) }
+    private val minIcon by lazy { ImageIcon(ImageIO.read(MainWindow::class.java.getResourceAsStream("/minimizeup.png"))) }
+    private val exitIconDown by lazy { ImageIcon(ImageIO.read(MainWindow::class.java.getResourceAsStream("/exitdown.png"))) }
+    private val minIconDown by lazy { ImageIcon(ImageIO.read(MainWindow::class.java.getResourceAsStream("/minimizedown.png"))) }
+    private val exitIconHover by lazy { ImageIcon(ImageIO.read(MainWindow::class.java.getResourceAsStream("/exithover.png"))) }
+    private val minIconHover by lazy { ImageIcon(ImageIO.read(MainWindow::class.java.getResourceAsStream("/minimizehover.png"))) }
+
+    val ui: UI = UI()
 
     private lateinit var saveChooser: JSystemFileChooser
     private lateinit var importChooser: JSystemFileChooser
@@ -49,8 +55,8 @@ object MainWindow : JFrame() {
      * Create the frame.
      */
     fun init() {
+        initFilechooser()
         log.info("init UI")
-        initIcons()
         layout = BorderLayout()
         setSize(570, 355)
         background = Color(36, 36, 36)
@@ -58,8 +64,7 @@ object MainWindow : JFrame() {
         isUndecorated = true
         defaultCloseOperation = WindowConstants.EXIT_ON_CLOSE
         isResizable = false
-        initFilechooser()
-        ui = UI()
+        ui.initComponents()
         add(ui, BorderLayout.CENTER)
         addMouseListener(object : MouseAdapter() {
             override fun mousePressed(e: MouseEvent?) {
@@ -75,30 +80,6 @@ object MainWindow : JFrame() {
         })
         isVisible = true
     }
-
-    private lateinit var exitIcon: ImageIcon
-    private lateinit var minIcon: ImageIcon
-    private lateinit var exitIconDown: ImageIcon
-    private lateinit var minIconDown: ImageIcon
-    private lateinit var exitIconHover: ImageIcon
-    private lateinit var minIconHover: ImageIcon
-
-    fun initIcons() {
-        val exitimg = ImageIO.read(MainWindow::class.java.getResourceAsStream("/exitup.png"))
-        val minimg = ImageIO.read(MainWindow::class.java.getResourceAsStream("/minimizeup.png"))
-        val exitimgdown = ImageIO.read(MainWindow::class.java.getResourceAsStream("/exitdown.png"))
-        val minimgdown = ImageIO.read(MainWindow::class.java.getResourceAsStream("/minimizedown.png"))
-        val exithover = ImageIO.read(MainWindow::class.java.getResourceAsStream("/exithover.png"))
-        val minimghover = ImageIO.read(MainWindow::class.java.getResourceAsStream("/minimizehover.png"))
-
-        exitIcon = ImageIcon(exitimg)
-        minIcon = ImageIcon(minimg)
-        exitIconDown = ImageIcon(exitimgdown)
-        minIconDown = ImageIcon(minimgdown)
-        exitIconHover = ImageIcon(exithover)
-        minIconHover = ImageIcon(minimghover)
-    }
-
 
     class UI : JPanel() {
         private val projNamePattern = Pattern.compile("(\\w|\\s)+")
@@ -117,20 +98,17 @@ object MainWindow : JFrame() {
         var importButton: SetupButton = SetupButton("Import")
         var jTextArea = JTextArea("Ready version: " + CompileTimeInfo.version + "\n")
         var projectNameTF: JTextField = JTextField("MyWurstProject")
-        var projectRootTF: JTextField = JTextField(saveChooser.currentDirectory.absolutePath + File.separator + projectNameTF.text)
+        var projectRootTF: JTextField = JTextField("projectRoot")
         var dependencyTF: JTextField = JTextField("wurstStdlib2")
-        private var exit: JButton = JButton(exitIcon)
-        private var minimize: JButton = JButton(minIcon)
-        private var gamePathTF: JTextField = JTextField("Select your wc3 installation folder (optional)")
+        private val exit = JButton(exitIcon)
+        private val minimize = JButton(minIcon)
+        private val gamePathTF = JTextField("Select your wc3 installation folder (optional)")
 
         private var selectedConfig: WurstProjectConfigData? = null
         var dependencies: MutableList<String> = ArrayList(Arrays.asList("https://github.com/wurstscript/wurstStdlib2"))
 
-        init {
-            initComponents()
-        }
-
-        private fun initComponents() {
+        var inited = false
+        fun initComponents() {
             setTitle("Wurst Setup")
             background = Color(36, 36, 36)
 
@@ -195,7 +173,7 @@ object MainWindow : JFrame() {
             createButtonTable()
             UiStyle.setStyle(contentTable)
 
-
+            inited = true
             refreshComponents(false)
         }
 
@@ -275,6 +253,8 @@ object MainWindow : JFrame() {
                     }
                 }
             })
+
+            projectRootTF.text = saveChooser.currentDirectory.absolutePath + File.separator + projectNameTF.text
             projectInputTable.addCell(projectNameTF).growX()
             importButton.addMouseListener(object : MouseAdapter() {
                 override fun mouseClicked(arg0: MouseEvent?) {
@@ -385,6 +365,7 @@ object MainWindow : JFrame() {
         }
 
         fun refreshComponents(verify: Boolean) {
+            if (!inited) return
             SwingUtilities.invokeLater({
                 if (verify) {
                     ConnectionManager.checkConnectivity()

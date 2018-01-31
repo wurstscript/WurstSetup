@@ -18,11 +18,11 @@ class DependencyVerifierWorker(val dependencyUrl: String) : SwingWorker<Boolean,
                     .call()
             if (!result.isEmpty()) {
                 Log.print("valid!\n")
-                MainWindow.ui?.dependencies?.add(dependencyUrl)
+                MainWindow.ui.dependencies.add(dependencyUrl)
                 SwingUtilities.invokeLater({
-                    MainWindow.ui?.dependencyTF!!.text = MainWindow.ui?.dependencies?.stream()?.map { i -> i.substring(i.lastIndexOf("/") + 1) }!!.collect(Collectors.joining(", "))
+                    MainWindow.ui.dependencyTF.text = MainWindow.ui.dependencies.stream().map { i -> i.substring(i.lastIndexOf("/") + 1) }!!.collect(Collectors.joining(", "))
                 })
-                MainWindow.ui?.refreshComponents(false)
+                MainWindow.ui.refreshComponents(false)
             } else {
                 Log.print("Error: Entered invalid git repo\n")
             }
