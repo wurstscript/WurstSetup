@@ -35,6 +35,8 @@ object InstallationManager {
     fun verifyInstallation(): InstallationStatus {
         log.info("verify Install")
         status = InstallationStatus.NOT_INSTALLED
+        currentCompilerVersion = -1
+        latestCompilerVersion = 0
         if (Files.exists(installDir) && Files.exists(compilerJar)) {
 //            wurstConfig = YamlHelper.yaml.loadAs(String(Files.readAllBytes(configFile)), WurstConfigData::class.java)
             status = InstallationStatus.INSTALLED_UNKNOWN
@@ -92,10 +94,12 @@ object InstallationManager {
             log.info(if (isFreshInstall) "isInstall" else "isUpdate")
             Log.print(if (isFreshInstall) "Installing WurstScript..\n" else "Updating WursScript..\n")
             Log.print("Downloading compiler..")
+            log.info("download compiler")
             val compilerFile = Download.downloadCompiler()
             Log.print("done\n")
 
             Log.print("Extracting compiler..")
+            log.info("extract compiler")
             val extractSuccess = file.ZipArchiveExtractor.extractArchive(compilerFile, installDir)
             if (extractSuccess) {
                 Log.print("done\n")
@@ -105,7 +109,7 @@ object InstallationManager {
                 Log.print("Saving Config..")
 //                Files.write(configFile, YamlHelper.yaml.dump(wurstConfig).toByteArray())
                 Log.print("done\n")
-
+                log.info("done")
                 if (!Files.exists(compilerJar)) {
                     Log.print("ERROR")
                 } else {
@@ -114,10 +118,12 @@ object InstallationManager {
 
             } else {
                 Log.print("error\n")
+                log.error("error")
                 ErrorDialog("Could not extract patch files.\nWurst might still be in use.\nMake sure to close VSCode before updating.", false)
             }
             MainWindow.ui?.refreshComponents(true)
         } catch (e: Exception) {
+            log.error("exception: ", e)
             Log.print("\n===ERROR COMPILER UPDATE===\n" + e.message + "\nPlease report here: github.com/wurstscript/WurstScript/issues\n")
         }
 
@@ -141,11 +147,21 @@ object InstallationManager {
         return 0
     }
 
+    fun handleRemove() {
+        Files.walk(installDir)
+                .sorted(Comparator.reverseOrder())
+                .map(Path::toFile)
+                .forEach({ it.delete() })
+        verifyInstallation()
+        log.info("removed installation")
+    }
+
     enum class InstallationStatus {
         NOT_INSTALLED,
         INSTALLED_UNKNOWN,
         INSTALLED_OUTDATED,
         INSTALLED_UPTODATE
     }
+
 
 }

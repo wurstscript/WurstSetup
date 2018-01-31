@@ -5,20 +5,20 @@ import org.kohsuke.args4j.CmdLineParser
 import org.kohsuke.args4j.Option
 import java.io.File
 import java.io.IOException
-import java.io.PrintWriter
-import java.io.StringWriter
-import javax.swing.JOptionPane
-import javax.swing.JTextArea
-import javax.swing.UIManager
-import javax.swing.UnsupportedLookAndFeelException
 
 class SetupMain {
 
     @Option(name = "-silent", usage = "check for updates without opening UI")
     var silent = false
 
-    @Option(name = "-checkWurstUpdate", usage = "check for updates without opening UI")
-    var checkWurstUpdate = false
+    @Option(name = "-force", usage = "force updates the installation and/or project without asking")
+    var force = false
+
+    @Option(name = "-removeInstallation", usage = "removes wurstscript from your machine")
+    var removeInstallation = false
+
+    @Option(name = "-updateInstallation", usage = "updates your current wurst installation")
+    var updateInstall = false
 
     private var projectDir: File? = null
 
@@ -31,7 +31,7 @@ class SetupMain {
 
     @Throws(CmdLineException::class)
     fun doMain(args: Array<String>) {
-        setupExceptionHandler()
+        ExceptionHandler.setupExceptionHandler()
         val parser = CmdLineParser(this)
         try {
             parser.parseArgument(*args)
@@ -44,39 +44,11 @@ class SetupMain {
         SetupApp.handleArgs(this)
     }
 
-    companion object {
+}
 
-        @Throws(IOException::class, CmdLineException::class)
-        @JvmStatic
-        fun main(args: Array<String>) {
-            SetupMain().doMain(args)
-        }
-
-        private fun setupExceptionHandler() {
-            Thread.setDefaultUncaughtExceptionHandler { thread, exception ->
-                exception.printStackTrace()
-                try {
-                    UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName())
-                } catch (e: ClassNotFoundException) {
-                    e.printStackTrace()
-                } catch (e: InstantiationException) {
-                    e.printStackTrace()
-                } catch (e: IllegalAccessException) {
-                    e.printStackTrace()
-                } catch (e: UnsupportedLookAndFeelException) {
-                    e.printStackTrace()
-                }
-
-                val sw = StringWriter()
-                val pw = PrintWriter(sw)
-                exception.printStackTrace(pw)
-                val jTextField = JTextArea()
-                jTextField.text = "Please report this crash with the following info:\nVersion: " + CompileTimeInfo.version + "\n" + sw.toString()
-                jTextField.isEditable = false
-                JOptionPane.showMessageDialog(null, jTextField, "Sorry, Exception occured :(", JOptionPane.ERROR_MESSAGE)
-            }
-        }
-    }
+@Throws(IOException::class, CmdLineException::class)
+fun main(args: Array<String>) {
+    SetupMain().doMain(args)
 }
 
 

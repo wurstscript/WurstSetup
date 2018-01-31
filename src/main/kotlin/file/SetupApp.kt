@@ -57,10 +57,23 @@ object SetupApp {
             log.info("is GUI launch")
             UiManager.initUI()
         } else {
-            if (setup.checkWurstUpdate) {
-                println("silent compiler update check")
-                if (InstallationManager.status == InstallationManager.InstallationStatus.INSTALLED_OUTDATED) {
-                    UpdateFoundDialog("A Wurst compiler update has been found!")
+            log.info("is silent launch")
+            if (setup.removeInstallation) {
+                if (InstallationManager.status != InstallationManager.InstallationStatus.NOT_INSTALLED) {
+                    log.info("remove installation")
+                    if (setup.force) {
+                        InstallationManager.handleRemove()
+                    }
+                }
+            } else if (setup.updateInstall) {
+                if (InstallationManager.status == InstallationManager.InstallationStatus.INSTALLED_OUTDATED
+                        || InstallationManager.status == InstallationManager.InstallationStatus.NOT_INSTALLED) {
+                    log.info("compiler update found")
+                    if (setup.force) {
+                        InstallationManager.handleUpdate()
+                    } else {
+                        UpdateFoundDialog("A Wurst compiler update has been found!")
+                    }
                 }
             }
         }
