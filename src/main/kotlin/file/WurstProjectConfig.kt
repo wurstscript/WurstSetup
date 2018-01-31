@@ -64,7 +64,7 @@ object WurstProjectConfig {
 
             Log.print("Download template..")
             val zipFile = Download.downloadBareboneProject()
-            Log.print("done\n")
+            Log.println(" done.")
 
             Log.print("Extracting template..")
             val extractSuccess = ZipArchiveExtractor.extractArchive(zipFile, projectRoot)
@@ -74,13 +74,12 @@ object WurstProjectConfig {
                 Log.print("Clean up..")
                 val folder = projectRoot.resolve("WurstBareboneTemplate-master")
                 copyFolder(folder, projectRoot)
-                Files.walk(folder).sorted { a, b -> b.compareTo(a) }.
-                        forEach { p ->
-                            try {
-                                Files.delete(p)
-                            } catch (e: IOException) {
-                            }
-                        }
+                Files.walk(folder).sorted { a, b -> b.compareTo(a) }.forEach { p ->
+                    try {
+                        Files.delete(p)
+                    } catch (e: IOException) {
+                    }
+                }
             } else {
                 Log.print("error\n")
                 JOptionPane.showMessageDialog(null,
@@ -169,12 +168,12 @@ object WurstProjectConfig {
 
     }
 
-    private val VSCODE_MIN_CONFIG =
+    private const val VSCODE_MIN_CONFIG =
             "{\n" +
-            "   \"wurst.wurstJar\": \"%wurstjar%\",\n" +
-            "   \"wurst.wc3path\": \"%gamepath%\",\n" +
-            "   \"files.associations\": {\n" +
-            "       \"wurst.build\": \"yaml\"\n" +
-            "   }\n" +
-            "}"
+                    "   \"wurst.wurstJar\": \"%wurstjar%\",\n" +
+                    "   \"wurst.wc3path\": \"%gamepath%\",\n" +
+                    "   \"files.associations\": {\n" +
+                    "       \"wurst.build\": \"yaml\"\n" +
+                    "   }\n" +
+                    "}"
 }

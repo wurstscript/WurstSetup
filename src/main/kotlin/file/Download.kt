@@ -1,5 +1,6 @@
 package file
 
+import global.Log
 import java.io.File
 import java.io.FileOutputStream
 import java.io.IOException
@@ -20,7 +21,10 @@ object Download {
             urlNorm = urlNorm.replaceFirst("/", "")
         }
         val website = URL(urlNorm.replace(" ", "%20"))
-        val rbc = Channels.newChannel(website.openStream())
+        val connection = website.openConnection()
+        val size = connection.contentLengthLong / 1024 / 1024
+        Log.print("(" + (if (size == 0L) "<1" else size) + "MB)")
+        val rbc = Channels.newChannel(connection.getInputStream())
         val fos = FileOutputStream(targetFile.toFile())
         fos.channel.transferFrom(rbc, 0, java.lang.Long.MAX_VALUE)
         rbc.close()

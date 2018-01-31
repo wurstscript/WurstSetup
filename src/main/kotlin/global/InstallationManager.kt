@@ -96,7 +96,7 @@ object InstallationManager {
             Log.print("Downloading compiler..")
             log.info("download compiler")
             val compilerFile = Download.downloadCompiler()
-            Log.print("done\n")
+            Log.print(" done.\n")
 
             Log.print("Extracting compiler..")
             log.info("extract compiler")
