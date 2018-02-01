@@ -54,11 +54,15 @@ class SetupMain {
         SetupApp.handleArgs(this)
     }
 
+    companion object {
+        @Throws(IOException::class, CmdLineException::class)
+        @JvmStatic
+        fun main(args: Array<String>) {
+            SetupMain().doMain(args)
+        }
+    }
 }
 
-@Throws(IOException::class, CmdLineException::class)
-fun main(args: Array<String>) {
-    SetupMain().doMain(args)
-}
+
 
 
