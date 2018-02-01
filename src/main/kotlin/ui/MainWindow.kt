@@ -45,7 +45,7 @@ object MainWindow : JFrame() {
     private val exitIconHover by lazy { ImageIcon(ImageIO.read(MainWindow::class.java.getResourceAsStream("/exithover.png"))) }
     private val minIconHover by lazy { ImageIcon(ImageIO.read(MainWindow::class.java.getResourceAsStream("/minimizehover.png"))) }
 
-    val ui: UI = UI()
+    val ui by lazy { UI() }
 
     private lateinit var saveChooser: JSystemFileChooser
     private lateinit var importChooser: JSystemFileChooser

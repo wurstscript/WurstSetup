@@ -5,7 +5,7 @@ import mu.KotlinLogging
 import net.ConnectionManager
 import net.NetStatus
 import ui.ErrorDialog
-import ui.MainWindow
+import ui.UiManager
 import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.Paths
@@ -121,7 +121,7 @@ object InstallationManager {
                 log.error("error")
                 ErrorDialog("Could not extract patch files.\nWurst might still be in use.\nMake sure to close VSCode before updating.", false)
             }
-            MainWindow.ui.refreshComponents(true)
+            UiManager.refreshComponents(true)
         } catch (e: Exception) {
             log.error("exception: ", e)
             Log.print("\n===ERROR COMPILER UPDATE===\n" + e.message + "\nPlease report here: github.com/wurstscript/WurstScript/issues\n")

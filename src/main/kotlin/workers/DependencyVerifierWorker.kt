@@ -3,6 +3,7 @@ package workers
 import global.Log
 import org.eclipse.jgit.api.Git
 import ui.MainWindow
+import ui.UiManager
 import java.util.stream.Collectors
 import javax.swing.SwingUtilities
 import javax.swing.SwingWorker
@@ -22,7 +23,7 @@ class DependencyVerifierWorker(val dependencyUrl: String) : SwingWorker<Boolean,
                 SwingUtilities.invokeLater({
                     MainWindow.ui.dependencyTF.text = MainWindow.ui.dependencies.stream().map { i -> i.substring(i.lastIndexOf("/") + 1) }!!.collect(Collectors.joining(", "))
                 })
-                MainWindow.ui.refreshComponents(false)
+                UiManager.refreshComponents(false)
             } else {
                 Log.print("Error: Entered invalid git repo\n")
             }

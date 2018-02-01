@@ -1,5 +1,6 @@
 package ui
 
+import file.SetupApp
 import java.io.IOException
 import javax.imageio.ImageIO
 import javax.swing.SwingUtilities
@@ -16,6 +17,12 @@ object UiManager {
                 e.printStackTrace()
             }
         })
+    }
+
+    fun refreshComponents(verify: Boolean) {
+        if (!SetupApp.setup.silent) {
+            MainWindow.ui.refreshComponents(verify)
+        }
     }
 
 }
