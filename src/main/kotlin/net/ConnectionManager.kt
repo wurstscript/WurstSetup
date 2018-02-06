@@ -1,6 +1,7 @@
 package net
 
 import mu.KotlinLogging
+import us.monoid.json.JSONArray
 import us.monoid.json.JSONObject
 import us.monoid.web.Resty
 import java.io.IOException
@@ -12,17 +13,22 @@ enum class NetStatus {
 }
 
 object ConnectionManager {
-    const val WURST_SETUP_URL = "peeeq.de/hudson/job/WurstSetup/lastSuccessfulBuild/api/json"
-    const val WURST_COMPILER_URL = "peeeq.de/hudson/job/Wurst/lastSuccessfulBuild/api/json"
-    const val MASTER_BRANCH = "refs/remotes/origin/master"
+    private const val WURST_SETUP_URL = "peeeq.de/hudson/job/WurstSetup/lastSuccessfulBuild/api/json"
+    private const val WURST_COMPILER_URL = "peeeq.de/hudson/job/Wurst/lastSuccessfulBuild/api/json"
+    private const val MASTER_BRANCH = "refs/remotes/origin/master"
 
     private val log = KotlinLogging.logger {}
     private val resty = Resty()
     var netStatus = NetStatus.CLIENT_OFFLINE
 
-    private fun getJson(url: String, path: String): JSONObject {
-        val response = resty.json(url).get(Resty.path(path)).toString()
-        return JSONObject(response)
+    private fun findJsonTag(url: String, path: String, name: String): JSONObject {
+        val actions = JSONArray(resty.json(url).get(Resty.path(path)).toString())
+
+        return (0 until actions.length())
+                .map { JSONObject(actions[it].toString()) }
+                .firstOrNull { it.has(name) }
+                ?.getJSONObject(name)
+                ?: JSONObject()
     }
 
     fun checkConnectivity(): NetStatus {
@@ -46,24 +52,27 @@ object ConnectionManager {
     }
 
     private fun contactWurstServer(url: String) {
-        try {
+        netStatus = try {
             val wurstResponse = resty.json(url)
             if (wurstResponse == null || wurstResponse.toString().isBlank()) {
-                netStatus = NetStatus.SERVER_OFFLINE
+                NetStatus.SERVER_OFFLINE
             } else {
-                netStatus = NetStatus.ONLINE
+                NetStatus.ONLINE
             }
         } catch (e: IOException) {
             log.info("couldn't contact wurst jenkins: " + e.localizedMessage)
-            netStatus = NetStatus.SERVER_OFFLINE
+            NetStatus.SERVER_OFFLINE
         }
     }
 
-    fun getBuildNumber(url: String, branch: String): Int {
+    private fun getBuildNumber(url: String, branch: String): Int {
         if (netStatus != NetStatus.ONLINE) return 0
-        val response = getJson(url, "actions[2].buildsByBranchName")
-        val innerObject = JSONObject(response.get(branch).toString())
-        return innerObject.get("buildNumber").toString().toInt()
+        val response = findJsonTag(url, "actions", "buildsByBranchName")
+        if (response.has(branch)) {
+            val innerObject = JSONObject(response.get(branch).toString())
+            return innerObject.get("buildNumber").toString().toInt()
+        }
+        return -1
     }
 
     fun getLatestSetupBuild(): Int {
