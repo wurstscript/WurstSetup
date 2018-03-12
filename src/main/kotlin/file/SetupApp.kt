@@ -80,7 +80,7 @@ object SetupApp {
         when (conStatus) {
             NetStatus.CLIENT_OFFLINE -> Log.print("Client offline. All update functionality disabled.")
             NetStatus.SERVER_OFFLINE -> Log.print("Server offline. All update functionality disabled.")
-            NetStatus.ONLINE -> Log.print("Server online!")
+            NetStatus.ONLINE -> Log.println("Server online!")
         }
 
         InstallationManager.verifyInstallation()

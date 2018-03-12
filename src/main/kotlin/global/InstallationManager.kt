@@ -38,7 +38,6 @@ object InstallationManager {
         currentCompilerVersion = -1
         latestCompilerVersion = 0
         if (Files.exists(installDir) && Files.exists(compilerJar)) {
-//            wurstConfig = YamlHelper.yaml.loadAs(String(Files.readAllBytes(configFile)), WurstConfigData::class.java)
             status = InstallationStatus.INSTALLED_UNKNOWN
             try {
                 getVersionFomJar()
@@ -95,33 +94,33 @@ object InstallationManager {
             Log.print(if (isFreshInstall) "Installing WurstScript..\n" else "Updating WursScript..\n")
             Log.print("Downloading compiler..")
             log.info("download compiler")
-            val compilerFile = Download.downloadCompiler()
-            Log.print(" done.\n")
 
-            Log.print("Extracting compiler..")
-            log.info("extract compiler")
-            val extractSuccess = file.ZipArchiveExtractor.extractArchive(compilerFile, installDir)
-            if (extractSuccess) {
-                Log.print("done\n")
-                if (status == InstallationStatus.NOT_INSTALLED) {
-                    wurstConfig = WurstConfigData()
-                }
-                Log.print("Saving Config..")
-//                Files.write(configFile, YamlHelper.yaml.dump(wurstConfig).toByteArray())
-                Log.print("done\n")
-                log.info("done")
-                if (!Files.exists(compilerJar)) {
-                    Log.print("ERROR")
+            Download.downloadCompiler({
+                Log.print(" done.\n")
+
+                Log.print("Extracting compiler..")
+                log.info("extract compiler")
+                val extractSuccess = file.ZipArchiveExtractor.extractArchive(it, installDir)
+                Files.delete(it)
+                if (extractSuccess) {
+                    Log.print("done\n")
+                    if (status == InstallationStatus.NOT_INSTALLED) {
+                        wurstConfig = WurstConfigData()
+                    }
+                    log.info("done")
+                    if (!Files.exists(compilerJar)) {
+                        Log.print("ERROR")
+                    } else {
+                        Log.print(if (isFreshInstall) "Installation complete\n" else "Update complete\n")
+                    }
+
                 } else {
-                    Log.print(if (isFreshInstall) "Installation complete\n" else "Update complete\n")
+                    Log.print("error\n")
+                    log.error("error")
+                    ErrorDialog("Could not extract patch files.\nWurst might still be in use.\nMake sure to close VSCode before updating.", false)
                 }
-
-            } else {
-                Log.print("error\n")
-                log.error("error")
-                ErrorDialog("Could not extract patch files.\nWurst might still be in use.\nMake sure to close VSCode before updating.", false)
-            }
-            UiManager.refreshComponents(true)
+                UiManager.refreshComponents(true)
+            })
         } catch (e: Exception) {
             log.error("exception: ", e)
             Log.print("\n===ERROR COMPILER UPDATE===\n" + e.message + "\nPlease report here: github.com/wurstscript/WurstScript/issues\n")

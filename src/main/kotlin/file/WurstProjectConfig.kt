@@ -3,6 +3,7 @@ package file
 import global.InstallationManager
 import global.Log
 import mu.KotlinLogging
+import ui.MainWindow
 import ui.UiManager
 import java.io.IOException
 import java.nio.file.Files
@@ -40,7 +41,7 @@ object WurstProjectConfig {
 
     @Throws(IOException::class)
     fun loadProject(buildFile: Path): WurstProjectConfigData? {
-        Log.print("Loading project..")
+        Log.println("Loading project..")
         if (Files.exists(buildFile) && buildFile.fileName.toString().equals("wurst.build", ignoreCase = true)) {
             val config = YamlHelper.loadProjectConfig(buildFile)
             val projectRoot = buildFile.parent
@@ -65,43 +66,46 @@ object WurstProjectConfig {
             Log.print("done\n")
 
             Log.print("Download template..")
-            val zipFile = Download.downloadBareboneProject()
-            Log.println(" done.")
+            Download.downloadBareboneProject({
+                Log.println(" done.")
 
-            Log.print("Extracting template..")
-            val extractSuccess = ZipArchiveExtractor.extractArchive(zipFile, projectRoot)
-
-            if (extractSuccess) {
-                Log.print("done\n")
-                Log.print("Clean up..")
-                val folder = projectRoot.resolve("WurstBareboneTemplate-master")
-                copyFolder(folder, projectRoot)
-                Files.walk(folder).sorted { a, b -> b.compareTo(a) }.forEach { p ->
-                    try {
-                        Files.delete(p)
-                    } catch (e: IOException) {
+                Log.print("Extracting template..")
+                val extractSuccess = ZipArchiveExtractor.extractArchive(it, projectRoot)
+                Files.delete(it)
+                if (extractSuccess) {
+                    Log.print("done\n")
+                    Log.print("Clean up..")
+                    val folder = projectRoot.resolve("WurstBareboneTemplate-master")
+                    copyFolder(folder, projectRoot)
+                    Files.walk(folder).sorted { a, b -> b.compareTo(a) }.forEach { p ->
+                        try {
+                            Files.delete(p)
+                        } catch (e: IOException) {
+                        }
                     }
+                } else {
+                    Log.print("error\n")
+                    JOptionPane.showMessageDialog(null,
+                            "Error: Cannot extract patch files.\nWurst might still be in use.\nClose any Wurst, VSCode or Eclipse instances before updating.",
+                            "Error Massage", JOptionPane.ERROR_MESSAGE)
                 }
-            } else {
-                Log.print("error\n")
-                JOptionPane.showMessageDialog(null,
-                        "Error: Cannot extract patch files.\nWurst might still be in use.\nClose any Wurst, VSCode or Eclipse instances before updating.",
-                        "Error Massage", JOptionPane.ERROR_MESSAGE)
-            }
 
-            Log.print("done\n")
+                Log.print("done\n")
 
-            setupVSCode(projectRoot, gameRoot)
+                setupVSCode(projectRoot, gameRoot)
 
-            saveProjectConfig(projectRoot, projectConfig)
+                saveProjectConfig(projectRoot, projectConfig)
 
-            DependencyManager.updateDependencies(projectRoot, projectConfig)
+                DependencyManager.updateDependencies(projectRoot, projectConfig)
 
-            Log.print("---\n\n")
-            if (gameRoot == null || !Files.exists(gameRoot)) {
-                Log.print("Warning: Your game path has not been set.\nThis means you will be able to develop, but not run maps.\n")
-            }
-            Log.print("Your project has been successfully created!\n" + "You can now open your project folder in VSCode.\nOpen the wurst/Hello.wurst package to continue.\n")
+                Log.print("---\n\n")
+                if (gameRoot == null || !Files.exists(gameRoot)) {
+                    Log.print("Warning: Your game path has not been set.\nThis means you will be able to develop, but not run maps.\n")
+                }
+                Log.print("Your project has been successfully created!\n" + "You can now open your project folder in VSCode.\nOpen the wurst/Hello.wurst package to continue.\n")
+                MainWindow.ui.progressBar.isIndeterminate = false
+                UiManager.refreshComponents(true)
+            })
         }
     }
 
