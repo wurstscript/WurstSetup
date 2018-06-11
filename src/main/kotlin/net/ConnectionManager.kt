@@ -88,11 +88,12 @@ object ConnectionManager {
         }
     }
 
-    fun checkWurstBuild() {
+    fun checkWurstBuild(): NetStatus {
         contactWurstServer("https://" + WURST_COMPILER_URL)
         if (netStatus == NetStatus.SERVER_OFFLINE) {
             contactWurstServer("http://" + WURST_COMPILER_URL)
         }
+        return netStatus
     }
 
 }

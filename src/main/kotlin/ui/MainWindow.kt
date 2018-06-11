@@ -1,6 +1,7 @@
 package ui
 
 import file.CompileTimeInfo
+import file.SetupApp
 import file.WurstProjectConfig
 import file.WurstProjectConfigData
 import global.InstallationManager
@@ -457,17 +458,6 @@ object MainWindow : JFrame() {
             contentTable.addCell(buttonTable).growX().pad(2f)
         }
 
-        private fun handleUpdateProject() {
-            val gameRoot = Paths.get(gamePathTF.text)
-            val projectRoot = Paths.get(projectRootTF.text)
-            if (Files.exists(gameRoot) && selectedConfig != null) {
-                dependencies.forEach(
-                        { e -> if (!selectedConfig?.dependencies?.contains(e)!!) selectedConfig?.dependencies?.add(e) })
-                log.info("Update project. gamepath <{}>, root <{}>", gameRoot, projectRoot)
-                ProjectUpdateWorker(projectRoot, gameRoot, selectedConfig!!).execute()
-            }
-        }
-
         private fun handleCreateProject() {
             progressBar.isIndeterminate = true
             disableButtons()
@@ -483,7 +473,27 @@ object MainWindow : JFrame() {
             })
 
             log.info("Creating new project. gamepath <{}>, root <{}>, config <{}>", gameRoot, projectRoot, config)
-            ProjectCreateWorker(projectRoot, gameRoot, config).execute()
+            if (SetupApp.setup.silent) {
+                WurstProjectConfig.handleCreate(projectRoot, gameRoot, config)
+            } else {
+                ProjectCreateWorker(projectRoot, gameRoot, config).execute()
+            }
+        }
+
+        private fun handleUpdateProject() {
+            val gameRoot = Paths.get(gamePathTF.text)
+            val projectRoot = Paths.get(projectRootTF.text)
+            if (Files.exists(gameRoot) && selectedConfig != null) {
+                dependencies.forEach(
+                        { e -> if (!selectedConfig?.dependencies?.contains(e)!!) selectedConfig?.dependencies?.add(e) })
+                log.info("Update project. gamepath <{}>, root <{}>", gameRoot, projectRoot)
+                if (SetupApp.setup.silent) {
+                    WurstProjectConfig.handleUpdate(projectRoot, gameRoot, selectedConfig!!)
+                } else {
+                    ProjectUpdateWorker(projectRoot, gameRoot, selectedConfig!!).execute()
+                }
+
+            }
         }
 
         private fun handleWurstUpdate() {
