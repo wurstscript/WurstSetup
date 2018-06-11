@@ -3,7 +3,6 @@ package file
 import global.InstallationManager
 import global.Log
 import mu.KotlinLogging
-import ui.MainWindow
 import ui.UiManager
 import java.io.IOException
 import java.nio.file.Files
@@ -103,7 +102,6 @@ object WurstProjectConfig {
                     Log.print("Warning: Your game path has not been set.\nThis means you will be able to develop, but not run maps.\n")
                 }
                 Log.print("Your project has been successfully created!\n" + "You can now open your project folder in VSCode.\nOpen the wurst/Hello.wurst package to continue.\n")
-                MainWindow.ui.progressBar.isIndeterminate = false
                 UiManager.refreshComponents(true)
             })
         }

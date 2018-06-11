@@ -11,7 +11,8 @@ cache:
     - $HOME/.gradle/caches/modules-2/files-2.1
     
 script:
-  - ./gradlew clean versionInfoFile proguardDist test --info --stacktrace
+  - ./gradlew clean versionInfoFile proguardDist
+  - ./gradlew test --info --stacktrace
 
 after_success:
  - ./gradlew jacocoTestReport
