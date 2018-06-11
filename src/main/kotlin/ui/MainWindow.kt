@@ -11,6 +11,7 @@ import net.ConnectionManager
 import net.NetStatus
 import tablelayout.Table
 import workers.CompilerUpdateWorker
+import workers.OnlineCheckWorker
 import workers.ProjectCreateWorker
 import workers.ProjectUpdateWorker
 import java.awt.*
@@ -67,6 +68,7 @@ object MainWindow : JFrame() {
         ui.initComponents()
         add(ui, BorderLayout.CENTER)
         addMouseListener(object : MouseAdapter() {
+
             override fun mousePressed(e: MouseEvent?) {
                 point.x = e!!.x
                 point.y = e.y
@@ -79,6 +81,7 @@ object MainWindow : JFrame() {
             }
         })
         isVisible = true
+        OnlineCheckWorker().execute()
     }
 
     class UI : JPanel() {
@@ -375,7 +378,7 @@ object MainWindow : JFrame() {
                 importButton.isEnabled = true
                 when (ConnectionManager.netStatus) {
                     NetStatus.CLIENT_OFFLINE, NetStatus.SERVER_OFFLINE -> {
-                        lblLatestVerNumber.text = "(offline)"
+                        lblLatestVerNumber.text = "(loading..)"
                         lblLatestVerNumber.foreground = Color.DARK_GRAY
                         btnCreate.isEnabled = false
                         btnUpdate.isEnabled = false

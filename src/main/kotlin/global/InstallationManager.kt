@@ -77,7 +77,9 @@ object InstallationManager {
                         status = InstallationStatus.INSTALLED_OUTDATED
                     }
                 })
-                throw Error("Installation failed!")
+                if (status != InstallationStatus.INSTALLED_OUTDATED) {
+                    throw Error("Installation failed!")
+                }
             }
         }
     }
@@ -147,12 +149,25 @@ object InstallationManager {
     }
 
     fun handleRemove() {
-        Files.walk(installDir)
-                .sorted(Comparator.reverseOrder())
-                .map(Path::toFile)
-                .forEach({ it.delete() })
+        clearFolder(installDir)
         verifyInstallation()
         log.info("removed installation")
+    }
+
+    private fun clearFolder(dir: Path) {
+        Files.walk(dir)
+                .forEach({
+                    if (it != dir) {
+                        if (Files.isDirectory(it)) {
+                            clearFolder(it)
+                        } else {
+                            try {
+                                Files.delete(it)
+                            } catch (_e: Exception) {
+                            }
+                        }
+                    }
+                })
     }
 
     enum class InstallationStatus {

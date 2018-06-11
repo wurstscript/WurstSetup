@@ -9,6 +9,7 @@ import java.io.IOException
 enum class NetStatus {
     CLIENT_OFFLINE,
     SERVER_OFFLINE,
+    SERVER_CONTACT,
     ONLINE
 }
 
@@ -42,11 +43,7 @@ object ConnectionManager {
         } catch (e: IOException) {
             log.info("couldn't contact google: " + e.localizedMessage)
         }
-
-        contactWurstServer("https://" + WURST_COMPILER_URL)
-        if (netStatus == NetStatus.SERVER_OFFLINE) {
-            contactWurstServer("http://" + WURST_COMPILER_URL)
-        }
+        netStatus = NetStatus.SERVER_CONTACT
 
         return netStatus
     }
@@ -88,6 +85,13 @@ object ConnectionManager {
             getBuildNumber("https://" + WURST_COMPILER_URL, MASTER_BRANCH)
         } catch (e: IOException) {
             getBuildNumber("http://" + WURST_COMPILER_URL, MASTER_BRANCH)
+        }
+    }
+
+    fun checkWurstBuild() {
+        contactWurstServer("https://" + WURST_COMPILER_URL)
+        if (netStatus == NetStatus.SERVER_OFFLINE) {
+            contactWurstServer("http://" + WURST_COMPILER_URL)
         }
     }
 
