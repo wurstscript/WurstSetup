@@ -1,5 +1,6 @@
 package file
 
+import global.Log
 import mu.KotlinLogging
 import ui.MainWindow
 import workers.DownloadWithProgressWorker
@@ -32,7 +33,9 @@ object Download {
     fun downloadCompiler(callback: (Path) -> Unit) {
         try {
             downloadFile("https://$baseUrl$compileName", callback)
-        } catch (e: IOException) {
+        } catch (e: Exception) {
+            log.warn( "downloadCompiler Exception caught", e)
+            Log.println("Https error, falling back to unsafe http.")
             downloadFile("http://$baseUrl$compileName", callback)
         }
     }
@@ -41,7 +44,9 @@ object Download {
     fun downloadBareboneProject(callback: (Path) -> Unit) {
         try {
             downloadFile("https://$bareboneUrl", callback)
-        } catch (e: IOException) {
+        } catch (e: Exception) {
+            log.warn( "downloadBareboneProject Exception caught", e)
+            Log.println("Https error, falling back to unsafe http.")
             downloadFile("http://$bareboneUrl", callback)
         }
     }
