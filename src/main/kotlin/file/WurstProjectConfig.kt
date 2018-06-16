@@ -23,7 +23,8 @@ data class WurstProjectConfigData(var projectName: String = "DefaultName",
 
 data class WurstProjectBuildMapData(val name: String = "DefaultName",
                                     val fileName: String = "DefaultFileName",
-                                    val author: String = "DefaultAuthor")
+                                    val author: String = "DefaultAuthor",
+                                    val playerCount: Int = 1)
 
 object WurstProjectConfig {
     private val log = KotlinLogging.logger {}
