@@ -33,9 +33,9 @@ dependencies {
     compile 'com.fasterxml.jackson.module:jackson-module-kotlin:2.9.4'
     compile 'com.fasterxml.jackson.dataformat:jackson-dataformat-yaml:2.9.4'
     compile group: 'args4j', name: 'args4j', version: '2.33'
-    compile 'com.github.Frotty:SwingDarkFlatTable:0a4eaa29eb'
+    compile 'com.github.Frotty:SwingDarkFlatTable:1f8cdaa493'
     compile "org.jetbrains.kotlin:kotlin-stdlib-jdk8:$kotlin_version"
-    compile 'io.github.microutils:kotlin-logging:1.4.6'
+    compile 'io.github.microutils:kotlin-logging:1.5.4'
     compile group: 'org.slf4j', name: 'slf4j-api', version: '1.7.25'
     compile group: 'ch.qos.logback', name: 'logback-classic', version: '1.2.3'
     testCompile 'org.testng:testng:6.1.1'
@@ -57,7 +57,7 @@ configurations.all {
 }
 
 buildscript {
-    ext.kotlin_version = '1.2.21'
+    ext.kotlin_version = '1.2.50'
     repositories {
         flatDir dirs: 'src/main/resources/'
         mavenCentral()
