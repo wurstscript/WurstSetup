@@ -24,7 +24,6 @@ import java.awt.event.MouseMotionAdapter
 import java.io.File
 import java.io.IOException
 import java.lang.reflect.InvocationTargetException
-import java.nio.file.Files
 import java.nio.file.Paths
 import java.util.*
 import java.util.regex.Pattern
@@ -370,7 +369,7 @@ object MainWindow : JFrame() {
 
         fun refreshComponents(verify: Boolean) {
             if (!inited) return
-            SwingUtilities.invokeLater({
+            SwingUtilities.invokeLater {
                 if (verify) {
                     ConnectionManager.checkConnectivity()
                     InstallationManager.verifyInstallation()
@@ -388,6 +387,10 @@ object MainWindow : JFrame() {
                         lblLatestVerNumber.text = InstallationManager.latestCompilerVersion.toString()
                         lblLatestVerNumber.foreground = Color.decode("#005719")
                         btnUpdate.isEnabled = true
+                    }
+                    NetStatus.SERVER_CONTACT -> {
+                        lblLatestVerNumber.text = "Loading.."
+                        btnUpdate.isEnabled = false
                     }
                 }
                 when (InstallationManager.status) {
@@ -410,7 +413,7 @@ object MainWindow : JFrame() {
                         btnUpdate.text = "Update WurstScript"
                     }
                 }
-            })
+            }
         }
 
         private fun getVersionString() =
@@ -466,11 +469,11 @@ object MainWindow : JFrame() {
             val gameRoot = if (gamePath.isNotEmpty()) Paths.get(gamePath) else null
             val config = WurstProjectConfigData()
             config.projectName = projectNameTF.text
-            dependencies.forEach({ elem ->
+            dependencies.forEach { elem ->
                 if (!config.dependencies.contains(elem)) {
                     config.dependencies.add(elem)
                 }
-            })
+            }
 
             log.info("Creating new project. gamepath <{}>, root <{}>, config <{}>", gameRoot, projectRoot, config)
             if (SetupApp.setup.silent) {
@@ -483,9 +486,8 @@ object MainWindow : JFrame() {
         private fun handleUpdateProject() {
             val gameRoot = Paths.get(gamePathTF.text)
             val projectRoot = Paths.get(projectRootTF.text)
-            if (Files.exists(gameRoot) && selectedConfig != null) {
-                dependencies.forEach(
-                        { e -> if (!selectedConfig?.dependencies?.contains(e)!!) selectedConfig?.dependencies?.add(e) })
+            if (selectedConfig != null) {
+                dependencies.forEach { e -> if (!selectedConfig?.dependencies?.contains(e)!!) selectedConfig?.dependencies?.add(e) }
                 log.info("Update project. gamepath <{}>, root <{}>", gameRoot, projectRoot)
                 if (SetupApp.setup.silent) {
                     WurstProjectConfig.handleUpdate(projectRoot, gameRoot, selectedConfig!!)
