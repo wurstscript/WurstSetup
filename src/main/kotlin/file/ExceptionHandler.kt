@@ -18,7 +18,7 @@ object ExceptionHandler {
     }
 
     fun setupExceptionHandler() {
-        Thread.setDefaultUncaughtExceptionHandler { thread, exception ->
+        Thread.setDefaultUncaughtExceptionHandler { _, exception ->
             exception.printStackTrace()
             try {
                 UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName())

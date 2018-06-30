@@ -83,7 +83,7 @@ object DependencyManager {
 
     private fun updateRepo(depFolder: Path) {
         try {
-            FileRepository(depFolder.resolve(".git").toFile()).use({ repository ->
+            FileRepository(depFolder.resolve(".git").toFile()).use { repository ->
                 try {
                     Git(repository).use { git ->
                         git.fetch().call()
@@ -95,7 +95,7 @@ object DependencyManager {
                     Log.print("error when trying to fetch remote\n")
                     e.printStackTrace()
                 }
-            })
+            }
         } catch (e: Exception) {
             Log.print("error when trying open repository")
             e.printStackTrace()
@@ -104,7 +104,7 @@ object DependencyManager {
 
     private fun cleanRepo(depFolder: Path) {
         try {
-            FileRepository(depFolder.resolve(".git").toFile()).use({ repository ->
+            FileRepository(depFolder.resolve(".git").toFile()).use { repository ->
                 try {
                     Git(repository).use { git ->
                         git.clean().setCleanDirectories(true).setForce(true).call()
@@ -116,7 +116,7 @@ object DependencyManager {
                     Log.print("error when trying to clean repository\n")
                     e.printStackTrace()
                 }
-            })
+            }
         } catch (e: Exception) {
             Log.print("error when trying open repository")
             e.printStackTrace()

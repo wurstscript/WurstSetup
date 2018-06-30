@@ -9,19 +9,19 @@ import javax.swing.UIManager
 object UiManager {
 
     fun initUI() {
-        SwingUtilities.invokeLater({
+        SwingUtilities.invokeLater {
             MainWindow.init()
             try {
                 MainWindow.iconImage = ImageIO.read(UIManager::class.java.getResourceAsStream("/icon.png"))
             } catch (e: IOException) {
                 e.printStackTrace()
             }
-        })
+        }
     }
 
-    fun refreshComponents(verify: Boolean) {
+    fun refreshComponents() {
         if (!SetupApp.setup.silent) {
-            MainWindow.ui.refreshComponents(verify)
+            MainWindow.ui.refreshComponents()
         }
     }
 

@@ -26,12 +26,18 @@ data class WurstProjectBuildMapData(val name: String = "DefaultName",
                                     val author: String = "DefaultAuthor",
                                     val playerCount: Int = 1)
 
+data class WurstProjectBuildScenarioData(val description: String = "DefaultDescription",
+                                    val suggestedPlayers: String = "DefaultSuggestedPlayers",
+                                    val loadingScreenTitle: String = "DefaultTitle",
+                                    val loadingScreenSubTitle: String = "DefaultSubTitle",
+                                    val loadingScreenText: String = "DefaultText")
+
 object WurstProjectConfig {
     private val log = KotlinLogging.logger {}
     fun handleCreate(projectRoot: Path, gameRoot: Path?, projectConfig: WurstProjectConfigData) {
         try {
             createProject(projectRoot, gameRoot, projectConfig)
-            UiManager.refreshComponents(true)
+            UiManager.refreshComponents()
         } catch (e: Exception) {
             Log.print("\n===ERROR PROJECT CREATE===\n" + e.message + "\nPlease report here: github.com/wurstscript/WurstScript/issues\n")
         }
@@ -66,7 +72,7 @@ object WurstProjectConfig {
             Log.print("done\n")
 
             Log.print("Download template..")
-            Download.downloadBareboneProject({
+            Download.downloadBareboneProject {
                 Log.println(" done.")
 
                 Log.print("Extracting template..")
@@ -103,8 +109,8 @@ object WurstProjectConfig {
                     Log.print("Warning: Your game path has not been set.\nThis means you will be able to develop, but not run maps.\n")
                 }
                 Log.print("Your project has been successfully created!\n" + "You can now open your project folder in VSCode.\nOpen the wurst/Hello.wurst package to continue.\n")
-                UiManager.refreshComponents(true)
-            })
+                UiManager.refreshComponents()
+            }
         }
     }
 
@@ -165,7 +171,7 @@ object WurstProjectConfig {
             DependencyManager.updateDependencies(projectRoot, config)
 
             Log.print("Project successfully updated!\nReload vscode to apply the changed dependencies.\n")
-            UiManager.refreshComponents(true)
+            UiManager.refreshComponents()
         } catch (e: Exception) {
             e.printStackTrace()
             Log.print("\n===ERROR PROJECT UPDATE===\n" + e.message + "\nPlease report here: github.com/wurstscript/WurstScript/issues\n")

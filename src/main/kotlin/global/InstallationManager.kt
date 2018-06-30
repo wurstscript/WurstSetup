@@ -5,12 +5,14 @@ import mu.KotlinLogging
 import net.ConnectionManager
 import net.NetStatus
 import ui.ErrorDialog
+import ui.MainWindow
 import ui.UiManager
 import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.Paths
 import java.util.concurrent.TimeUnit
 import java.util.regex.Pattern
+import javax.swing.SwingUtilities
 
 
 /**
@@ -71,12 +73,12 @@ object InstallationManager {
             err.contains("Exception") -> status = InstallationStatus.INSTALLED_OUTDATED
             else -> {
                 val lines = input.split(System.getProperty("line.separator"))
-                lines.forEach({ line ->
+                lines.forEach { line ->
                     if (isJenkinsBuilt(line)) {
                         currentCompilerVersion = getJenkinsBuildVer(line)
                         status = InstallationStatus.INSTALLED_OUTDATED
                     }
-                })
+                }
                 if (status != InstallationStatus.INSTALLED_OUTDATED) {
                     throw Error("Installation failed!")
                 }
@@ -97,10 +99,11 @@ object InstallationManager {
             Log.print("Downloading compiler..")
             log.info("download compiler")
 
-            Download.downloadCompiler({
+            Download.downloadCompiler {
                 Log.print(" done.\n")
 
                 Log.print("Extracting compiler..")
+                SwingUtilities.invokeLater { MainWindow.ui.progressBar.isIndeterminate = true }
                 log.info("extract compiler")
                 val extractSuccess = file.ZipArchiveExtractor.extractArchive(it, installDir)
                 Files.delete(it)
@@ -114,6 +117,7 @@ object InstallationManager {
                         Log.print("ERROR")
                     } else {
                         Log.print(if (isFreshInstall) "Installation complete\n" else "Update complete\n")
+                        InstallationManager.verifyInstallation()
                     }
 
                 } else {
@@ -121,8 +125,8 @@ object InstallationManager {
                     log.error("error")
                     ErrorDialog("Could not extract patch files.\nWurst might still be in use.\nMake sure to close VSCode before updating.", false)
                 }
-                UiManager.refreshComponents(true)
-            })
+                UiManager.refreshComponents()
+            }
         } catch (e: Exception) {
             log.error("exception: ", e)
             Log.print("\n===ERROR COMPILER UPDATE===\n" + e.message + "\nPlease report here: github.com/wurstscript/WurstScript/issues\n")

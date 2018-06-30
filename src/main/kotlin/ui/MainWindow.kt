@@ -50,7 +50,7 @@ object MainWindow : JFrame() {
 
     private lateinit var saveChooser: JSystemFileChooser
     private lateinit var importChooser: JSystemFileChooser
-    val point: Point = Point()
+    val point by lazy { Point() }
 
     /**
      * Create the frame.
@@ -177,7 +177,7 @@ object MainWindow : JFrame() {
             UiStyle.setStyle(contentTable)
 
             inited = true
-            refreshComponents(false)
+            refreshComponents()
         }
 
         private fun setupTopBar() {
@@ -367,13 +367,9 @@ object MainWindow : JFrame() {
             }
         }
 
-        fun refreshComponents(verify: Boolean) {
+        fun refreshComponents() {
             if (!inited) return
             SwingUtilities.invokeLater {
-                if (verify) {
-                    ConnectionManager.checkConnectivity()
-                    InstallationManager.verifyInstallation()
-                }
                 progressBar.isIndeterminate = false
                 importButton.isEnabled = true
                 when (ConnectionManager.netStatus) {
@@ -420,9 +416,11 @@ object MainWindow : JFrame() {
                 if (InstallationManager.currentCompilerVersion > 0) InstallationManager.currentCompilerVersion.toString() else "(unofficial build)"
 
         private fun disableButtons() {
-            btnCreate.isEnabled = false
-            btnUpdate.isEnabled = false
-            importButton.isEnabled = false
+            SwingUtilities.invokeLater {
+                btnCreate.isEnabled = false
+                btnUpdate.isEnabled = false
+                importButton.isEnabled = false
+            }
         }
 
         private fun createButtonTable() {
@@ -440,7 +438,7 @@ object MainWindow : JFrame() {
             btnCreate.addMouseListener(object : MouseAdapter() {
                 override fun mouseClicked(arg0: MouseEvent?) {
                     if (btnCreate.isEnabled && !progressBar.isIndeterminate) {
-                        progressBar.isIndeterminate = true
+                        SwingUtilities.invokeLater { progressBar.isIndeterminate = true }
                         disableButtons()
                         if (selectedConfig == null) {
                             try {
@@ -462,7 +460,7 @@ object MainWindow : JFrame() {
         }
 
         private fun handleCreateProject() {
-            progressBar.isIndeterminate = true
+            SwingUtilities.invokeLater { progressBar.isIndeterminate = true }
             disableButtons()
             val gamePath = gamePathTF.text
             val projectRoot = Paths.get(projectRootTF.text)
@@ -500,7 +498,7 @@ object MainWindow : JFrame() {
 
         private fun handleWurstUpdate() {
             log.info("handle wurst update")
-            progressBar.isIndeterminate = true
+            SwingUtilities.invokeLater { progressBar.isIndeterminate = true }
             disableButtons()
             CompilerUpdateWorker().execute()
         }

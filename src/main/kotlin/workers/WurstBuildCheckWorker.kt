@@ -1,9 +1,11 @@
 package workers
 
+import file.CompileTimeInfo
 import global.InstallationManager
 import net.ConnectionManager
-import ui.MainWindow
-import javax.swing.SwingUtilities
+import net.NetStatus
+import ui.SetupUpdateDialog
+import ui.UiManager
 import javax.swing.SwingWorker
 
 class WurstBuildCheckWorker : SwingWorker<Boolean, Void>() {
@@ -13,9 +15,14 @@ class WurstBuildCheckWorker : SwingWorker<Boolean, Void>() {
     override fun doInBackground(): Boolean? {
         ConnectionManager.checkWurstBuild()
         InstallationManager.verifyInstallation()
-        SwingUtilities.invokeLater({
-            MainWindow.ui.refreshComponents(false)
-        })
+        if (ConnectionManager.netStatus == NetStatus.ONLINE && InstallationManager.isJenkinsBuilt(CompileTimeInfo.version)) {
+            val latestSetupBuild = ConnectionManager.getLatestSetupBuild()
+            if (latestSetupBuild > InstallationManager.getJenkinsBuildVer(CompileTimeInfo.version)) {
+                SetupUpdateDialog("There is a more recent version of the setup tool available. It is highly recommended" +
+                        " to update before making any further changes.")
+            }
+        }
+        UiManager.refreshComponents()
         return null
     }
 }

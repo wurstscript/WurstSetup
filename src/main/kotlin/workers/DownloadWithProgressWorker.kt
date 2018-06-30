@@ -17,7 +17,7 @@ class DownloadWithProgressWorker(private val filePath: String, private val progr
     @Throws(Exception::class)
     override fun doInBackground(): Boolean? {
         try {
-            progressBar.isIndeterminate = false
+            SwingUtilities.invokeLater { progressBar.isIndeterminate = false }
             val url = URL(filePath)
             val httpConnection = url.openConnection() as HttpURLConnection
             val completeFileSize = httpConnection.contentLength
@@ -52,7 +52,7 @@ class DownloadWithProgressWorker(private val filePath: String, private val progr
     }
 
     override fun done() {
-        progressBar.isIndeterminate = true
+        SwingUtilities.invokeLater { progressBar.isIndeterminate = true }
         finish.invoke(Paths.get(filePath.substring(filePath.lastIndexOf("/") + 1)))
     }
 }

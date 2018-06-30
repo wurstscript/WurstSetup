@@ -2,9 +2,6 @@ package file
 
 import global.InstallationManager
 import mu.KotlinLogging
-import net.ConnectionManager
-import net.NetStatus
-import ui.SetupUpdateDialog
 import ui.UiManager
 import ui.UpdateFoundDialog
 import java.nio.file.Files
@@ -26,14 +23,6 @@ object SetupApp {
             handleCMD()
         }
         startup()
-        if (ConnectionManager.netStatus == NetStatus.ONLINE && InstallationManager.isJenkinsBuilt(CompileTimeInfo.version)) {
-            log.info("setup update check")
-            val latestSetupBuild = ConnectionManager.getLatestSetupBuild()
-            if (latestSetupBuild > InstallationManager.getJenkinsBuildVer(CompileTimeInfo.version)) {
-                SetupUpdateDialog("There is a more recent version of the setup tool available. It is highly recommended" +
-                        " to update before making any further changes.")
-            }
-        }
     }
 
     private fun handleCMD() {
@@ -84,7 +73,7 @@ object SetupApp {
     private fun copyJar() {
         val url = InstallationManager::class.java.protectionDomain.codeSource.location
         val ownFile = Paths.get(url.toURI())
-        log.info("path: " + url)
+        log.info("path: $url")
         log.info("file: " + ownFile.toAbsolutePath())
         if (ownFile != null && Files.exists(ownFile) && ownFile.toString().endsWith(".jar") &&
                 (ownFile.parent == null || ownFile.parent.fileName.toString() != ".wurst")) {
