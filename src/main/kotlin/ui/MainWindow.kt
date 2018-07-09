@@ -416,11 +416,18 @@ object MainWindow : JFrame() {
                 if (InstallationManager.currentCompilerVersion > 0) InstallationManager.currentCompilerVersion.toString() else "(unofficial build)"
 
         private fun disableButtons() {
-            SwingUtilities.invokeLater {
+            if (SwingUtilities.isEventDispatchThread()) {
                 btnCreate.isEnabled = false
                 btnUpdate.isEnabled = false
                 importButton.isEnabled = false
+            } else {
+                SwingUtilities.invokeLater {
+                    btnCreate.isEnabled = false
+                    btnUpdate.isEnabled = false
+                    importButton.isEnabled = false
+                }
             }
+
         }
 
         private fun createButtonTable() {

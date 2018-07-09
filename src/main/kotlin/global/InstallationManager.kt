@@ -42,7 +42,11 @@ object InstallationManager {
         if (Files.exists(installDir) && Files.exists(compilerJar)) {
             status = InstallationStatus.INSTALLED_UNKNOWN
             try {
-                getVersionFomJar()
+                if (!Files.isWritable(compilerJar)) {
+                    showWurstInUse()
+                } else {
+                    getVersionFomJar()
+                }
             } catch (_: Error) {
                 log.warn("Installation is custom.")
             }
@@ -58,10 +62,6 @@ object InstallationManager {
 
     /** Gets the version of the wurstscript.jar via cli */
     fun getVersionFomJar() {
-        if (!Files.isWritable(compilerJar)) {
-            showWurstInUse()
-            return
-        }
         val proc = Runtime.getRuntime().exec("java -jar " + compilerJar.toAbsolutePath() + " --version")
         proc.waitFor(100, TimeUnit.MILLISECONDS)
         val input = proc.inputStream.bufferedReader().use { it.readText() }.trim()
@@ -72,17 +72,21 @@ object InstallationManager {
                 showWurstInUse()
             err.contains("Exception") -> status = InstallationStatus.INSTALLED_OUTDATED
             else -> {
-                val lines = input.split(System.getProperty("line.separator"))
-                lines.forEach { line ->
-                    if (isJenkinsBuilt(line)) {
-                        currentCompilerVersion = getJenkinsBuildVer(line)
-                        status = InstallationStatus.INSTALLED_OUTDATED
-                    }
-                }
-                if (status != InstallationStatus.INSTALLED_OUTDATED) {
-                    throw Error("Installation failed!")
-                }
+                parseCMDLine(input)
             }
+        }
+    }
+
+    private fun parseCMDLine(input: String) {
+        val lines = input.split(System.getProperty("line.separator"))
+        lines.forEach { line ->
+            if (isJenkinsBuilt(line)) {
+                currentCompilerVersion = getJenkinsBuildVer(line)
+                status = InstallationStatus.INSTALLED_OUTDATED
+            }
+        }
+        if (status != InstallationStatus.INSTALLED_OUTDATED) {
+            throw Error("Installation failed!")
         }
     }
 
