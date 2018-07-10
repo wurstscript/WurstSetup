@@ -220,6 +220,8 @@ object MainWindow : JFrame() {
             }
         }
 
+        private var projectRootFile: File = File(".")
+
         private fun createConfigTable() {
             val that = this
             val configTable = Table()
@@ -250,14 +252,14 @@ object MainWindow : JFrame() {
                         if (projectNameTF.text.isEmpty()) {
                             btnCreate.isEnabled = false
                         } else {
-                            projectRootTF.text = saveChooser.currentDirectory.absolutePath + File.separator + projectNameTF.text
+                            projectRootTF.text = projectRootFile?.absolutePath + File.separator + projectNameTF.text
                             btnCreate.isEnabled = true
                         }
                     }
                 }
             })
 
-            projectRootTF.text = saveChooser.currentDirectory.absolutePath + File.separator + projectNameTF.text
+            projectRootTF.text = projectRootFile.absolutePath + File.separator + projectNameTF.text
             projectInputTable.addCell(projectNameTF).growX()
             importButton.addMouseListener(object : MouseAdapter() {
                 override fun mouseClicked(arg0: MouseEvent?) {
@@ -284,6 +286,7 @@ object MainWindow : JFrame() {
             selectProjectRoot.addMouseListener(object : MouseAdapter() {
                 override fun mouseClicked(arg0: MouseEvent?) {
                     if (saveChooser.showSaveDialog(that) == JFileChooser.APPROVE_OPTION) {
+                        projectRootFile = saveChooser.selectedFile
                         projectRootTF.text = saveChooser.selectedFile.absolutePath + File.separator + projectNameTF.text
                     }
                 }
