@@ -33,7 +33,7 @@ dependencies {
     compile 'com.fasterxml.jackson.module:jackson-module-kotlin:2.9.4'
     compile 'com.fasterxml.jackson.dataformat:jackson-dataformat-yaml:2.9.4'
     compile group: 'args4j', name: 'args4j', version: '2.33'
-    compile 'com.github.Frotty:SwingDarkFlatTable:1f8cdaa493'
+    compile 'com.github.Frotty:SwingDarkFlatTable:a033300526'
     compile "org.jetbrains.kotlin:kotlin-stdlib-jdk8:$kotlin_version"
     compile 'io.github.microutils:kotlin-logging:1.5.4'
     compile group: 'org.slf4j', name: 'slf4j-api', version: '1.7.25'
