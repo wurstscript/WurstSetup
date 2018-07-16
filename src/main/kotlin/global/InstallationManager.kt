@@ -7,6 +7,7 @@ import net.NetStatus
 import ui.ErrorDialog
 import ui.MainWindow
 import ui.UiManager
+import workers.ExtractWorker
 import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.Paths
@@ -106,30 +107,30 @@ object InstallationManager {
             Download.downloadCompiler {
                 Log.print(" done.\n")
 
-                Log.print("Extracting compiler..")
-                SwingUtilities.invokeLater { MainWindow.ui.progressBar.isIndeterminate = true }
-                log.info("extract compiler")
-                val extractSuccess = file.ZipArchiveExtractor.extractArchive(it, installDir)
-                Files.delete(it)
-                if (extractSuccess) {
-                    Log.print("done\n")
-                    if (status == InstallationStatus.NOT_INSTALLED) {
-                        wurstConfig = WurstConfigData()
-                    }
-                    log.info("done")
-                    if (!Files.exists(compilerJar)) {
-                        Log.print("ERROR")
-                    } else {
-                        Log.print(if (isFreshInstall) "Installation complete\n" else "Update complete\n")
-                        InstallationManager.verifyInstallation()
-                    }
+                ExtractWorker(it, MainWindow.ui.progressBar) {
+                    if (it) {
+                        Log.print("done\n")
+                        if (status == InstallationStatus.NOT_INSTALLED) {
+                            wurstConfig = WurstConfigData()
+                        }
+                        log.info("done")
+                        if (!Files.exists(compilerJar)) {
+                            Log.print("ERROR")
+                        } else {
+                            Log.print(if (isFreshInstall) "Installation complete\n" else "Update complete\n")
+                            SwingUtilities.invokeLater { MainWindow.ui.progressBar.value = 0 }
+                            InstallationManager.verifyInstallation()
+                        }
 
-                } else {
-                    Log.print("error\n")
-                    log.error("error")
-                    ErrorDialog("Could not extract patch files.\nWurst might still be in use.\nMake sure to close VSCode before updating.", false)
-                }
-                UiManager.refreshComponents()
+                    } else {
+                        Log.print("error\n")
+                        log.error("error")
+                        ErrorDialog("Could not extract patch files.\nWurst might still be in use.\nMake sure to close VSCode before updating.", false)
+                    }
+                    UiManager.refreshComponents()
+                }.execute()
+
+
             }
         } catch (e: Exception) {
             log.error("exception: ", e)
