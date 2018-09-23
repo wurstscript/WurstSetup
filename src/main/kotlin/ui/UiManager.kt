@@ -12,7 +12,10 @@ object UiManager {
         SwingUtilities.invokeLater {
             MainWindow.init()
             try {
-                MainWindow.iconImage = ImageIO.read(UIManager::class.java.getResourceAsStream("/icon.png"))
+                val img = javaClass.getResourceAsStream("/icon.png")
+                if (img != null) {
+                    MainWindow.iconImage = ImageIO.read(img)
+                }
             } catch (e: IOException) {
                 e.printStackTrace()
             }
