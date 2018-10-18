@@ -4,7 +4,6 @@ import file.SetupApp
 import java.io.IOException
 import javax.imageio.ImageIO
 import javax.swing.SwingUtilities
-import javax.swing.UIManager
 
 object UiManager {
 
@@ -12,7 +11,7 @@ object UiManager {
         SwingUtilities.invokeLater {
             MainWindow.init()
             try {
-                MainWindow.iconImage = ImageIO.read(UIManager::class.java.getResourceAsStream("/icon.png"))
+                MainWindow.iconImage = ImageIO.read(javaClass.classLoader.getResource("icon.png"))
             } catch (e: IOException) {
                 e.printStackTrace()
             }

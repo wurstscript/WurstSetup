@@ -1,5 +1,7 @@
 package file
 
+import config.WurstProjectConfig
+import config.WurstProjectConfigData
 import global.InstallationManager
 import mu.KotlinLogging
 import ui.UiManager
@@ -58,14 +60,6 @@ object SetupApp {
 
     private fun startup() {
         log.info("startup setup version: <{}>", CompileTimeInfo.version)
-//        val conStatus = ConnectionManager.checkConnectivity()
-//        log.info("ConnectionStatus: $conStatus")
-//        when (conStatus) {
-//            NetStatus.CLIENT_OFFLINE -> Log.print("Client offline. All update functionality disabled.")
-//            NetStatus.SERVER_OFFLINE -> Log.print("Server offline. All update functionality disabled.")
-//            NetStatus.ONLINE -> Log.println("Server online!")
-//        }
-
         InstallationManager.verifyInstallation()
         copyJar()
     }

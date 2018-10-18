@@ -1,9 +1,9 @@
 package ui
 
+import config.WurstProjectConfig
+import config.WurstProjectConfigData
 import file.CompileTimeInfo
 import file.SetupApp
-import file.WurstProjectConfig
-import file.WurstProjectConfigData
 import global.InstallationManager
 import global.Log
 import global.WinRegistry
@@ -39,12 +39,12 @@ import javax.swing.text.DefaultCaret
 
 object MainWindow : JFrame() {
     private val log = KotlinLogging.logger {}
-    private val exitIcon by lazy { ImageIcon(ImageIO.read(MainWindow::class.java.getResourceAsStream("/exitup.png"))) }
-    private val minIcon by lazy { ImageIcon(ImageIO.read(MainWindow::class.java.getResourceAsStream("/minimizeup.png"))) }
-    private val exitIconDown by lazy { ImageIcon(ImageIO.read(MainWindow::class.java.getResourceAsStream("/exitdown.png"))) }
-    private val minIconDown by lazy { ImageIcon(ImageIO.read(MainWindow::class.java.getResourceAsStream("/minimizedown.png"))) }
-    private val exitIconHover by lazy { ImageIcon(ImageIO.read(MainWindow::class.java.getResourceAsStream("/exithover.png"))) }
-    private val minIconHover by lazy { ImageIcon(ImageIO.read(MainWindow::class.java.getResourceAsStream("/minimizehover.png"))) }
+    private val exitIcon by lazy { ImageIcon(ImageIO.read(javaClass.classLoader.getResource("exitup.png"))) }
+    private val minIcon by lazy { ImageIcon(ImageIO.read(javaClass.classLoader.getResource("minimizeup.png"))) }
+    private val exitIconDown by lazy { ImageIcon(ImageIO.read(javaClass.classLoader.getResource("exitdown.png"))) }
+    private val minIconDown by lazy { ImageIcon(ImageIO.read(javaClass.classLoader.getResource("minimizedown.png"))) }
+    private val exitIconHover by lazy { ImageIcon(ImageIO.read(javaClass.classLoader.getResource("exithover.png"))) }
+    private val minIconHover by lazy { ImageIcon(ImageIO.read(javaClass.classLoader.getResource("minimizehover.png"))) }
 
     val ui by lazy { UI() }
 

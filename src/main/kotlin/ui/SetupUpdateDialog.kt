@@ -1,5 +1,7 @@
 package ui
 
+import file.Download
+import global.InstallationManager
 import tablelayout.Table
 import java.awt.Color
 import java.awt.Component
@@ -9,6 +11,8 @@ import java.io.IOException
 import java.net.URI
 import java.net.URISyntaxException
 import java.net.URL
+import java.nio.file.Files
+import java.nio.file.Paths
 import javax.imageio.ImageIO
 import javax.swing.JDialog
 import javax.swing.JLabel
@@ -21,7 +25,7 @@ class SetupUpdateDialog(message: String) : JDialog() {
     private val contentTable = Table()
 
     private val buttonVisit = SetupButton("Open Website")
-    private val buttonSnooze = SetupButton("Later")
+    private val buttonSnooze = SetupButton("Download Now")
     private val buttonDeny = SetupButton("Close")
 
     init {
@@ -33,7 +37,7 @@ class SetupUpdateDialog(message: String) : JDialog() {
         contentPane.add(contentTable)
         modalityType = ModalityType.APPLICATION_MODAL
         try {
-            setIconImage(ImageIO.read(SetupUpdateDialog::class.java.getResourceAsStream("/icon.png")))
+            setIconImage(ImageIO.read(javaClass.classLoader.getResource("icon.png")))
         } catch (e: IOException) {
             e.printStackTrace()
         }
@@ -47,9 +51,17 @@ class SetupUpdateDialog(message: String) : JDialog() {
             UiManager.initUI()
         }
 
-        buttonSnooze.addActionListener {
-            dispose()
-            UiManager.initUI()
+        buttonSnooze.addActionListener { _ ->
+            val url = InstallationManager::class.java.protectionDomain.codeSource.location
+            val ownFile = Paths.get(url.toURI())
+            if (ownFile != null && Files.exists(ownFile) && ownFile.toString().endsWith(".jar")) {
+                Files.move(ownFile, ownFile.resolveSibling(ownFile.fileName.toString() + "_old"))
+            }
+            Download.downloadSetup {
+                Files.move(it, ownFile)
+                Runtime.getRuntime().exec("java -jar " + ownFile.fileName.toAbsolutePath())
+                dispose()
+            }
         }
 
         buttonVisit.addActionListener {

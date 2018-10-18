@@ -29,7 +29,7 @@ class AddRepoDialog : JDialog() {
         contentPane.add(contentTable)
         modalityType = ModalityType.APPLICATION_MODAL
         try {
-            setIconImage(ImageIO.read(AddRepoDialog::class.java.getResourceAsStream("/icon.png")))
+            setIconImage(ImageIO.read(javaClass.classLoader.getResource("icon.png")))
         } catch (e: IOException) {
             e.printStackTrace()
         }

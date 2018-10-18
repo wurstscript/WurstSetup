@@ -30,6 +30,17 @@ object Download {
     }
 
     @Throws(IOException::class)
+    fun downloadSetup(callback: (Path) -> Unit) {
+        try {
+            downloadFile("https://grill.wurstlang.org/hudson/job/WurstSetup/lastSuccessfulBuild/artifact/downloads/WurstSetup.jar", callback)
+        } catch (e: Exception) {
+            log.warn( "downloadCompiler Exception caught", e)
+            Log.println("Https error, falling back to unsafe http.")
+            downloadFile("http://grill.wurstlang.org/hudson/job/WurstSetup/lastSuccessfulBuild/artifact/downloads/WurstSetup.jar", callback)
+        }
+    }
+
+    @Throws(IOException::class)
     fun downloadCompiler(callback: (Path) -> Unit) {
         try {
             downloadFile("https://$baseUrl$compileName", callback)

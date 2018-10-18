@@ -1,5 +1,9 @@
-package file
+package config
 
+import file.DependencyManager
+import file.Download
+import file.YamlHelper
+import file.ZipArchiveExtractor
 import global.InstallationManager
 import global.Log
 import mu.KotlinLogging
@@ -8,29 +12,14 @@ import java.io.IOException
 import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.StandardOpenOption
-import java.util.*
 import javax.swing.JOptionPane
-import kotlin.collections.ArrayList
 
 
 /**
  * Created by Frotty on 10.07.2017.
  */
 
-data class WurstProjectConfigData(var projectName: String = "DefaultName",
-                                  val dependencies: ArrayList<String> = ArrayList(Arrays.asList("https://github.com/wurstscript/wurstStdlib2")),
-                                  val buildMapData: WurstProjectBuildMapData = WurstProjectBuildMapData())
 
-data class WurstProjectBuildMapData(val name: String = "DefaultName",
-                                    val fileName: String = "DefaultFileName",
-                                    val author: String = "DefaultAuthor",
-                                    val playerCount: Int = 1)
-
-data class WurstProjectBuildScenarioData(val description: String = "DefaultDescription",
-                                    val suggestedPlayers: String = "DefaultSuggestedPlayers",
-                                    val loadingScreenTitle: String = "DefaultTitle",
-                                    val loadingScreenSubTitle: String = "DefaultSubTitle",
-                                    val loadingScreenText: String = "DefaultText")
 
 object WurstProjectConfig {
     private val log = KotlinLogging.logger {}
@@ -53,7 +42,7 @@ object WurstProjectConfig {
             val projectRoot = buildFile.parent
             if (config.projectName.isEmpty()) {
                 config.projectName = projectRoot?.fileName.toString()
-                saveProjectConfig(projectRoot, config)
+                WurstProjectConfig.saveProjectConfig(projectRoot, config)
             }
             Log.print("done\n")
             return config
@@ -166,8 +155,8 @@ object WurstProjectConfig {
     fun handleUpdate(projectRoot: Path, gamePath: Path?, config: WurstProjectConfigData) {
         Log.print("Updating project...\n")
         try {
-            setupVSCode(projectRoot, gamePath)
-            saveProjectConfig(projectRoot, config)
+            WurstProjectConfig.setupVSCode(projectRoot, gamePath)
+            WurstProjectConfig.saveProjectConfig(projectRoot, config)
             DependencyManager.updateDependencies(projectRoot, config)
 
             Log.print("Project successfully updated!\nReload vscode to apply the changed dependencies.\n")

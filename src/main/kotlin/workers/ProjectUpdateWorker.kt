@@ -1,15 +1,14 @@
 package workers
 
-import file.WurstProjectConfig
-import file.WurstProjectConfigData
+import config.WurstProjectConfigData
 import java.nio.file.Path
 import javax.swing.SwingWorker
 
-class ProjectUpdateWorker(val projectRoot: Path, val gamePath: Path, private val config: WurstProjectConfigData) : SwingWorker<Boolean, Void>() {
+class ProjectUpdateWorker(val projectRoot: Path, val gamePath: Path, private val configData: WurstProjectConfigData) : SwingWorker<Boolean, Void>() {
 
     @Throws(Exception::class)
     override fun doInBackground(): Boolean? {
-        WurstProjectConfig.handleUpdate(projectRoot, gamePath, config)
+        config.WurstProjectConfig.handleUpdate(projectRoot, gamePath, configData)
         return null
     }
 }

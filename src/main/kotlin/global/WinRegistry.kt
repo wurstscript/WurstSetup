@@ -17,13 +17,6 @@ object WinRegistry {
     private val regOpenKey: Method
     private val regCloseKey: Method
     private val regQueryValueEx: Method
-    private val regEnumValue: Method
-    private val regQueryInfoKey: Method
-    private val regEnumKeyEx: Method
-    private val regCreateKeyEx: Method
-    private val regSetValueEx: Method
-    private val regDeleteKey: Method
-    private val regDeleteValue: Method
 
     init {
         try {
@@ -33,20 +26,6 @@ object WinRegistry {
             regCloseKey.isAccessible = true
             regQueryValueEx = userClass.getDeclaredMethod("WindowsRegQueryValueEx", Int::class.javaPrimitiveType, ByteArray::class.java)
             regQueryValueEx.isAccessible = true
-            regEnumValue = userClass.getDeclaredMethod("WindowsRegEnumValue", Int::class.javaPrimitiveType, Int::class.javaPrimitiveType, Int::class.javaPrimitiveType)
-            regEnumValue.isAccessible = true
-            regQueryInfoKey = userClass.getDeclaredMethod("WindowsRegQueryInfoKey1", Int::class.javaPrimitiveType)
-            regQueryInfoKey.isAccessible = true
-            regEnumKeyEx = userClass.getDeclaredMethod("WindowsRegEnumKeyEx", Int::class.javaPrimitiveType, Int::class.javaPrimitiveType, Int::class.javaPrimitiveType)
-            regEnumKeyEx.isAccessible = true
-            regCreateKeyEx = userClass.getDeclaredMethod("WindowsRegCreateKeyEx", Int::class.javaPrimitiveType, ByteArray::class.java)
-            regCreateKeyEx.isAccessible = true
-            regSetValueEx = userClass.getDeclaredMethod("WindowsRegSetValueEx", Int::class.javaPrimitiveType, ByteArray::class.java, ByteArray::class.java)
-            regSetValueEx.isAccessible = true
-            regDeleteValue = userClass.getDeclaredMethod("WindowsRegDeleteValue", Int::class.javaPrimitiveType, ByteArray::class.java)
-            regDeleteValue.isAccessible = true
-            regDeleteKey = userClass.getDeclaredMethod("WindowsRegDeleteKey", Int::class.javaPrimitiveType, ByteArray::class.java)
-            regDeleteKey.isAccessible = true
         } catch (e: Exception) {
             throw RuntimeException(e)
         }
