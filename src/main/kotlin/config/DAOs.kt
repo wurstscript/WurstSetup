@@ -25,6 +25,7 @@ data class WurstProjectBuildJob(val name: String = "DefaultJobName",
 
 data class WurstProjectBuildScenarioData(val description: String = "DefaultDescription",
                                          val suggestedPlayers: String = "DefaultSuggestedPlayers",
+                                         val loadingScreenModel: String = "Generic.mdx",
                                          val loadingScreenTitle: String = "DefaultTitle",
                                          val loadingScreenSubTitle: String = "DefaultSubTitle",
                                          val loadingScreenText: String = "DefaultText")
@@ -38,7 +39,8 @@ data class WurstProjectBuildOptionFlagsData(val hideMinimapPreview: Boolean = fa
 
 data class WurstProjectBuildForce(val name: String = "DefaultForce",
                                   val flags: WurstProjectBuildForceFlags = WurstProjectBuildForceFlags(),
-                                  val playerIds: Array<Int> = arrayOf(0)) {
+                                  val playerIds: IntArray = intArrayOf(0)) {
+
     override fun equals(other: Any?): Boolean {
         if (this === other) return true
         if (javaClass != other?.javaClass) return false

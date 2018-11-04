@@ -351,7 +351,6 @@ object MainWindow : JFrame() {
 
             contentTable.addCell(configTable).growX().pad(2f)
         }
-
         private fun handleImport() {
             try {
                 val buildFile = importChooser.selectedFile.toPath()
