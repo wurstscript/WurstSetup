@@ -119,7 +119,9 @@ object InstallationManager {
                             Log.print("ERROR")
                         } else {
                             Log.print(if (isFreshInstall) "Installation complete\n" else "Update complete\n")
-                            SwingUtilities.invokeLater { MainWindow.ui.progressBar.value = 0 }
+                            if (SetupApp.setup.silent) {
+                                SwingUtilities.invokeLater { MainWindow.ui.progressBar.value = 0 }
+                            }
                             InstallationManager.verifyInstallation()
                         }
 
@@ -166,7 +168,7 @@ object InstallationManager {
 
     private fun clearFolder(dir: Path) {
         Files.walk(dir)
-                .forEach({
+                .forEach {
                     if (it != dir) {
                         if (Files.isDirectory(it)) {
                             clearFolder(it)
@@ -177,7 +179,7 @@ object InstallationManager {
                             }
                         }
                     }
-                })
+                }
     }
 
     enum class InstallationStatus {
