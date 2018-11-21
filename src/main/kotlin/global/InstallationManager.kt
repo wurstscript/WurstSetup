@@ -119,7 +119,7 @@ object InstallationManager {
                             Log.print("ERROR")
                         } else {
                             Log.print(if (isFreshInstall) "Installation complete\n" else "Update complete\n")
-                            if (SetupApp.setup.silent) {
+                            if (! SetupApp.setup.silent) {
                                 SwingUtilities.invokeLater { MainWindow.ui.progressBar.value = 0 }
                             }
                             InstallationManager.verifyInstallation()
