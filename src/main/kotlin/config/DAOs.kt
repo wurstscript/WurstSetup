@@ -5,6 +5,11 @@ import kotlin.collections.ArrayList
 
 data class WurstProjectConfigData(var projectName: String = "DefaultName",
                                   val dependencies: ArrayList<String> = ArrayList(Arrays.asList("https://github.com/wurstscript/wurstStdlib2")),
+                                  val jobs: ArrayList<WurstProjectBuildJob> =
+                                      ArrayList(Arrays.asList(WurstProjectBuildJob("run",
+                                          ArrayList(Arrays.asList("runcompiletimefunctions", "injectobjects", "stacktraces"))),
+                                      WurstProjectBuildJob("build",
+                                        ArrayList(Arrays.asList("runcompiletimefunctions", "injectobjects", "stacktraces", "opt", "inline", "localOptimizations"))))),
                                   val buildMapData: WurstProjectBuildMapData = WurstProjectBuildMapData())
 
 data class WurstProjectBuildMapData(val name: String = "JustAnotherWurstMap",
@@ -15,10 +20,8 @@ data class WurstProjectBuildMapData(val name: String = "JustAnotherWurstMap",
                                     val players: ArrayList<WurstProjectBuildPlayer> = ArrayList(Arrays.asList(WurstProjectBuildPlayer())),
                                     val forces: ArrayList<WurstProjectBuildForce> = ArrayList(Arrays.asList(WurstProjectBuildForce())))
 
-data class WurstProjectBuildJobData(val jobs: ArrayList<WurstProjectBuildJob> = ArrayList(Arrays.asList()))
-
 data class WurstProjectBuildJob(val name: String = "DefaultJobName",
-                                val args: ArrayList<WurstProjectBuildJob> = ArrayList(Arrays.asList()))
+                                val args: ArrayList<String> = ArrayList(Arrays.asList()))
 
 data class WurstProjectBuildScenarioData(val description: String = "WurstScript powered!",
                                          val suggestedPlayers: String = "DefaultSuggestedPlayers",
