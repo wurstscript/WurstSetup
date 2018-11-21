@@ -11,9 +11,7 @@ data class WurstProjectBuildMapData(val name: String = "JustAnotherWurstMap",
                                     val fileName: String = "MyWurstMap",
                                     val author: String = "SomeWurstUser",
                                     val playerCount: Int = 1,
-                                    val mapBoundsX: Int = 64,
-                                    val mapBoundsY: Int = 64,
-                                    val scenarioData: WurstProjectBuildScenarioData = WurstProjectBuildScenarioData(),
+                                    val scenarioData: WurstProjectBuildScenarioData = WurstProjectBuildScenarioData(loadingScreen=null),
                                     val optionsFlags: WurstProjectBuildOptionFlagsData = WurstProjectBuildOptionFlagsData(),
                                     val players: ArrayList<WurstProjectBuildPlayer> = ArrayList(Arrays.asList(WurstProjectBuildPlayer())),
                                     val forces: ArrayList<WurstProjectBuildForce> = ArrayList(Arrays.asList(WurstProjectBuildForce())))
@@ -23,12 +21,14 @@ data class WurstProjectBuildJobData(val jobs: ArrayList<WurstProjectBuildJob> = 
 data class WurstProjectBuildJob(val name: String = "DefaultJobName",
                                 val args: ArrayList<WurstProjectBuildJob> = ArrayList(Arrays.asList()))
 
-data class WurstProjectBuildScenarioData(val description: String = "DefaultDescription",
+data class WurstProjectBuildScenarioData(val description: String = "WurstScript powered!",
                                          val suggestedPlayers: String = "DefaultSuggestedPlayers",
-                                         val loadingScreenModel: String = "Generic.mdx",
-                                         val loadingScreenTitle: String = "DefaultTitle",
-                                         val loadingScreenSubTitle: String = "DefaultSubTitle",
-                                         val loadingScreenText: String = "DefaultText")
+                                         var loadingScreen: WurstProjectBuildLoadingScreenData?)
+
+data class WurstProjectBuildLoadingScreenData(val loadingScreenModel: String = "Generic.mdx",
+                                              val loadingScreenTitle: String = "DefaultTitle",
+                                              val loadingScreenSubTitle: String = "DefaultSubTitle",
+                                              val loadingScreenText: String = "DefaultText")
 
 data class WurstProjectBuildOptionFlagsData(val hideMinimapPreview: Boolean = false,
                                             val maskedAreasPartiallyVisible: Boolean = true,
