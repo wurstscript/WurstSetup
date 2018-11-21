@@ -1,6 +1,7 @@
 package global
 
 import file.Download
+import file.SetupApp
 import mu.KotlinLogging
 import net.ConnectionManager
 import net.NetStatus
@@ -107,7 +108,7 @@ object InstallationManager {
             Download.downloadCompiler {
                 Log.print(" done.\n")
 
-                ExtractWorker(it, MainWindow.ui.progressBar) {
+                ExtractWorker(it, if (SetupApp.setup.silent) null else MainWindow.ui.progressBar) {
                     if (it) {
                         Log.print("done\n")
                         if (status == InstallationStatus.NOT_INSTALLED) {
