@@ -1,7 +1,6 @@
 package ui
 
 import file.Download
-import global.InstallationManager
 import tablelayout.Table
 import java.awt.Color
 import java.awt.Component
@@ -11,8 +10,6 @@ import java.io.IOException
 import java.net.URI
 import java.net.URISyntaxException
 import java.net.URL
-import java.nio.file.Files
-import java.nio.file.Paths
 import javax.imageio.ImageIO
 import javax.swing.JDialog
 import javax.swing.JLabel
@@ -48,19 +45,13 @@ class SetupUpdateDialog(message: String) : JDialog() {
 
         buttonDeny.addActionListener {
             dispose()
-            UiManager.initUI()
         }
 
-        buttonSnooze.addActionListener { _ ->
-            val url = InstallationManager::class.java.protectionDomain.codeSource.location
-            val ownFile = Paths.get(url.toURI())
-            if (ownFile != null && Files.exists(ownFile) && ownFile.toString().endsWith(".jar")) {
-                Files.move(ownFile, ownFile.resolveSibling(ownFile.fileName.toString() + "_old"))
-            }
-            Download.downloadSetup {
-                Files.move(it, ownFile)
-                Runtime.getRuntime().exec("java -jar " + ownFile.fileName.toAbsolutePath())
+        buttonSnooze.addActionListener {
+          Download.downloadSetup {
+                Runtime.getRuntime().exec("java -jar " + it.fileName.toAbsolutePath())
                 dispose()
+                System.exit(0)
             }
         }
 

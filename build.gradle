@@ -36,6 +36,7 @@ dependencies {
     compile 'com.github.Frotty:SwingDarkFlatTable:a033300526'
     compile "org.jetbrains.kotlin:kotlin-stdlib-jdk8:$kotlin_version"
     compile 'io.github.microutils:kotlin-logging:1.5.4'
+    compile 'com.github.Frotty:SimpleRegistry:f96dda96bd'
     compile group: 'org.slf4j', name: 'slf4j-api', version: '1.7.25'
     compile group: 'ch.qos.logback', name: 'logback-classic', version: '1.2.3'
     testCompile 'org.testng:testng:6.1.1'
@@ -154,7 +155,7 @@ copy_jar.dependsOn(proguardDist)
 mainClassName = "file.SetupMain"
 
 task wrapper(type: Wrapper) {
-    gradleVersion = '2.12'
+    gradleVersion = '4.8'
 }
 compileKotlin {
     kotlinOptions {

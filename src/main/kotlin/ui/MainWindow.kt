@@ -2,11 +2,11 @@ package ui
 
 import config.WurstProjectConfig
 import config.WurstProjectConfigData
+import de.ralleytn.simple.registry.Registry
 import file.CompileTimeInfo
 import file.SetupApp
 import global.InstallationManager
 import global.Log
-import global.WinRegistry
 import mu.KotlinLogging
 import net.ConnectionManager
 import net.NetStatus
@@ -62,7 +62,9 @@ object MainWindow : JFrame() {
         setSize(570, 355)
         background = Color(36, 36, 36)
         centerWindow()
-        isUndecorated = true
+        if(!isDisplayable) {
+          isUndecorated = true
+        }
         defaultCloseOperation = WindowConstants.EXIT_ON_CLOSE
         isResizable = false
         ui.initComponents()
@@ -312,7 +314,8 @@ object MainWindow : JFrame() {
             })
             if (System.getProperty("os.name").startsWith("Windows")) {
                 try {
-                    var wc3Path = WinRegistry.readString(WinRegistry.HKEY_CURRENT_USER, "SOFTWARE\\Blizzard Entertainment\\Warcraft III", "InstallPath")
+                    val key = Registry.getKey(Registry.HKEY_CURRENT_USER + "\\SOFTWARE\\Blizzard Entertainment\\Warcraft III")
+                    var wc3Path = key.getValueByName("InstallPath").rawValue
                     if (wc3Path != null) {
                         if (!wc3Path.endsWith(File.separator)) wc3Path += File.separator
                         val gameFolder = File(wc3Path)
@@ -417,7 +420,7 @@ object MainWindow : JFrame() {
         private fun getVersionString() =
                 if (InstallationManager.currentCompilerVersion > 0) InstallationManager.currentCompilerVersion.toString() else "(unofficial build)"
 
-        private fun disableButtons() {
+        fun disableButtons() {
             if (SwingUtilities.isEventDispatchThread()) {
                 btnCreate.isEnabled = false
                 btnUpdate.isEnabled = false

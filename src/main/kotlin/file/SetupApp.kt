@@ -67,6 +67,10 @@ object SetupApp {
     private fun copyJar() {
         val url = InstallationManager::class.java.protectionDomain.codeSource.location
         val ownFile = Paths.get(url.toURI())
+        if (ownFile.endsWith(".2.jar")) {
+            log.info("copy jar from own")
+            Files.copy(ownFile, ownFile.resolveSibling("WurstSetup.jar"), StandardCopyOption.REPLACE_EXISTING)
+        }
         log.info("path: $url")
         log.info("file: " + ownFile.toAbsolutePath())
         if (ownFile != null && Files.exists(ownFile) && ownFile.toString().endsWith(".jar") &&
