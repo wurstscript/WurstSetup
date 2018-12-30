@@ -101,6 +101,7 @@ object MainWindow : JFrame() {
         var btnCreate: SetupButton = SetupButton("Create Project")
         var btnUpdate: SetupButton = SetupButton("Install WurstScript")
         var importButton: SetupButton = SetupButton("Import")
+        var btnAdvanced: SetupButton = SetupButton("Advanced")
         var jTextArea = JTextArea("Ready version: " + CompileTimeInfo.version + "\n")
         var projectNameTF: JTextField = JTextField("MyWurstProject")
         var projectRootTF: JTextField = JTextField("projectRoot")
@@ -255,7 +256,9 @@ object MainWindow : JFrame() {
                             btnCreate.isEnabled = false
                         } else {
                             projectRootTF.text = projectRootFile?.absolutePath + File.separator + projectNameTF.text
-                            btnCreate.isEnabled = true
+                            if (!disabled) {
+                              btnCreate.isEnabled = true
+                            }
                         }
                     }
                 }
@@ -340,15 +343,14 @@ object MainWindow : JFrame() {
             val dependencyTable = Table()
             dependencyTF.isEditable = false
             dependencyTable.addCell(dependencyTF).height(24f).growX()
-            val manageDependencies = SetupButton("Advanced")
-            manageDependencies.addMouseListener(object : MouseAdapter() {
+            btnAdvanced.addMouseListener(object : MouseAdapter() {
                 override fun mouseClicked(arg0: MouseEvent?) {
                     log.info("Adding dependency")
                     AddRepoDialog()
                 }
             })
 
-            dependencyTable.addCell(manageDependencies).height(24f).pad(0f, 2f, 0f, 2f)
+            dependencyTable.addCell(btnAdvanced).height(24f).pad(0f, 2f, 0f, 2f)
 
             configTable.addCell(dependencyTable).growX()
 
@@ -376,7 +378,9 @@ object MainWindow : JFrame() {
             if (!inited) return
             SwingUtilities.invokeLater {
                 progressBar.isIndeterminate = false
-                importButton.isEnabled = true
+                if (!disabled) {
+                  importButton.isEnabled = true
+                }
                 when (ConnectionManager.netStatus) {
                     NetStatus.CLIENT_OFFLINE, NetStatus.SERVER_OFFLINE -> {
                         lblLatestVerNumber.text = "(loading..)"
@@ -387,7 +391,9 @@ object MainWindow : JFrame() {
                     NetStatus.ONLINE -> {
                         lblLatestVerNumber.text = InstallationManager.latestCompilerVersion.toString()
                         lblLatestVerNumber.foreground = Color.decode("#005719")
-                        btnUpdate.isEnabled = true
+                        if (!disabled) {
+                            btnUpdate.isEnabled = true
+                        }
                     }
                     NetStatus.SERVER_CONTACT -> {
                         lblLatestVerNumber.text = "Loading.."
@@ -403,14 +409,18 @@ object MainWindow : JFrame() {
                     InstallationManager.InstallationStatus.INSTALLED_UPTODATE -> {
                         lblCurVerNumber.text = getVersionString()
                         lblCurVerNumber.foreground = Color.decode("#005719")
-                        btnCreate.isEnabled = true
+                        if (!disabled) {
+                          btnCreate.isEnabled = true
+                        }
                         btnUpdate.text = "Compiler up to date"
                         btnUpdate.isEnabled = false
                     }
                     InstallationManager.InstallationStatus.INSTALLED_UNKNOWN, InstallationManager.InstallationStatus.INSTALLED_OUTDATED -> {
                         lblCurVerNumber.text = getVersionString()
                         lblCurVerNumber.foreground = Color.decode("#702D2D")
-                        btnCreate.isEnabled = true
+                        if (!disabled) {
+                          btnCreate.isEnabled = true
+                        }
                         btnUpdate.text = "Update WurstScript"
                     }
                 }
@@ -420,20 +430,29 @@ object MainWindow : JFrame() {
         private fun getVersionString() =
                 if (InstallationManager.currentCompilerVersion > 0) InstallationManager.currentCompilerVersion.toString() else "(unofficial build)"
 
+        private var disabled = false
+
+        fun enableButtons() {
+            disabled = false
+        }
+
         fun disableButtons() {
+            disabled = true
             if (SwingUtilities.isEventDispatchThread()) {
                 btnCreate.isEnabled = false
                 btnUpdate.isEnabled = false
                 importButton.isEnabled = false
+                btnAdvanced.isEnabled = false
             } else {
                 SwingUtilities.invokeLater {
                     btnCreate.isEnabled = false
                     btnUpdate.isEnabled = false
                     importButton.isEnabled = false
+                    btnAdvanced.isEnabled = false
                 }
             }
 
-        }
+          }
 
         private fun createButtonTable() {
             val buttonTable = Table()

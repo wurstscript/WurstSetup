@@ -7,6 +7,7 @@ import file.ZipArchiveExtractor
 import global.InstallationManager
 import global.Log
 import mu.KotlinLogging
+import ui.MainWindow
 import ui.UiManager
 import java.io.IOException
 import java.nio.file.Files
@@ -160,6 +161,7 @@ object WurstProjectConfig {
             DependencyManager.updateDependencies(projectRoot, config)
 
             Log.print("Project successfully updated!\nReload vscode to apply the changed dependencies.\n")
+            MainWindow.ui.enableButtons()
             UiManager.refreshComponents()
         } catch (e: Exception) {
             e.printStackTrace()

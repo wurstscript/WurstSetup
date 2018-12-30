@@ -1,6 +1,7 @@
 package ui
 
 import file.Download
+import global.Log
 import tablelayout.Table
 import java.awt.Color
 import java.awt.Component
@@ -22,8 +23,8 @@ class SetupUpdateDialog(message: String) : JDialog() {
     private val contentTable = Table()
 
     private val buttonVisit = SetupButton("Open Website")
-    private val buttonSnooze = SetupButton("Download Now")
-    private val buttonDeny = SetupButton("Close")
+    private val buttonNow = SetupButton("Download Now")
+    private val buttonDeny = SetupButton("Continue")
 
     init {
         title = "Notification"
@@ -47,12 +48,14 @@ class SetupUpdateDialog(message: String) : JDialog() {
             dispose()
         }
 
-        buttonSnooze.addActionListener {
-          Download.downloadSetup {
+        buttonNow.addActionListener {
+            Log.print("Updating setup..")
+            MainWindow.ui.disableButtons()
+            Download.downloadSetup {
                 Runtime.getRuntime().exec("java -jar " + it.fileName.toAbsolutePath())
-                dispose()
                 System.exit(0)
             }
+            dispose()
         }
 
         buttonVisit.addActionListener {
@@ -76,7 +79,7 @@ class SetupUpdateDialog(message: String) : JDialog() {
 
         val buttonTable = Table()
         buttonTable.addCell(buttonVisit).pad(0f, 6f, 0f, 6f)
-        buttonTable.addCell(buttonSnooze).pad(0f, 6f, 0f, 6f)
+        buttonTable.addCell(buttonNow).pad(0f, 6f, 0f, 6f)
         buttonTable.addCell(buttonDeny).pad(0f, 6f, 0f, 6f)
 
         contentTable.addCell(buttonTable).growX().padTop(6f)
