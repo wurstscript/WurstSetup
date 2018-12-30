@@ -21,6 +21,7 @@ object UiManager {
     fun refreshComponents() {
         if (!SetupApp.setup.silent) {
             MainWindow.ui.refreshComponents()
+            MainWindow.ui.enableButtons()
         }
     }
 

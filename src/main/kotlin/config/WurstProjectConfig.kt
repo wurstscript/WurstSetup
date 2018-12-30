@@ -161,7 +161,6 @@ object WurstProjectConfig {
             DependencyManager.updateDependencies(projectRoot, config)
 
             Log.print("Project successfully updated!\nReload vscode to apply the changed dependencies.\n")
-            MainWindow.ui.enableButtons()
             UiManager.refreshComponents()
         } catch (e: Exception) {
             e.printStackTrace()
