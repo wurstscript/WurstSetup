@@ -69,6 +69,7 @@ object InstallationManager {
         val input = proc.inputStream.bufferedReader().use { it.readText() }.trim()
         val err = proc.errorStream.bufferedReader().use { it.readText() }
 
+		log.error(err)
         when {
             err.contains("AccessDeniedException", true) -> // If the err output contains this exception, the .jar is currently running
                 showWurstInUse()

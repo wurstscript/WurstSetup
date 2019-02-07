@@ -70,7 +70,7 @@ object Download {
 		httpConnection.addRequestProperty("User-Agent", "Mozilla/4.76")
 		val completeFileSize = httpConnection.contentLength
 		val size = completeFileSize / 1024 / 1024
-		Log.print("(" + (if (size == 0) "<1" else size) + "MB)")
+		log.info("(" + (if (size == 0) "<1" else size) + "MB)")
 		val input = java.io.BufferedInputStream(httpConnection.inputStream)
 		var substring = filePath.substring(filePath.lastIndexOf("/") + 1)
 		if (Files.exists(Paths.get(substring))) {
