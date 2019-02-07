@@ -28,12 +28,12 @@ object SetupApp {
     }
 
     private fun handleCMD() {
-        if (setup.removeInstallation) {
+        if (setup.remove) {
             log.info("remove installation")
             if (setup.force) {
                 InstallationManager.handleRemove()
             }
-        } else if (setup.updateInstall) {
+        } else if (setup.update) {
             if (InstallationManager.status == InstallationManager.InstallationStatus.INSTALLED_OUTDATED
                     || InstallationManager.status == InstallationManager.InstallationStatus.NOT_INSTALLED) {
                 log.info("compiler update found")
@@ -43,18 +43,16 @@ object SetupApp {
                     UpdateFoundDialog("A Wurst compiler update has been found!")
                 }
             }
-        } else if (setup.createProject) {
+        } else if (setup.generate) {
             log.info("is create project")
             if (setup.projectDir != null) {
                 log.info("project dir exists")
                 WurstProjectConfig.handleCreate(setup.projectDir!!, null, WurstProjectConfigData())
             }
-        } else if (setup.updateProject) {
+        } else if (setup.projectDir != null && setup.update) {
             log.info("is update project")
-            if (setup.projectDir != null) {
-                log.info("project dir exists")
-                WurstProjectConfig.handleUpdate(setup.projectDir!!, null, WurstProjectConfig.loadProject(setup.projectDir!!.resolve("wurst.build"))!!)
-            }
+            log.info("project dir exists")
+            WurstProjectConfig.handleUpdate(setup.projectDir!!, null, WurstProjectConfig.loadProject(setup.projectDir!!.resolve("wurst.build"))!!)
         }
     }
 

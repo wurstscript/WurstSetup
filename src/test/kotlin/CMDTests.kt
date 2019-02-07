@@ -8,17 +8,17 @@ import java.util.*
 
 @Test(priority = 1)
 fun testUnInstallCmd() {
-    SetupMain.main(Arrays.asList("-silent", "-force", "-updateInstallation").toTypedArray())
+    SetupMain.main(Arrays.asList("-silent", "-force", "-update").toTypedArray())
     ConnectionManager.checkConnectivity()
     ConnectionManager.checkWurstBuild()
     InstallationManager.verifyInstallation()
     Assert.assertEquals(InstallationManager.status, InstallationManager.InstallationStatus.INSTALLED_UPTODATE)
 
-    SetupMain.main(Arrays.asList("-silent", "-force", "-removeInstallation").toTypedArray())
+    SetupMain.main(Arrays.asList("-silent", "-force", "-remove").toTypedArray())
     InstallationManager.verifyInstallation()
     Assert.assertEquals(InstallationManager.status, InstallationManager.InstallationStatus.NOT_INSTALLED)
 
-    SetupMain.main(Arrays.asList("-silent", "-force", "-updateInstallation").toTypedArray())
+    SetupMain.main(Arrays.asList("-silent", "-force", "-update").toTypedArray())
     InstallationManager.verifyInstallation()
     Assert.assertEquals(InstallationManager.status, InstallationManager.InstallationStatus.INSTALLED_UPTODATE)
 }
@@ -26,7 +26,7 @@ fun testUnInstallCmd() {
 @Test(priority = 2)
 fun testCreateProjectCmd() {
     Assert.assertEquals(InstallationManager.status, InstallationManager.InstallationStatus.INSTALLED_UPTODATE)
-    SetupMain.main(Arrays.asList("-silent", "-createProject", "-projectDir", "stest/").toTypedArray())
+    SetupMain.main(Arrays.asList("-silent", "-generate", "-projectDir", "stest/").toTypedArray())
 
-    SetupMain.main(Arrays.asList("-silent", "-updateProject", "-projectDir", "stest/").toTypedArray())
+    SetupMain.main(Arrays.asList("-silent", "-update", "-projectDir", "stest/").toTypedArray())
 }

@@ -167,6 +167,7 @@ object InstallationManager {
     }
 
     private fun clearFolder(dir: Path) {
+		log.info("clearing: $dir")
         Files.walk(dir)
                 .forEach {
                     if (it != dir) {
@@ -176,6 +177,12 @@ object InstallationManager {
                             try {
                                 Files.delete(it)
                             } catch (_e: Exception) {
+								if (_e.message?.contains("it is being used by another process")!!) {
+									log.warn("It seems like wurst is still running. some files might not be removed.")
+									return@forEach
+								} else {
+									log.error { _e }
+								}
                             }
                         }
                     }

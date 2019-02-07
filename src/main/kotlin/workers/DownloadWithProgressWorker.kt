@@ -23,6 +23,8 @@ class DownloadWithProgressWorker(private val filePath: String, private val progr
             MainWindow.ui.disableButtons()
             val url = URL(filePath)
             val httpConnection = url.openConnection() as HttpURLConnection
+            httpConnection.connectTimeout = 14000
+            httpConnection.readTimeout = 20000
             httpConnection.addRequestProperty("User-Agent", "Mozilla/5.0 (Windows NT 6.1; WOW64; rv:25.0) Gecko/20100101 Firefox/25.0")
             val completeFileSize = httpConnection.contentLength
 

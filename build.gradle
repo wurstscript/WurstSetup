@@ -155,7 +155,7 @@ copy_jar.dependsOn(proguardDist)
 mainClassName = "file.SetupMain"
 
 task wrapper(type: Wrapper) {
-    gradleVersion = '4.8'
+    gradleVersion = '4.10.3'
 }
 compileKotlin {
     kotlinOptions {

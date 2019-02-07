@@ -16,21 +16,18 @@ class SetupMain {
     @Option(name = "-force", usage = "force updates the installation and/or project without asking")
     var force = false
 
-    @Option(name = "-removeInstallation", usage = "removes wurstscript from your machine")
-    var removeInstallation = false
+    @Option(name = "-remove", usage = "removes wurstscript from your machine")
+    var remove = false
 
-    @Option(name = "-updateInstallation", usage = "updates your current wurst installation")
-    var updateInstall = false
+    @Option(name = "-update", usage = "updates your current wurst installation or project if projectDir present")
+    var update = false
 
-    @Option(name = "-createProject", usage = "creates a project at the projectDir location")
-    var createProject = false
-
-    @Option(name = "-updateProject", usage = "updates the project at the projectDir location")
-    var updateProject = false
+    @Option(name = "-generate", usage = "generates a new project at projectDir location")
+    var generate = false
 
     var projectDir: Path? = null
 
-    @Option(name = "-projectDir", usage = "sets the project dir to check dependencies for")
+    @Option(name = "-projectDir", usage = "sets the root folder of the wurst project")
     fun setDir(file: File) {
         val dir = file.toPath()
         Files.createDirectories(dir)
