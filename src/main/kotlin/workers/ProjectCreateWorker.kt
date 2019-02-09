@@ -4,7 +4,8 @@ import config.WurstProjectConfigData
 import java.nio.file.Path
 import javax.swing.SwingWorker
 
-class ProjectCreateWorker(val projectRoot: Path, val gameRoot: Path?, private val configData: WurstProjectConfigData) : SwingWorker<Boolean, Void>() {
+/** Handles creating a new project */
+class ProjectCreateWorker(private val projectRoot: Path, private val gameRoot: Path?, private val configData: WurstProjectConfigData) : SwingWorker<Boolean, Void>() {
 
     @Throws(Exception::class)
     override fun doInBackground(): Boolean? {

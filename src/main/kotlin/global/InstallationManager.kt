@@ -188,28 +188,31 @@ object InstallationManager {
 
     private fun clearFolder(dir: Path) {
 		log.info("clearing: $dir")
-        Files.walk(dir)
-                .forEach {
-                    if (it != dir) {
-                        if (Files.isDirectory(it)) {
-                            clearFolder(it)
-                        } else {
-                            try {
-                                Files.delete(it)
-                            } catch (_e: Exception) {
-								if (_e.message?.contains("it is being used by another process") == true) {
-									log.warn("It seems like wurst is still running. some files might not be removed.")
-									return@forEach
-								} else {
-									log.error { _e }
-								}
-                            }
-                        }
-                    }
-                }
+        Files.walk(dir).forEach {
+			clearPathInternal(it, dir)
+		}
     }
 
-    enum class InstallationStatus {
+	private fun clearPathInternal(it: Path, dir: Path) {
+		if (it != dir) {
+			if (Files.isDirectory(it)) {
+				clearFolder(it)
+			} else {
+				try {
+					Files.delete(it)
+				} catch (_e: Exception) {
+					if (_e.message?.contains("it is being used by another process") == true) {
+						log.warn("It seems like wurst is still running. some files might not be removed.")
+						return
+					} else {
+						log.error { _e }
+					}
+				}
+			}
+		}
+	}
+
+	enum class InstallationStatus {
         NOT_INSTALLED,
         INSTALLED_UNKNOWN,
         INSTALLED_OUTDATED,

@@ -60,48 +60,56 @@ object WurstProjectConfig {
 
             Log.print("Download template..")
             Download.downloadBareboneProject {
-                Log.println(" done.")
-
-                Log.print("Extracting template..")
-                val extractSuccess = ZipArchiveExtractor.extractArchive(it, projectRoot)
-                Files.delete(it)
-                if (extractSuccess) {
-                    Log.print("done\n")
-                    Log.print("Clean up..")
-                    val folder = projectRoot.resolve("WurstBareboneTemplate-master")
-                    copyFolder(folder, projectRoot)
-                    Files.walk(folder).sorted { a, b -> b.compareTo(a) }.forEach { p ->
-                        try {
-                            Files.delete(p)
-                        } catch (e: IOException) {
-                        }
-                    }
-                } else {
-                    Log.print("error\n")
-                    JOptionPane.showMessageDialog(null,
-                            "Error: Cannot extract patch files.\nWurst might still be in use.\nClose any Wurst, VSCode or Eclipse instances before updating.",
-                            "Error Massage", JOptionPane.ERROR_MESSAGE)
-                }
-
-                Log.print("done\n")
-
-                setupVSCode(projectRoot, gameRoot)
-
-                saveProjectConfig(projectRoot, projectConfig)
-
-                DependencyManager.updateDependencies(projectRoot, projectConfig)
-
-                Log.print("---\n\n")
-                if (gameRoot == null || !Files.exists(gameRoot)) {
-                    Log.print("Warning: Your game path has not been set.\nThis means you will be able to develop, but not run maps.\n")
-                }
-                Log.print("Your project has been successfully created!\n" + "You can now open your project folder in VSCode.\nOpen the wurst/Hello.wurst package to continue.\n")
-                UiManager.refreshComponents()
-            }
+				extractDownload(it, projectRoot, gameRoot, projectConfig)
+			}
         }
     }
 
-    private fun copyFolder(src: Path, dest: Path) {
+	private fun extractDownload(it: Path, projectRoot: Path, gameRoot: Path?, projectConfig: WurstProjectConfigData) {
+		Log.println(" done.")
+
+		Log.print("Extracting template..")
+		val extractSuccess = ZipArchiveExtractor.extractArchive(it, projectRoot)
+		Files.delete(it)
+		if (extractSuccess) {
+			Log.print("done\n")
+			Log.print("Clean up..")
+			val folder = projectRoot.resolve("WurstBareboneTemplate-master")
+			copyFolder(folder, projectRoot)
+			Files.walk(folder).sorted { a, b -> b.compareTo(a) }.forEach { p ->
+				try {
+					Files.delete(p)
+				} catch (e: IOException) {
+				}
+			}
+		} else {
+			Log.print("error\n")
+			JOptionPane.showMessageDialog(null,
+				"Error: Cannot extract patch files.\nWurst might still be in use.\nClose any Wurst, VSCode or Eclipse instances before updating.",
+				"Error Massage", JOptionPane.ERROR_MESSAGE)
+		}
+
+		setupEnvironment(projectRoot, gameRoot, projectConfig)
+		UiManager.refreshComponents()
+	}
+
+	private fun setupEnvironment(projectRoot: Path, gameRoot: Path?, projectConfig: WurstProjectConfigData) {
+		Log.print("done\n")
+
+		setupVSCode(projectRoot, gameRoot)
+
+		saveProjectConfig(projectRoot, projectConfig)
+
+		DependencyManager.updateDependencies(projectRoot, projectConfig)
+
+		Log.print("---\n\n")
+		if (gameRoot == null || !Files.exists(gameRoot)) {
+			Log.print("Warning: Your game path has not been set.\nThis means you will be able to develop, but not run maps.\n")
+		}
+		Log.print("Your project has been successfully created!\n" + "You can now open your project folder in VSCode.\nOpen the wurst/Hello.wurst package to continue.\n")
+	}
+
+	private fun copyFolder(src: Path, dest: Path) {
         try {
             Files.walk(src)
 				.forEach { s ->
@@ -140,18 +148,23 @@ object WurstProjectConfig {
             Files.createDirectories(vsCode?.parent)
             Files.write(vsCode, VSCODE_MIN_CONFIG.toByteArray(), StandardOpenOption.CREATE_NEW)
         }
-        var json = String(Files.readAllBytes(vsCode))
-        val absolutePath = InstallationManager.compilerJar.toAbsolutePath().toString()
-        json = json.replace("%wurstjar%", absolutePath.replace("\\\\".toRegex(), "\\\\\\\\"))
-
-        if (gamePath != null && Files.exists(gamePath)) {
-            json = json.replace("%gamepath%", gamePath.toAbsolutePath().toString().replace("\\\\".toRegex(), "\\\\\\\\"))
-        }
-        Files.write(vsCode, json.toByteArray(), StandardOpenOption.TRUNCATE_EXISTING)
+		var json = replacePlaceholders(vsCode, gamePath)
+		Files.write(vsCode, json.toByteArray(), StandardOpenOption.TRUNCATE_EXISTING)
         Log.print("done.\n")
     }
 
-    fun handleUpdate(projectRoot: Path, gamePath: Path?, config: WurstProjectConfigData) {
+	private fun replacePlaceholders(vsCode: Path?, gamePath: Path?): String {
+		var json = String(Files.readAllBytes(vsCode))
+		val absolutePath = InstallationManager.compilerJar.toAbsolutePath().toString()
+		json = json.replace("%wurstjar%", absolutePath.replace("\\\\".toRegex(), "\\\\\\\\"))
+
+		if (gamePath != null && Files.exists(gamePath)) {
+			json = json.replace("%gamepath%", gamePath.toAbsolutePath().toString().replace("\\\\".toRegex(), "\\\\\\\\"))
+		}
+		return json
+	}
+
+	fun handleUpdate(projectRoot: Path, gamePath: Path?, config: WurstProjectConfigData) {
         Log.print("Updating project...\n")
         try {
             WurstProjectConfig.setupVSCode(projectRoot, gamePath)
