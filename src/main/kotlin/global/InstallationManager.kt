@@ -74,6 +74,7 @@ object InstallationManager {
             err.contains("AccessDeniedException", true) -> // If the err output contains this exception, the .jar is currently running
                 showWurstInUse()
             err.contains("Exception") -> status = InstallationStatus.INSTALLED_OUTDATED
+			err.contains("Failed") -> status = InstallationStatus.INSTALLED_OUTDATED
             else -> {
                 parseCMDLine(input)
             }
