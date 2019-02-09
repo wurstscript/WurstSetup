@@ -4,6 +4,7 @@ import config.WurstProjectConfig
 import config.WurstProjectConfigData
 import global.InstallationManager
 import mu.KotlinLogging
+import net.ConnectionManager
 import ui.UiManager
 import ui.UpdateFoundDialog
 import java.nio.file.Files
@@ -28,7 +29,19 @@ object SetupApp {
     }
 
     private fun handleCMD() {
-        if (setup.remove) {
+		ConnectionManager.checkConnectivity()
+		ConnectionManager.checkWurstBuild()
+		InstallationManager.verifyInstallation()
+		if (setup.projectDir != null) {
+			log.info("project dir exists")
+			if (setup.generate) {
+				log.info("is create project")
+				WurstProjectConfig.handleCreate(setup.projectDir!!, null, WurstProjectConfigData())
+			} else if (setup.update) {
+				log.info("is update project")
+				WurstProjectConfig.handleUpdate(setup.projectDir!!, null, WurstProjectConfig.loadProject(setup.projectDir!!.resolve("wurst.build"))!!)
+			}
+		} else if (setup.remove) {
             log.info("remove installation")
             if (setup.force) {
                 InstallationManager.handleRemove()
@@ -43,16 +56,6 @@ object SetupApp {
                     UpdateFoundDialog("A Wurst compiler update has been found!")
                 }
             }
-        } else if (setup.generate) {
-            log.info("is create project")
-            if (setup.projectDir != null) {
-                log.info("project dir exists")
-                WurstProjectConfig.handleCreate(setup.projectDir!!, null, WurstProjectConfigData())
-            }
-        } else if (setup.projectDir != null && setup.update) {
-            log.info("is update project")
-            log.info("project dir exists")
-            WurstProjectConfig.handleUpdate(setup.projectDir!!, null, WurstProjectConfig.loadProject(setup.projectDir!!.resolve("wurst.build"))!!)
         }
     }
 

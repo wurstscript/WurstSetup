@@ -2,6 +2,7 @@ package global
 
 import file.Download
 import file.SetupApp
+import file.ZipArchiveExtractor
 import mu.KotlinLogging
 import net.ConnectionManager
 import net.NetStatus
@@ -42,6 +43,7 @@ object InstallationManager {
         currentCompilerVersion = -1
         latestCompilerVersion = 0
         if (Files.exists(installDir) && Files.exists(compilerJar)) {
+			log.info("Found installation")
             status = InstallationStatus.INSTALLED_UNKNOWN
             try {
                 if (!Files.isWritable(compilerJar)) {
@@ -52,9 +54,13 @@ object InstallationManager {
             } catch (_: Error) {
                 log.warn("Installation is custom.")
             }
-        }
+        } else {
+			log.info("Installation not found")
+		}
         if (ConnectionManager.netStatus == NetStatus.ONLINE) {
+			log.info("Client online, check for update")
             latestCompilerVersion = ConnectionManager.getLatestCompilerBuild()
+			log.info("latest compiler: $latestCompilerVersion")
             if (currentCompilerVersion >= latestCompilerVersion) {
                 status = InstallationStatus.INSTALLED_UPTODATE
             }
@@ -64,6 +70,7 @@ object InstallationManager {
 
     /** Gets the version of the wurstscript.jar via cli */
     fun getVersionFomJar() {
+		log.info("running wurst to extract the version")
         val proc = Runtime.getRuntime().exec("java -jar " + compilerJar.toAbsolutePath() + " --version")
         proc.waitFor(100, TimeUnit.MILLISECONDS)
         val input = proc.inputStream.bufferedReader().use { it.readText() }.trim()
@@ -71,8 +78,9 @@ object InstallationManager {
 
 		log.error(err)
         when {
-            err.contains("AccessDeniedException", true) -> // If the err output contains this exception, the .jar is currently running
-                showWurstInUse()
+			// If the err output contains this exception, the .jar is currently running
+            err.contains("AccessDeniedException", true) -> showWurstInUse()
+			// Other exceptions or failures require update to fix
             err.contains("Exception") -> status = InstallationStatus.INSTALLED_OUTDATED
 			err.contains("Failed") -> status = InstallationStatus.INSTALLED_OUTDATED
             else -> {
@@ -82,9 +90,11 @@ object InstallationManager {
     }
 
     private fun parseCMDLine(input: String) {
+		log.info("parsing CMD output")
         val lines = input.split(System.getProperty("line.separator"))
         lines.forEach { line ->
             if (isJenkinsBuilt(line)) {
+				log.info("Found jenkins build string $line")
                 currentCompilerVersion = getJenkinsBuildVer(line)
                 status = InstallationStatus.INSTALLED_OUTDATED
             }
@@ -95,8 +105,12 @@ object InstallationManager {
     }
 
     private fun showWurstInUse() {
-        ErrorDialog("The Wurst compiler is currently in use.\n" +
-                "Please close all running instances and vscode, then retry.", true)
+		if (!SetupApp.setup.silent) {
+			ErrorDialog("The Wurst compiler is currently in use.\n" +
+				"Please close all running instances and vscode, then retry.", true)
+		}
+		log.error("The Wurst compiler is currently in use.\n" +
+			"Please close all running instances and vscode, then retry.")
     }
 
     fun handleUpdate() {
@@ -105,36 +119,40 @@ object InstallationManager {
             log.info(if (isFreshInstall) "isInstall" else "isUpdate")
             Log.print(if (isFreshInstall) "Installing WurstScript..\n" else "Updating WursScript..\n")
             Log.print("Downloading compiler..")
-            log.info("download compiler")
+            log.info("Downloading compiler..")
 
             Download.downloadCompiler {
                 Log.print(" done.\n")
 
-                ExtractWorker(it, if (SetupApp.setup.silent) null else MainWindow.ui.progressBar) {
-                    if (it) {
-                        Log.print("done\n")
-                        if (status == InstallationStatus.NOT_INSTALLED) {
-                            wurstConfig = WurstConfigData()
-                        }
-                        log.info("done")
-                        if (!Files.exists(compilerJar)) {
-                            Log.print("ERROR")
-                        } else {
-                            Log.print(if (isFreshInstall) "Installation complete\n" else "Update complete\n")
-                            if (! SetupApp.setup.silent) {
-                                SwingUtilities.invokeLater { MainWindow.ui.progressBar.value = 0 }
-                            }
-                            InstallationManager.verifyInstallation()
-                        }
+				if (SetupApp.setup.silent) {
+					ZipArchiveExtractor.extractArchive(it, installDir)
+					Files.delete(it)
+				} else {
+					ExtractWorker(it, if (SetupApp.setup.silent) null else MainWindow.ui.progressBar) {
+						if (it) {
+							Log.print("done\n")
+							if (status == InstallationStatus.NOT_INSTALLED) {
+								wurstConfig = WurstConfigData()
+							}
+							log.info("done")
+							if (!Files.exists(compilerJar)) {
+								Log.print("ERROR")
+							} else {
+								Log.print(if (isFreshInstall) "Installation complete\n" else "Update complete\n")
+								if (! SetupApp.setup.silent) {
+									SwingUtilities.invokeLater { MainWindow.ui.progressBar.value = 0 }
+								}
+								InstallationManager.verifyInstallation()
+							}
 
-                    } else {
-                        Log.print("error\n")
-                        log.error("error")
-                        ErrorDialog("Could not extract patch files.\nWurst might still be in use.\nMake sure to close VSCode before updating.", false)
-                    }
-                    UiManager.refreshComponents()
-                }.execute()
-
+						} else {
+							Log.print("error\n")
+							log.error("error")
+							ErrorDialog("Could not extract patch files.\nWurst might still be in use.\nMake sure to close VSCode before updating.", false)
+						}
+						UiManager.refreshComponents()
+					}.execute()
+				}
 
             }
         } catch (e: Exception) {

@@ -7,7 +7,6 @@ import java.io.StringWriter
 import javax.swing.JOptionPane
 import javax.swing.JTextArea
 import javax.swing.UIManager
-import javax.swing.UnsupportedLookAndFeelException
 
 object ExceptionHandler {
 
@@ -22,13 +21,7 @@ object ExceptionHandler {
             exception.printStackTrace()
             try {
                 UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName())
-            } catch (e: ClassNotFoundException) {
-                e.printStackTrace()
-            } catch (e: InstantiationException) {
-                e.printStackTrace()
-            } catch (e: IllegalAccessException) {
-                e.printStackTrace()
-            } catch (e: UnsupportedLookAndFeelException) {
+            } catch (e: Exception) {
                 e.printStackTrace()
             }
 
