@@ -197,7 +197,7 @@ object InstallationManager {
                             try {
                                 Files.delete(it)
                             } catch (_e: Exception) {
-								if (_e.message?.contains("it is being used by another process")!!) {
+								if (_e.message?.contains("it is being used by another process") == true) {
 									log.warn("It seems like wurst is still running. some files might not be removed.")
 									return@forEach
 								} else {

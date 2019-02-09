@@ -7,7 +7,6 @@ import file.ZipArchiveExtractor
 import global.InstallationManager
 import global.Log
 import mu.KotlinLogging
-import ui.MainWindow
 import ui.UiManager
 import java.io.IOException
 import java.nio.file.Files
@@ -19,8 +18,6 @@ import javax.swing.JOptionPane
 /**
  * Created by Frotty on 10.07.2017.
  */
-
-
 
 object WurstProjectConfig {
     private val log = KotlinLogging.logger {}
@@ -104,22 +101,23 @@ object WurstProjectConfig {
         }
     }
 
-    fun copyFolder(src: Path, dest: Path) {
+    private fun copyFolder(src: Path, dest: Path) {
         try {
             Files.walk(src)
-                    .forEach { s ->
-                        try {
-                            val d = dest.resolve(src.relativize(s))
-                            if (Files.isDirectory(s)) {
-                                if (!Files.exists(d))
-                                    Files.createDirectory(d)
-                            } else {
-                                Files.copy(s, d)// use flag to override existing
-                            }
-                        } catch (e: Exception) {
-                            e.printStackTrace()
-                        }
-                    }
+				.forEach { s ->
+					try {
+						val d = dest.resolve(src.relativize(s))
+						if (Files.isDirectory(s)) {
+							if (!Files.exists(d)) {
+								Files.createDirectory(d)
+							}
+						} else {
+							Files.copy(s, d)// use flag to override existing
+						}
+					} catch (e: Exception) {
+						e.printStackTrace()
+					}
+				}
         } catch (ex: Exception) {
             ex.printStackTrace()
         }

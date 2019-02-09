@@ -71,15 +71,15 @@ object MainWindow : JFrame() {
         add(ui, BorderLayout.CENTER)
         addMouseListener(object : MouseAdapter() {
 
-            override fun mousePressed(e: MouseEvent?) {
-                point.x = e!!.x
+            override fun mousePressed(e: MouseEvent) {
+                point.x = e.x
                 point.y = e.y
             }
         })
         addMouseMotionListener(object : MouseMotionAdapter() {
-            override fun mouseDragged(e: MouseEvent?) {
+            override fun mouseDragged(e: MouseEvent) {
                 val p = location
-                setLocation(p.x + e!!.x - point.x, p.y + e.y - point.y)
+                setLocation(p.x + e.x - point.x, p.y + e.y - point.y)
             }
         })
         isVisible = true
@@ -100,8 +100,8 @@ object MainWindow : JFrame() {
         var progressBar: JProgressBar = JProgressBar()
         var btnCreate: SetupButton = SetupButton("Create Project")
         var btnUpdate: SetupButton = SetupButton("Install WurstScript")
-        var importButton: SetupButton = SetupButton("Import")
-        var btnAdvanced: SetupButton = SetupButton("Advanced")
+        var importButton: SetupButton = SetupButton("Open Project")
+        var btnAdvanced: SetupButton = SetupButton("Add")
         var jTextArea = JTextArea("Ready version: " + CompileTimeInfo.version + "\n")
         var projectNameTF: JTextField = JTextField("MyWurstProject")
         var projectRootTF: JTextField = JTextField("projectRoot")
@@ -264,18 +264,6 @@ object MainWindow : JFrame() {
                 }
             })
 
-            projectRootTF.text = projectRootFile.absolutePath + File.separator + projectNameTF.text
-            projectInputTable.addCell(projectNameTF).growX()
-            importButton.addMouseListener(object : MouseAdapter() {
-                override fun mouseClicked(arg0: MouseEvent?) {
-                    if (importButton.isEnabled && !progressBar.isIndeterminate) {
-                        if (importChooser.showOpenDialog(that) == JFileChooser.APPROVE_OPTION) {
-                            handleImport()
-                        }
-                    }
-                }
-            })
-            projectInputTable.addCell(importButton)
             configTable.addCell(projectInputTable).growX()
 
             configTable.row().height(24f).padTop(2f)
@@ -288,8 +276,11 @@ object MainWindow : JFrame() {
             projectTF.addCell(projectRootTF).growX()
             val selectProjectRoot = SetupButton("...")
 
+			projectRootTF.text = projectRootFile.absolutePath + File.separator + projectNameTF.text
+			projectInputTable.addCell(projectNameTF).growX()
+
             selectProjectRoot.addMouseListener(object : MouseAdapter() {
-                override fun mouseClicked(arg0: MouseEvent?) {
+                override fun mouseClicked(arg0: MouseEvent) {
                     if (saveChooser.showSaveDialog(that) == JFileChooser.APPROVE_OPTION) {
                         projectRootFile = saveChooser.selectedFile
                         projectRootTF.text = saveChooser.selectedFile.absolutePath + File.separator + projectNameTF.text
@@ -309,7 +300,7 @@ object MainWindow : JFrame() {
             gameTF.addCell(gamePathTF).height(24f).growX()
             val selectGamePath = SetupButton("...")
             selectGamePath.addMouseListener(object : MouseAdapter() {
-                override fun mouseClicked(arg0: MouseEvent?) {
+                override fun mouseClicked(arg0: MouseEvent) {
                     if (saveChooser.showSaveDialog(that) == JFileChooser.APPROVE_OPTION) {
                         gamePathTF.text = saveChooser.selectedFile.absolutePath
                     }
@@ -344,7 +335,7 @@ object MainWindow : JFrame() {
             dependencyTF.isEditable = false
             dependencyTable.addCell(dependencyTF).height(24f).growX()
             btnAdvanced.addMouseListener(object : MouseAdapter() {
-                override fun mouseClicked(arg0: MouseEvent?) {
+                override fun mouseClicked(arg0: MouseEvent) {
                     log.info("Adding dependency")
                     AddRepoDialog()
                 }
@@ -458,7 +449,7 @@ object MainWindow : JFrame() {
             val buttonTable = Table()
             buttonTable.setSize(420, 90)
             btnUpdate.addMouseListener(object : MouseAdapter() {
-                override fun mouseClicked(arg0: MouseEvent?) {
+                override fun mouseClicked(arg0: MouseEvent) {
                     if (btnUpdate.isEnabled && !progressBar.isIndeterminate) {
                         handleWurstUpdate()
                     }
@@ -467,7 +458,7 @@ object MainWindow : JFrame() {
             buttonTable.addCell(btnUpdate)
             buttonTable.addCell().growX()
             btnCreate.addMouseListener(object : MouseAdapter() {
-                override fun mouseClicked(arg0: MouseEvent?) {
+                override fun mouseClicked(arg0: MouseEvent) {
                     if (btnCreate.isEnabled && !progressBar.isIndeterminate) {
                         SwingUtilities.invokeLater { progressBar.isIndeterminate = true }
                         disableButtons()
@@ -486,6 +477,17 @@ object MainWindow : JFrame() {
                     }
                 }
             })
+			val that = this
+			importButton.addMouseListener(object : MouseAdapter() {
+				override fun mouseClicked(arg0: MouseEvent) {
+					if (importButton.isEnabled && !progressBar.isIndeterminate) {
+						if (importChooser.showOpenDialog(that) == JFileChooser.APPROVE_OPTION) {
+							handleImport()
+						}
+					}
+				}
+			})
+			buttonTable.addCell(importButton).padRight(6f)
             buttonTable.addCell(btnCreate)
             contentTable.addCell(buttonTable).growX().pad(2f)
         }
@@ -516,7 +518,7 @@ object MainWindow : JFrame() {
             val gameRoot = Paths.get(gamePathTF.text)
             val projectRoot = Paths.get(projectRootTF.text)
             if (selectedConfig != null) {
-                dependencies.forEach { e -> if (!selectedConfig?.dependencies?.contains(e)!!) selectedConfig?.dependencies?.add(e) }
+                dependencies.forEach { e -> if (selectedConfig?.dependencies?.contains(e) == false) selectedConfig?.dependencies?.add(e) }
                 log.info("Update project. gamepath <{}>, root <{}>", gameRoot, projectRoot)
                 if (SetupApp.setup.silent) {
                     WurstProjectConfig.handleUpdate(projectRoot, gameRoot, selectedConfig!!)
@@ -536,7 +538,7 @@ object MainWindow : JFrame() {
 
     }
 
-    fun initFilechooser() {
+    private fun initFilechooser() {
         saveChooser = JSystemFileChooser()
         saveChooser.fileSelectionMode = JFileChooser.DIRECTORIES_ONLY
         saveChooser.currentDirectory = java.io.File(".")

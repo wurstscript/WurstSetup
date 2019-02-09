@@ -10,13 +10,12 @@ object Log {
             if (!SetupApp.setup.silent) {
                 if (SwingUtilities.isEventDispatchThread()) {
                     MainWindow.ui.jTextArea.append(text)
-                    MainWindow.ui.jTextArea.caretPosition = MainWindow.ui.jTextArea.text!!.length - 1
+                    MainWindow.ui.jTextArea.caretPosition = MainWindow.ui.jTextArea.text?.length?.minus(1) ?: 0
                 } else {
                     SwingUtilities.invokeAndWait {
                         MainWindow.ui.jTextArea.append(text)
-                        MainWindow.ui.jTextArea.caretPosition = MainWindow.ui.jTextArea.text!!.length - 1
+                        MainWindow.ui.jTextArea.caretPosition = MainWindow.ui.jTextArea.text?.length?.minus(1) ?: 0
                     }
-
                 }
             }
         } catch (_e: UninitializedPropertyAccessException) {
