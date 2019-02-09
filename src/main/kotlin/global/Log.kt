@@ -9,12 +9,10 @@ object Log {
         try {
             if (!SetupApp.setup.silent) {
                 if (SwingUtilities.isEventDispatchThread()) {
-                    MainWindow.ui.jTextArea.append(text)
-                    MainWindow.ui.jTextArea.caretPosition = MainWindow.ui.jTextArea.text?.length?.minus(1) ?: 0
-                } else {
+					append(text)
+				} else {
                     SwingUtilities.invokeAndWait {
-                        MainWindow.ui.jTextArea.append(text)
-                        MainWindow.ui.jTextArea.caretPosition = MainWindow.ui.jTextArea.text?.length?.minus(1) ?: 0
+						append(text)
                     }
                 }
             }
@@ -22,7 +20,12 @@ object Log {
         }
     }
 
-    fun println(text: String) {
+	private fun append(text: String) {
+		MainWindow.ui.jTextArea.append(text)
+		MainWindow.ui.jTextArea.caretPosition = MainWindow.ui.jTextArea.text?.length?.minus(1) ?: 0
+	}
+
+	fun println(text: String) {
         print(text + "\n")
     }
 }
