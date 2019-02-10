@@ -76,7 +76,9 @@ object InstallationManager {
         val input = proc.inputStream.bufferedReader().use { it.readText() }.trim()
         val err = proc.errorStream.bufferedReader().use { it.readText() }
 
-		log.error(err)
+		if (err.isNotEmpty()) {
+			log.error(err)
+		}
         when {
 			// If the err output contains this exception, the .jar is currently running
             err.contains("AccessDeniedException", true) -> showWurstInUse()
@@ -205,7 +207,7 @@ object InstallationManager {
 						log.warn("It seems like wurst is still running. some files might not be removed.")
 						return
 					} else {
-						log.error { _e }
+						log.error("wurst exception: ", _e)
 					}
 				}
 			}
