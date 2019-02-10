@@ -148,14 +148,18 @@ object WurstProjectConfig {
             throw IOException("Project root does not exist!")
         }
         val vsCode = projectRoot?.resolve(".vscode/settings.json")
-        if (!Files.exists(vsCode)) {
-            Files.createDirectories(vsCode?.parent)
-            Files.write(vsCode, VSCODE_MIN_CONFIG.toByteArray(), StandardOpenOption.CREATE_NEW)
-        }
+		createConfigFile(vsCode)
 		val json = replacePlaceholders(vsCode, gamePath?.toAbsolutePath().toString())
 		Files.write(vsCode, json.toByteArray(), StandardOpenOption.TRUNCATE_EXISTING)
         Log.print("done.\n")
     }
+
+	private fun createConfigFile(vsCode: Path?) {
+		if (!Files.exists(vsCode)) {
+			Files.createDirectories(vsCode?.parent)
+			Files.write(vsCode, VSCODE_MIN_CONFIG.toByteArray(), StandardOpenOption.CREATE_NEW)
+		}
+	}
 
 	private fun replacePlaceholders(vsCode: Path?, gamePath: String): String {
 		var json = Files.readAllBytes(vsCode).toString()
