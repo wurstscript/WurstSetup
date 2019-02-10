@@ -1,8 +1,7 @@
 package config
 
+
 import file.DependencyManager
-
-
 import file.Download
 import file.YamlHelper
 import file.ZipArchiveExtractor
@@ -13,6 +12,7 @@ import ui.UiManager
 import java.io.IOException
 import java.nio.file.Files
 import java.nio.file.Path
+import java.nio.file.StandardCopyOption
 import java.nio.file.StandardOpenOption
 import javax.swing.JOptionPane
 /**
@@ -115,16 +115,10 @@ object WurstProjectConfig {
 	private fun copyFolder(src: Path, dest: Path) {
         try {
             Files.walk(src)
-				.forEach { s ->
+				.forEach { source ->
 					try {
-						val d = dest.resolve(src.relativize(s))
-						if (Files.isDirectory(s)) {
-							if (!Files.exists(d)) {
-								Files.createDirectory(d)
-							}
-						} else {
-							Files.copy(s, d)// use flag to override existing
-						}
+						val target = dest.resolve(src.relativize(source))
+						copyPath(source, target)
 					} catch (e: Exception) {
 						e.printStackTrace()
 					}
@@ -134,7 +128,17 @@ object WurstProjectConfig {
         }
     }
 
-    @Throws(IOException::class)
+	private fun copyPath(source: Path?, target: Path?) {
+		if (Files.isDirectory(source)) {
+			if (!Files.exists(target)) {
+				Files.createDirectory(target)
+			}
+		} else {
+			Files.copy(source, target, StandardCopyOption.REPLACE_EXISTING)
+		}
+	}
+
+	@Throws(IOException::class)
     private fun saveProjectConfig(projectRoot: Path, projectConfig: WurstProjectConfigData) {
         val projectYaml = YamlHelper.dumpProjectConfig(projectConfig)
         Files.write(projectRoot.resolve("wurst.build"), projectYaml.toByteArray())
