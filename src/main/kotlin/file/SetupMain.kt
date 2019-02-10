@@ -10,10 +10,10 @@ import java.nio.file.Path
 
 class SetupMain {
 
-    @Option(name = "-silent", usage = "check for updates without opening UI")
+    @Option(name = "-silent", usage = "execute tasks without opening UI")
     var silent = false
 
-    @Option(name = "-force", usage = "force updates the installation and/or project without asking")
+    @Option(name = "-force", usage = "force tasks without asking for user confirmation")
     var force = false
 
     @Option(name = "-remove", usage = "removes wurstscript from your machine")
