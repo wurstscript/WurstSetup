@@ -14,7 +14,6 @@ import workers.ExtractWorker
 import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.Paths
-import java.util.concurrent.TimeUnit
 import java.util.regex.Pattern
 import javax.swing.SwingUtilities
 
@@ -48,9 +47,9 @@ object InstallationManager {
             status = InstallationStatus.INSTALLED_UNKNOWN
             try {
                 if (!Files.isWritable(compilerJar)) {
-                    showWurstInUse()
+                    CLIParser.showWurstInUse()
                 } else {
-                    getVersionFomJar()
+					CLIParser.getVersionFomJar()
                 }
             } catch (_: Error) {
                 log.warn("Installation is custom.")
@@ -69,52 +68,6 @@ object InstallationManager {
         return status
     }
 
-    /** Gets the version of the wurstscript.jar via cli */
-    fun getVersionFomJar() {
-		log.info("running wurst to extract the version")
-        val proc = Runtime.getRuntime().exec("java -jar " + compilerJar.toAbsolutePath() + " --version")
-        proc.waitFor(100, TimeUnit.MILLISECONDS)
-        val input = proc.inputStream.bufferedReader().use { it.readText() }.trim()
-        val err = proc.errorStream.bufferedReader().use { it.readText() }
-
-		if (err.isNotEmpty()) {
-			log.error(err)
-		}
-        when {
-			// If the err output contains this exception, the .jar is currently running
-            err.contains("AccessDeniedException", true) -> showWurstInUse()
-			// Other exceptions or failures require update to fix
-            err.contains("Exception") -> status = InstallationStatus.INSTALLED_OUTDATED
-			err.contains("Failed") -> status = InstallationStatus.INSTALLED_OUTDATED
-            else -> {
-                parseCMDLine(input)
-            }
-        }
-    }
-
-    private fun parseCMDLine(input: String) {
-		log.info("parsing CMD output")
-        val lines = input.split(System.getProperty("line.separator"))
-        lines.forEach { line ->
-            if (isJenkinsBuilt(line)) {
-				log.info("Found jenkins build string $line")
-                currentCompilerVersion = getJenkinsBuildVer(line)
-                status = InstallationStatus.INSTALLED_OUTDATED
-            }
-        }
-        if (status != InstallationStatus.INSTALLED_OUTDATED) {
-            throw Error("Installation failed!")
-        }
-    }
-
-    private fun showWurstInUse() {
-		if (!SetupApp.setup.silent) {
-			ErrorDialog("The Wurst compiler is currently in use.\n" +
-				"Please close all running instances and vscode, then retry.", true)
-		}
-		log.error("The Wurst compiler is currently in use.\n" +
-			"Please close all running instances and vscode, then retry.")
-    }
 
     fun handleUpdate() {
         val isFreshInstall = status == InstallationStatus.NOT_INSTALLED
