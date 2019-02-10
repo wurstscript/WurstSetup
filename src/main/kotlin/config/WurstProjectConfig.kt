@@ -1,10 +1,7 @@
 package config
 
 
-import file.DependencyManager
-import file.Download
-import file.YamlHelper
-import file.ZipArchiveExtractor
+import file.*
 import global.InstallationManager
 import global.Log
 import mu.KotlinLogging
@@ -12,7 +9,6 @@ import ui.UiManager
 import java.io.IOException
 import java.nio.file.Files
 import java.nio.file.Path
-import java.nio.file.StandardCopyOption
 import java.nio.file.StandardOpenOption
 import javax.swing.JOptionPane
 /**
@@ -116,31 +112,6 @@ object WurstProjectConfig {
 		Log.print("Your project has been successfully created!\n" + "You can now open your project folder in VSCode.\nOpen the wurst/Hello.wurst package to continue.\n")
 	}
 
-	private fun copyFolder(src: Path, dest: Path) {
-        try {
-            Files.walk(src)
-				.forEach { source ->
-					try {
-						val target = dest.resolve(src.relativize(source))
-						copyPath(source, target)
-					} catch (e: Exception) {
-						e.printStackTrace()
-					}
-				}
-        } catch (ex: Exception) {
-            ex.printStackTrace()
-        }
-    }
-
-	private fun copyPath(source: Path?, target: Path?) {
-		if (Files.isDirectory(source)) {
-			if (!Files.exists(target)) {
-				Files.createDirectory(target)
-			}
-		} else {
-			Files.copy(source, target, StandardCopyOption.REPLACE_EXISTING)
-		}
-	}
 
 	@Throws(IOException::class)
     private fun saveProjectConfig(projectRoot: Path, projectConfig: WurstProjectConfigData) {
