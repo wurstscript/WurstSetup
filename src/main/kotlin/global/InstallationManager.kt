@@ -124,23 +124,27 @@ object InstallationManager {
             Log.print("Downloading compiler..")
             log.info("Downloading compiler..")
 
-            Download.downloadCompiler {
-                Log.print(" done.\n")
-
-				if (SetupApp.setup.silent) {
-					ZipArchiveExtractor.extractArchive(it, installDir)
-					Files.delete(it)
-				} else {
-					startExtractWorker(it, isFreshInstall)
-				}
-
-            }
+			downloadCompiler(isFreshInstall)
         } catch (e: Exception) {
             log.error("exception: ", e)
             Log.print("\n===ERROR COMPILER UPDATE===\n" + e.message + "\nPlease report here: github.com/wurstscript/WurstScript/issues\n")
         }
 
     }
+
+	private fun downloadCompiler(isFreshInstall: Boolean) {
+		Download.downloadCompiler {
+			Log.print(" done.\n")
+
+			if (SetupApp.setup.silent) {
+				ZipArchiveExtractor.extractArchive(it, installDir)
+				Files.delete(it)
+			} else {
+				startExtractWorker(it, isFreshInstall)
+			}
+
+		}
+	}
 
 	private fun startExtractWorker(it: Path, isFreshInstall: Boolean) {
 		ExtractWorker(it, if (SetupApp.setup.silent) null else MainWindow.ui.progressBar) {
