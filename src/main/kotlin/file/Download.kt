@@ -1,6 +1,8 @@
 package file
 
 import global.Log
+
+
 import mu.KotlinLogging
 import ui.MainWindow
 import workers.DownloadWithProgressWorker
@@ -11,13 +13,11 @@ import java.net.URL
 import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.Paths
-
-
 object Download {
     private val log = KotlinLogging.logger {}
 
-    private const val baseUrl = "grill.wurstlang.org/hudson/job/Wurst/lastSuccessfulBuild/artifact/downloads/"
-    private const val bareboneUrl = "github.com/wurstscript/WurstBareboneTemplate/archive/master.zip"
+	private const val baseUrl = "grill.wurstlang.org/hudson/job/Wurst/lastSuccessfulBuild/artifact/downloads/"
+	private const val bareboneUrl = "github.com/wurstscript/WurstBareboneTemplate/archive/master.zip"
     private const val compileName = "wurstpack_compiler.zip"
 
     @Throws(IOException::class)
@@ -28,6 +28,15 @@ object Download {
             DownloadWithProgressWorker(filePath, MainWindow.ui.progressBar, callback).execute()
         }
     }
+
+	fun getHttpURLConnection(filePath: String): HttpURLConnection {
+		val url = URL(filePath)
+		val httpConnection = url.openConnection() as HttpURLConnection
+		httpConnection.connectTimeout = 14000
+		httpConnection.readTimeout = 20000
+		httpConnection.addRequestProperty("User-Agent", "Chrome")
+		return httpConnection
+	}
 
     @Throws(IOException::class)
     fun downloadSetup(callback: (Path) -> Unit) {
@@ -63,11 +72,7 @@ object Download {
     }
 
     private fun downloadDirect(filePath: String, callback: (Path) -> Unit) {
-        val url = URL(filePath)
-        val httpConnection = url.openConnection() as HttpURLConnection
-		httpConnection.connectTimeout = 14000
-		httpConnection.readTimeout = 20000
-		httpConnection.addRequestProperty("User-Agent", "Mozilla/4.76")
+		val httpConnection = getHttpURLConnection(filePath)
 		val completeFileSize = httpConnection.contentLength
 		val size = completeFileSize / 1024 / 1024
 		log.info("(" + (if (size == 0) "<1" else size) + "MB)")
@@ -77,19 +82,20 @@ object Download {
 			substring += ".2.jar"
 		}
 
-		val fos = java.io.FileOutputStream(substring)
-		val bout = BufferedOutputStream(fos, 1024)
-		val data = ByteArray(1024)
-		var downloadedFileSize: Long = 0
-		var x = input.read(data, 0, 1024)
-		do {
-			downloadedFileSize += x.toLong()
-			bout.write(data, 0, x)
-			x = input.read(data, 0, 1024)
-		} while (x >= 0)
-		bout.close()
+		java.io.FileOutputStream(substring).use { fos ->
+			BufferedOutputStream(fos, 1024).use {
+				val data = ByteArray(1024)
+				var downloadedFileSize: Long = 0
+				var x = input.read(data, 0, 1024)
+				do {
+					downloadedFileSize += x.toLong()
+					it.write(data, 0, x)
+					x = input.read(data, 0, 1024)
+				} while (x >= 0)
+			}
+		}
+
 		input.close()
-		fos.close()
         callback.invoke(Paths.get(substring))
     }
 }
