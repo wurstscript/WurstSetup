@@ -130,30 +130,7 @@ object InstallationManager {
 					ZipArchiveExtractor.extractArchive(it, installDir)
 					Files.delete(it)
 				} else {
-					ExtractWorker(it, if (SetupApp.setup.silent) null else MainWindow.ui.progressBar) {
-						if (it) {
-							Log.print("done\n")
-							if (status == InstallationStatus.NOT_INSTALLED) {
-								wurstConfig = WurstConfigData()
-							}
-							log.info("done")
-							if (!Files.exists(compilerJar)) {
-								Log.print("ERROR")
-							} else {
-								Log.print(if (isFreshInstall) "Installation complete\n" else "Update complete\n")
-								if (! SetupApp.setup.silent) {
-									SwingUtilities.invokeLater { MainWindow.ui.progressBar.value = 0 }
-								}
-								InstallationManager.verifyInstallation()
-							}
-
-						} else {
-							Log.print("error\n")
-							log.error("error")
-							ErrorDialog("Could not extract patch files.\nWurst might still be in use.\nMake sure to close VSCode before updating.", false)
-						}
-						UiManager.refreshComponents()
-					}.execute()
+					startExtractWorker(it, isFreshInstall)
 				}
 
             }
@@ -164,7 +141,34 @@ object InstallationManager {
 
     }
 
-    private val jenkinsVerPattern = Pattern.compile("\\d\\.\\d\\.\\d\\.\\d(?:-\\w+)+-(\\d+)")
+	private fun startExtractWorker(it: Path, isFreshInstall: Boolean) {
+		ExtractWorker(it, if (SetupApp.setup.silent) null else MainWindow.ui.progressBar) {
+			if (it) {
+				Log.print("done\n")
+				if (status == InstallationStatus.NOT_INSTALLED) {
+					wurstConfig = WurstConfigData()
+				}
+				log.info("done")
+				if (!Files.exists(compilerJar)) {
+					Log.print("ERROR")
+				} else {
+					Log.print(if (isFreshInstall) "Installation complete\n" else "Update complete\n")
+					if (!SetupApp.setup.silent) {
+						SwingUtilities.invokeLater { MainWindow.ui.progressBar.value = 0 }
+					}
+					verifyInstallation()
+				}
+
+			} else {
+				Log.print("error\n")
+				log.error("error")
+				ErrorDialog("Could not extract patch files.\nWurst might still be in use.\nMake sure to close VSCode before updating.", false)
+			}
+			UiManager.refreshComponents()
+		}.execute()
+	}
+
+	private val jenkinsVerPattern = Pattern.compile("\\d\\.\\d\\.\\d\\.\\d(?:-\\w+)+-(\\d+)")
 
     fun isJenkinsBuilt(version: String): Boolean {
         val matcher = jenkinsVerPattern.matcher(version)
@@ -200,16 +204,20 @@ object InstallationManager {
 			if (Files.isDirectory(it)) {
 				clearFolder(it)
 			} else {
-				try {
-					Files.delete(it)
-				} catch (_e: Exception) {
-					if (_e.message?.contains("it is being used by another process") == true) {
-						log.warn("It seems like wurst is still running. some files might not be removed.")
-						return
-					} else {
-						log.error("Exception: ", _e)
-					}
-				}
+				clearFile(it)
+			}
+		}
+	}
+
+	private fun clearFile(it: Path) {
+		try {
+			Files.delete(it)
+		} catch (_e: Exception) {
+			if (_e.message?.contains("it is being used by another process") == true) {
+				log.warn("It seems like wurst is still running. some files might not be removed.")
+				return
+			} else {
+				log.error("Exception: ", _e)
 			}
 		}
 	}
