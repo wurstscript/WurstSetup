@@ -6,7 +6,9 @@ import global.Log
 import mu.KotlinLogging
 import ui.MainWindow
 import workers.DownloadWithProgressWorker
+import java.io.BufferedInputStream
 import java.io.BufferedOutputStream
+import java.io.FileOutputStream
 import java.io.IOException
 import java.net.HttpURLConnection
 import java.net.URL
@@ -82,7 +84,14 @@ object Download {
 			substring += ".2.jar"
 		}
 
-		java.io.FileOutputStream(substring).use { fos ->
+		readStream(substring, input)
+
+		input.close()
+        callback.invoke(Paths.get(substring))
+    }
+
+	private fun readStream(substring: String, input: BufferedInputStream) {
+		FileOutputStream(substring).use { fos ->
 			BufferedOutputStream(fos, 1024).use {
 				val data = ByteArray(1024)
 				var downloadedFileSize: Long = 0
@@ -94,8 +103,5 @@ object Download {
 				} while (x >= 0)
 			}
 		}
-
-		input.close()
-        callback.invoke(Paths.get(substring))
-    }
+	}
 }
