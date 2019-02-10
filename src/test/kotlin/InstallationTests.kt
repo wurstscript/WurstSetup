@@ -1,4 +1,5 @@
 
+import global.CLIParser
 import global.InstallationManager
 import org.testng.annotations.Test
 
@@ -11,7 +12,7 @@ fun testVersionPattern() {
 
 @Test(priority = 8)
 fun testInstall() {
-	InstallationManager.getVersionFomJar()
+	CLIParser.getVersionFomJar()
 
 	assert(InstallationManager.currentCompilerVersion > 1000)
 }
