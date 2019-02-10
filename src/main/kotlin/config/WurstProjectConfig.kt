@@ -149,10 +149,16 @@ object WurstProjectConfig {
         }
         val vsCode = projectRoot?.resolve(".vscode/settings.json")
 		createConfigFile(vsCode)
-		val json = replacePlaceholders(vsCode, gamePath?.toAbsolutePath().toString())
-		Files.write(vsCode, json.toByteArray(), StandardOpenOption.TRUNCATE_EXISTING)
-        Log.print("done.\n")
+
+		setConfigValues(vsCode, gamePath)
+		Log.print("done.\n")
     }
+
+	private fun setConfigValues(vsCode: Path?, gamePath: Path?) {
+		val json = replacePlaceholders(vsCode, gamePath?.toAbsolutePath().toString())
+
+		Files.write(vsCode, json.toByteArray(), StandardOpenOption.TRUNCATE_EXISTING)
+	}
 
 	private fun createConfigFile(vsCode: Path?) {
 		if (!Files.exists(vsCode)) {
