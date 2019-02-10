@@ -3,6 +3,7 @@ package global
 import file.Download
 import file.SetupApp
 import file.ZipArchiveExtractor
+import file.clearFolder
 import mu.KotlinLogging
 import net.ConnectionManager
 import net.NetStatus
@@ -144,21 +145,7 @@ object InstallationManager {
 	private fun startExtractWorker(it: Path, isFreshInstall: Boolean) {
 		ExtractWorker(it, if (SetupApp.setup.silent) null else MainWindow.ui.progressBar) {
 			if (it) {
-				Log.print("done\n")
-				if (status == InstallationStatus.NOT_INSTALLED) {
-					wurstConfig = WurstConfigData()
-				}
-				log.info("done")
-				if (!Files.exists(compilerJar)) {
-					Log.print("ERROR")
-				} else {
-					Log.print(if (isFreshInstall) "Installation complete\n" else "Update complete\n")
-					if (!SetupApp.setup.silent) {
-						SwingUtilities.invokeLater { MainWindow.ui.progressBar.value = 0 }
-					}
-					verifyInstallation()
-				}
-
+				checkExtraction(isFreshInstall)
 			} else {
 				Log.print("error\n")
 				log.error("error")
@@ -166,6 +153,23 @@ object InstallationManager {
 			}
 			UiManager.refreshComponents()
 		}.execute()
+	}
+
+	private fun checkExtraction(isFreshInstall: Boolean) {
+		Log.print("done\n")
+		if (status == InstallationStatus.NOT_INSTALLED) {
+			wurstConfig = WurstConfigData()
+		}
+		log.info("done")
+		if (!Files.exists(compilerJar)) {
+			Log.print("ERROR")
+		} else {
+			Log.print(if (isFreshInstall) "Installation complete\n" else "Update complete\n")
+			if (!SetupApp.setup.silent) {
+				SwingUtilities.invokeLater { MainWindow.ui.progressBar.value = 0 }
+			}
+			verifyInstallation()
+		}
 	}
 
 	private val jenkinsVerPattern = Pattern.compile("\\d\\.\\d\\.\\d\\.\\d(?:-\\w+)+-(\\d+)")
@@ -192,35 +196,6 @@ object InstallationManager {
         log.info("removed installation")
     }
 
-    private fun clearFolder(dir: Path) {
-		log.info("clearing: $dir")
-        Files.walk(dir).forEach {
-			clearPathInternal(it, dir)
-		}
-    }
-
-	private fun clearPathInternal(it: Path, dir: Path) {
-		if (it != dir) {
-			if (Files.isDirectory(it)) {
-				clearFolder(it)
-			} else {
-				clearFile(it)
-			}
-		}
-	}
-
-	private fun clearFile(it: Path) {
-		try {
-			Files.delete(it)
-		} catch (_e: Exception) {
-			if (_e.message?.contains("it is being used by another process") == true) {
-				log.warn("It seems like wurst is still running. some files might not be removed.")
-				return
-			} else {
-				log.error("Exception: ", _e)
-			}
-		}
-	}
 
 	fun getCompilerPath(): String {
 		return compilerJar.toAbsolutePath().toString()
@@ -232,6 +207,5 @@ object InstallationManager {
         INSTALLED_OUTDATED,
         INSTALLED_UPTODATE
     }
-
 
 }

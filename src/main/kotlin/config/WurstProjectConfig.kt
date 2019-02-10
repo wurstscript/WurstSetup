@@ -76,15 +76,7 @@ object WurstProjectConfig {
 		Files.delete(it)
 		if (extractSuccess) {
 			Log.print("done\n")
-			Log.print("Clean up..")
-			val folder = projectRoot.resolve("WurstBareboneTemplate-master")
-			copyFolder(folder, projectRoot)
-			Files.walk(folder).sorted { a, b -> b.compareTo(a) }.forEach { p ->
-				try {
-					Files.delete(p)
-				} catch (e: IOException) {
-				}
-			}
+			cleanupDownload(projectRoot)
 		} else {
 			Log.print("error\n")
 			JOptionPane.showMessageDialog(null,
@@ -94,6 +86,18 @@ object WurstProjectConfig {
 
 		setupEnvironment(projectRoot, gameRoot, projectConfig)
 		UiManager.refreshComponents()
+	}
+
+	private fun cleanupDownload(projectRoot: Path) {
+		Log.print("Clean up..")
+		val folder = projectRoot.resolve("WurstBareboneTemplate-master")
+		copyFolder(folder, projectRoot)
+		Files.walk(folder).sorted { a, b -> b.compareTo(a) }.forEach { p ->
+			try {
+				Files.delete(p)
+			} catch (e: IOException) {
+			}
+		}
 	}
 
 	private fun setupEnvironment(projectRoot: Path, gameRoot: Path?, projectConfig: WurstProjectConfigData) {
