@@ -207,7 +207,7 @@ object InstallationManager {
 						log.warn("It seems like wurst is still running. some files might not be removed.")
 						return
 					} else {
-						log.error("wurst exception: ", _e)
+						log.error("Exception: ", _e)
 					}
 				}
 			}
