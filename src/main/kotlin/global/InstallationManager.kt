@@ -222,6 +222,10 @@ object InstallationManager {
 		}
 	}
 
+	fun getCompilerPath(): String {
+		return compilerJar.toAbsolutePath().toString()
+	}
+
 	enum class InstallationStatus {
         NOT_INSTALLED,
         INSTALLED_UNKNOWN,

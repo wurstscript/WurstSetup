@@ -1,6 +1,8 @@
 package config
 
 import file.DependencyManager
+
+
 import file.Download
 import file.YamlHelper
 import file.ZipArchiveExtractor
@@ -13,14 +15,16 @@ import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.StandardOpenOption
 import javax.swing.JOptionPane
-
-
 /**
  * Created by Frotty on 10.07.2017.
  */
 
 object WurstProjectConfig {
+	private val BACKSLASH_REGEX = "\\\\".toRegex()
+	private val BACKSLASH_QUERY = "\\\\\\\\"
+
     private val log = KotlinLogging.logger {}
+
     fun handleCreate(projectRoot: Path, gameRoot: Path?, projectConfig: WurstProjectConfigData) {
         try {
             createProject(projectRoot, gameRoot, projectConfig)
@@ -30,7 +34,6 @@ object WurstProjectConfig {
         }
 
     }
-
 
     @Throws(IOException::class)
     fun loadProject(buildFile: Path): WurstProjectConfigData? {
@@ -137,6 +140,7 @@ object WurstProjectConfig {
         Files.write(projectRoot.resolve("wurst.build"), projectYaml.toByteArray())
     }
 
+
     @Throws(IOException::class)
     private fun setupVSCode(projectRoot: Path?, gamePath: Path?) {
         Log.print("Updating vsconfig..")
@@ -148,18 +152,18 @@ object WurstProjectConfig {
             Files.createDirectories(vsCode?.parent)
             Files.write(vsCode, VSCODE_MIN_CONFIG.toByteArray(), StandardOpenOption.CREATE_NEW)
         }
-		var json = replacePlaceholders(vsCode, gamePath)
+		val json = replacePlaceholders(vsCode, gamePath?.toAbsolutePath().toString())
 		Files.write(vsCode, json.toByteArray(), StandardOpenOption.TRUNCATE_EXISTING)
         Log.print("done.\n")
     }
 
-	private fun replacePlaceholders(vsCode: Path?, gamePath: Path?): String {
-		var json = String(Files.readAllBytes(vsCode))
-		val absolutePath = InstallationManager.compilerJar.toAbsolutePath().toString()
-		json = json.replace("%wurstjar%", absolutePath.replace("\\\\".toRegex(), "\\\\\\\\"))
+	private fun replacePlaceholders(vsCode: Path?, gamePath: String): String {
+		var json = Files.readAllBytes(vsCode).toString()
+		val absolutePath = InstallationManager.getCompilerPath()
+		json = json.replace("%wurstjar%", absolutePath.replace(BACKSLASH_REGEX, BACKSLASH_QUERY))
 
-		if (gamePath != null && Files.exists(gamePath)) {
-			json = json.replace("%gamepath%", gamePath.toAbsolutePath().toString().replace("\\\\".toRegex(), "\\\\\\\\"))
+		if (!gamePath.isBlank()) {
+			json = json.replace("%gamepath%", gamePath.replace(BACKSLASH_REGEX, BACKSLASH_QUERY))
 		}
 		return json
 	}
