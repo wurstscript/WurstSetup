@@ -147,7 +147,7 @@ object WurstProjectConfig {
 	}
 
 	private fun replacePlaceholders(vsCode: Path?, gamePath: String): String {
-		var json = Files.readAllBytes(vsCode).toString()
+		var json = String(Files.readAllBytes(vsCode))
 		val absolutePath = InstallationManager.getCompilerPath()
 		json = json.replace("%wurstjar%", absolutePath.replace(BACKSLASH_REGEX, BACKSLASH_QUERY))
 
@@ -182,3 +182,4 @@ object WurstProjectConfig {
                     "   }\n" +
                     "}"
 }
+
