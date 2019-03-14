@@ -11,7 +11,7 @@ object CLIParser {
 	/** Gets the version of the wurstscript.jar via cli */
 	fun getVersionFomJar() {
 		log.info("running wurst to extract the version")
-		val proc = Runtime.getRuntime().exec("java -jar " + InstallationManager.compilerJar.toAbsolutePath() + " --version")
+		val proc = Runtime.getRuntime().exec(arrayOf("java", "-jar", InstallationManager.compilerJar.toAbsolutePath().toString(), "--version"))
 		proc.waitFor(100, TimeUnit.MILLISECONDS)
 		val input = proc.inputStream.bufferedReader().use { it.readText() }.trim()
 		val err = proc.errorStream.bufferedReader().use { it.readText() }
