@@ -9,11 +9,11 @@ import kotlin.collections.ArrayList
  */
 data class WurstProjectConfigData(var projectName: String = "DefaultName",
                                   val dependencies: ArrayList<String> = ArrayList(Arrays.asList("https://github.com/wurstscript/wurstStdlib2")),
-                                  val jobs: ArrayList<WurstProjectBuildJob> =
-                                      ArrayList(Arrays.asList(WurstProjectBuildJob("run",
-                                          ArrayList(Arrays.asList("runcompiletimefunctions", "injectobjects", "stacktraces"))),
-                                      WurstProjectBuildJob("build",
-                                        ArrayList(Arrays.asList("runcompiletimefunctions", "injectobjects", "stacktraces", "opt", "inline", "localOptimizations"))))),
+//                                  val jobs: ArrayList<WurstProjectBuildJob> =
+//                                      ArrayList(Arrays.asList(WurstProjectBuildJob("run",
+//                                          ArrayList(Arrays.asList("runcompiletimefunctions", "injectobjects", "stacktraces"))),
+//                                      WurstProjectBuildJob("build",
+//                                        ArrayList(Arrays.asList("runcompiletimefunctions", "injectobjects", "stacktraces", "opt", "inline", "localOptimizations"))))),
                                   val buildMapData: WurstProjectBuildMapData = WurstProjectBuildMapData())
 
 /** All data needed to generate the output map */
@@ -22,8 +22,8 @@ data class WurstProjectBuildMapData(val name: String = "JustAnotherWurstMap",
                                     val author: String = "SomeWurstUser",
                                     val scenarioData: WurstProjectBuildScenarioData = WurstProjectBuildScenarioData(loadingScreen=null),
                                     val optionsFlags: WurstProjectBuildOptionFlagsData = WurstProjectBuildOptionFlagsData(),
-                                    val players: ArrayList<WurstProjectBuildPlayer> = ArrayList(Arrays.asList(WurstProjectBuildPlayer())),
-                                    val forces: ArrayList<WurstProjectBuildForce> = ArrayList(Arrays.asList(WurstProjectBuildForce())))
+                                    val players: ArrayList<WurstProjectBuildPlayer> = ArrayList(),
+                                    val forces: ArrayList<WurstProjectBuildForce> = ArrayList())
 
 /** Wurst job data with list of arguments */
 data class WurstProjectBuildJob(val name: String = "DefaultJobName",
