@@ -13,6 +13,7 @@ import java.nio.file.StandardCopyOption
 
 
 object SetupApp {
+	val DEFAULT_DIR = Paths.get(".")!!
     private val log = KotlinLogging.logger {}
     lateinit var setup: SetupMain
 
@@ -32,14 +33,14 @@ object SetupApp {
 		ConnectionManager.checkConnectivity()
 		ConnectionManager.checkWurstBuild()
 		InstallationManager.verifyInstallation()
-		if (setup.projectDir != null) {
+		if (setup.projectDir != DEFAULT_DIR) {
 			log.info("project dir exists")
 			if (setup.generate) {
 				log.info("is create project")
-				WurstProjectConfig.handleCreate(setup.projectDir!!, null, WurstProjectConfigData())
+				WurstProjectConfig.handleCreate(setup.projectDir, null, WurstProjectConfigData())
 			} else if (setup.update) {
 				log.info("is update project")
-				WurstProjectConfig.handleUpdate(setup.projectDir!!, null, WurstProjectConfig.loadProject(setup.projectDir!!.resolve("wurst.build"))!!)
+				WurstProjectConfig.handleUpdate(setup.projectDir, null, WurstProjectConfig.loadProject(setup.projectDir.resolve("wurst.build"))!!)
 			}
 		} else if (setup.remove) {
             log.info("remove installation")

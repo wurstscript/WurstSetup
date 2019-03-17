@@ -50,7 +50,7 @@ object WurstProjectConfig {
     @Throws(Exception::class)
     private fun createProject(projectRoot: Path, gameRoot: Path?, projectConfig: WurstProjectConfigData) {
         Log.print("Creating project root..")
-        if (Files.exists(projectRoot) && Files.list(projectRoot).filter({ !Files.isDirectory(it) }).findAny().isPresent) {
+        if (Files.exists(projectRoot) && Files.list(projectRoot).filter { !Files.isDirectory(it) }.findAny().isPresent) {
             log.error("Project root already exists and contains files")
             Log.print("\nError: Project root already exists!\n")
         } else {

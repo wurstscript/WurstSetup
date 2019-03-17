@@ -9,7 +9,6 @@ import java.nio.file.Files
 import java.nio.file.Path
 
 class SetupMain {
-
     @Option(name = "-silent", usage = "execute tasks without opening UI")
     var silent = false
 
@@ -25,7 +24,7 @@ class SetupMain {
     @Option(name = "-generate", usage = "generates a new project at projectDir location")
     var generate = false
 
-    var projectDir: Path? = null
+    var projectDir: Path = SetupApp.DEFAULT_DIR
 
     @Option(name = "-projectDir", usage = "sets the root folder of the wurst project")
     fun setDir(file: File) {
