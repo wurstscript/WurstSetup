@@ -119,15 +119,14 @@ object CompileTimeInfo {
 compileKotlin.dependsOn versionInfoFile
 
 task dist(type: Jar) {
-    from files(sourceSets.main.output.classesDir)
-    from files(sourceSets.main.output.resourcesDir)
-    from { configurations.compile.collect { zipTree(it) } }
+    from { configurations.runtime.collect { it.isDirectory() ? it : zipTree(it) } }
     exclude 'META-INF/*.RSA', 'META-INF/*.SF','META-INF/*.DSA','proguard.jar'
     manifest {
         attributes 'Implementation-Title': 'Wurst Setup',
                 'Implementation-Version': version,
                 'Main-Class': 'file.SetupMain'
     }
+    with jar
 }
 dist.dependsOn classes
 dist.dependsOn versionInfoFile
@@ -145,9 +144,6 @@ copy_jar.dependsOn(dist)
 
 mainClassName = "file.SetupMain"
 
-task wrapper(type: Wrapper) {
-    gradleVersion = '4.10.3'
-}
 compileKotlin {
     kotlinOptions {
         jvmTarget = "1.8"
