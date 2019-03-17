@@ -6,4 +6,8 @@ import org.testng.annotations.Test
     assert(ConnectionManager.checkConnectivity() == NetStatus.SERVER_CONTACT)
 
     assert(ConnectionManager.checkWurstBuild() == NetStatus.ONLINE)
+
+	assert(ConnectionManager.getLatestCompilerBuild() > 1000)
+
+	assert(ConnectionManager.getLatestSetupBuild() > 50)
 }

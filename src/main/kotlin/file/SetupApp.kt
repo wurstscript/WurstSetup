@@ -1,7 +1,10 @@
 package file
 
+import config.WurstProjectConfig
+import config.WurstProjectConfigData
 import global.InstallationManager
 import mu.KotlinLogging
+import net.ConnectionManager
 import ui.UiManager
 import ui.UpdateFoundDialog
 import java.nio.file.Files
@@ -10,6 +13,7 @@ import java.nio.file.StandardCopyOption
 
 
 object SetupApp {
+	val DEFAULT_DIR = Paths.get(".")!!
     private val log = KotlinLogging.logger {}
     lateinit var setup: SetupMain
 
@@ -26,12 +30,24 @@ object SetupApp {
     }
 
     private fun handleCMD() {
-        if (setup.removeInstallation) {
+		ConnectionManager.checkConnectivity()
+		ConnectionManager.checkWurstBuild()
+		InstallationManager.verifyInstallation()
+		if (setup.projectDir != DEFAULT_DIR) {
+			log.info("project dir exists")
+			if (setup.generate) {
+				log.info("is create project")
+				WurstProjectConfig.handleCreate(setup.projectDir, null, WurstProjectConfigData())
+			} else if (setup.update) {
+				log.info("is update project")
+				WurstProjectConfig.handleUpdate(setup.projectDir, null, WurstProjectConfig.loadProject(setup.projectDir.resolve("wurst.build"))!!)
+			}
+		} else if (setup.remove) {
             log.info("remove installation")
             if (setup.force) {
                 InstallationManager.handleRemove()
             }
-        } else if (setup.updateInstall) {
+        } else if (setup.update) {
             if (InstallationManager.status == InstallationManager.InstallationStatus.INSTALLED_OUTDATED
                     || InstallationManager.status == InstallationManager.InstallationStatus.NOT_INSTALLED) {
                 log.info("compiler update found")
@@ -41,31 +57,11 @@ object SetupApp {
                     UpdateFoundDialog("A Wurst compiler update has been found!")
                 }
             }
-        } else if (setup.createProject) {
-            log.info("is create project")
-            if (setup.projectDir != null) {
-                log.info("project dir exists")
-                WurstProjectConfig.handleCreate(setup.projectDir!!, null, WurstProjectConfigData())
-            }
-        } else if (setup.updateProject) {
-            log.info("is update project")
-            if (setup.projectDir != null) {
-                log.info("project dir exists")
-                WurstProjectConfig.handleUpdate(setup.projectDir!!, null, WurstProjectConfig.loadProject(setup.projectDir!!.resolve("wurst.build"))!!)
-            }
         }
     }
 
     private fun startup() {
         log.info("startup setup version: <{}>", CompileTimeInfo.version)
-//        val conStatus = ConnectionManager.checkConnectivity()
-//        log.info("ConnectionStatus: $conStatus")
-//        when (conStatus) {
-//            NetStatus.CLIENT_OFFLINE -> Log.print("Client offline. All update functionality disabled.")
-//            NetStatus.SERVER_OFFLINE -> Log.print("Server offline. All update functionality disabled.")
-//            NetStatus.ONLINE -> Log.println("Server online!")
-//        }
-
         InstallationManager.verifyInstallation()
         copyJar()
     }
@@ -73,6 +69,10 @@ object SetupApp {
     private fun copyJar() {
         val url = InstallationManager::class.java.protectionDomain.codeSource.location
         val ownFile = Paths.get(url.toURI())
+        if (ownFile.endsWith(".2.jar")) {
+            log.info("copy jar from own")
+            Files.copy(ownFile, ownFile.resolveSibling("WurstSetup.jar"), StandardCopyOption.REPLACE_EXISTING)
+        }
         log.info("path: $url")
         log.info("file: " + ownFile.toAbsolutePath())
         if (ownFile != null && Files.exists(ownFile) && ownFile.toString().endsWith(".jar") &&

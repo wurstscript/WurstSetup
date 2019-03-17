@@ -1,12 +1,12 @@
 package ui
 
+import config.WurstProjectConfig
+import config.WurstProjectConfigData
+import de.ralleytn.simple.registry.Registry
 import file.CompileTimeInfo
 import file.SetupApp
-import file.WurstProjectConfig
-import file.WurstProjectConfigData
 import global.InstallationManager
 import global.Log
-import global.WinRegistry
 import mu.KotlinLogging
 import net.ConnectionManager
 import net.NetStatus
@@ -39,12 +39,12 @@ import javax.swing.text.DefaultCaret
 
 object MainWindow : JFrame() {
     private val log = KotlinLogging.logger {}
-    private val exitIcon by lazy { ImageIcon(ImageIO.read(MainWindow::class.java.getResourceAsStream("/exitup.png"))) }
-    private val minIcon by lazy { ImageIcon(ImageIO.read(MainWindow::class.java.getResourceAsStream("/minimizeup.png"))) }
-    private val exitIconDown by lazy { ImageIcon(ImageIO.read(MainWindow::class.java.getResourceAsStream("/exitdown.png"))) }
-    private val minIconDown by lazy { ImageIcon(ImageIO.read(MainWindow::class.java.getResourceAsStream("/minimizedown.png"))) }
-    private val exitIconHover by lazy { ImageIcon(ImageIO.read(MainWindow::class.java.getResourceAsStream("/exithover.png"))) }
-    private val minIconHover by lazy { ImageIcon(ImageIO.read(MainWindow::class.java.getResourceAsStream("/minimizehover.png"))) }
+    private val exitIcon by lazy { ImageIcon(ImageIO.read(javaClass.classLoader.getResource("exitup.png"))) }
+    private val minIcon by lazy { ImageIcon(ImageIO.read(javaClass.classLoader.getResource("minimizeup.png"))) }
+    private val exitIconDown by lazy { ImageIcon(ImageIO.read(javaClass.classLoader.getResource("exitdown.png"))) }
+    private val minIconDown by lazy { ImageIcon(ImageIO.read(javaClass.classLoader.getResource("minimizedown.png"))) }
+    private val exitIconHover by lazy { ImageIcon(ImageIO.read(javaClass.classLoader.getResource("exithover.png"))) }
+    private val minIconHover by lazy { ImageIcon(ImageIO.read(javaClass.classLoader.getResource("minimizehover.png"))) }
 
     val ui by lazy { UI() }
 
@@ -62,22 +62,24 @@ object MainWindow : JFrame() {
         setSize(570, 355)
         background = Color(36, 36, 36)
         centerWindow()
-        isUndecorated = true
+        if(!isDisplayable) {
+          isUndecorated = true
+        }
         defaultCloseOperation = WindowConstants.EXIT_ON_CLOSE
         isResizable = false
         ui.initComponents()
         add(ui, BorderLayout.CENTER)
         addMouseListener(object : MouseAdapter() {
 
-            override fun mousePressed(e: MouseEvent?) {
-                point.x = e!!.x
+            override fun mousePressed(e: MouseEvent) {
+                point.x = e.x
                 point.y = e.y
             }
         })
         addMouseMotionListener(object : MouseMotionAdapter() {
-            override fun mouseDragged(e: MouseEvent?) {
+            override fun mouseDragged(e: MouseEvent) {
                 val p = location
-                setLocation(p.x + e!!.x - point.x, p.y + e.y - point.y)
+                setLocation(p.x + e.x - point.x, p.y + e.y - point.y)
             }
         })
         isVisible = true
@@ -98,7 +100,8 @@ object MainWindow : JFrame() {
         var progressBar: JProgressBar = JProgressBar()
         var btnCreate: SetupButton = SetupButton("Create Project")
         var btnUpdate: SetupButton = SetupButton("Install WurstScript")
-        var importButton: SetupButton = SetupButton("Import")
+        var importButton: SetupButton = SetupButton("Open Project")
+        var btnAdvanced: SetupButton = SetupButton("Add")
         var jTextArea = JTextArea("Ready version: " + CompileTimeInfo.version + "\n")
         var projectNameTF: JTextField = JTextField("MyWurstProject")
         var projectRootTF: JTextField = JTextField("projectRoot")
@@ -253,24 +256,14 @@ object MainWindow : JFrame() {
                             btnCreate.isEnabled = false
                         } else {
                             projectRootTF.text = projectRootFile?.absolutePath + File.separator + projectNameTF.text
-                            btnCreate.isEnabled = true
+                            if (!disabled) {
+                              btnCreate.isEnabled = true
+                            }
                         }
                     }
                 }
             })
 
-            projectRootTF.text = projectRootFile.absolutePath + File.separator + projectNameTF.text
-            projectInputTable.addCell(projectNameTF).growX()
-            importButton.addMouseListener(object : MouseAdapter() {
-                override fun mouseClicked(arg0: MouseEvent?) {
-                    if (importButton.isEnabled && !progressBar.isIndeterminate) {
-                        if (importChooser.showOpenDialog(that) == JFileChooser.APPROVE_OPTION) {
-                            handleImport()
-                        }
-                    }
-                }
-            })
-            projectInputTable.addCell(importButton)
             configTable.addCell(projectInputTable).growX()
 
             configTable.row().height(24f).padTop(2f)
@@ -283,8 +276,11 @@ object MainWindow : JFrame() {
             projectTF.addCell(projectRootTF).growX()
             val selectProjectRoot = SetupButton("...")
 
+			projectRootTF.text = projectRootFile.absolutePath + File.separator + projectNameTF.text
+			projectInputTable.addCell(projectNameTF).growX()
+
             selectProjectRoot.addMouseListener(object : MouseAdapter() {
-                override fun mouseClicked(arg0: MouseEvent?) {
+                override fun mouseClicked(arg0: MouseEvent) {
                     if (saveChooser.showSaveDialog(that) == JFileChooser.APPROVE_OPTION) {
                         projectRootFile = saveChooser.selectedFile
                         projectRootTF.text = saveChooser.selectedFile.absolutePath + File.separator + projectNameTF.text
@@ -304,7 +300,7 @@ object MainWindow : JFrame() {
             gameTF.addCell(gamePathTF).height(24f).growX()
             val selectGamePath = SetupButton("...")
             selectGamePath.addMouseListener(object : MouseAdapter() {
-                override fun mouseClicked(arg0: MouseEvent?) {
+                override fun mouseClicked(arg0: MouseEvent) {
                     if (saveChooser.showSaveDialog(that) == JFileChooser.APPROVE_OPTION) {
                         gamePathTF.text = saveChooser.selectedFile.absolutePath
                     }
@@ -312,7 +308,8 @@ object MainWindow : JFrame() {
             })
             if (System.getProperty("os.name").startsWith("Windows")) {
                 try {
-                    var wc3Path = WinRegistry.readString(WinRegistry.HKEY_CURRENT_USER, "SOFTWARE\\Blizzard Entertainment\\Warcraft III", "InstallPath")
+                    val key = Registry.getKey(Registry.HKEY_CURRENT_USER + "\\SOFTWARE\\Blizzard Entertainment\\Warcraft III")
+                    var wc3Path = key.getValueByName("InstallPath").rawValue
                     if (wc3Path != null) {
                         if (!wc3Path.endsWith(File.separator)) wc3Path += File.separator
                         val gameFolder = File(wc3Path)
@@ -337,21 +334,19 @@ object MainWindow : JFrame() {
             val dependencyTable = Table()
             dependencyTF.isEditable = false
             dependencyTable.addCell(dependencyTF).height(24f).growX()
-            val manageDependencies = SetupButton("Advanced")
-            manageDependencies.addMouseListener(object : MouseAdapter() {
-                override fun mouseClicked(arg0: MouseEvent?) {
+            btnAdvanced.addMouseListener(object : MouseAdapter() {
+                override fun mouseClicked(arg0: MouseEvent) {
                     log.info("Adding dependency")
                     AddRepoDialog()
                 }
             })
 
-            dependencyTable.addCell(manageDependencies).height(24f).pad(0f, 2f, 0f, 2f)
+            dependencyTable.addCell(btnAdvanced).height(24f).pad(0f, 2f, 0f, 2f)
 
             configTable.addCell(dependencyTable).growX()
 
             contentTable.addCell(configTable).growX().pad(2f)
         }
-
         private fun handleImport() {
             try {
                 val buildFile = importChooser.selectedFile.toPath()
@@ -374,7 +369,9 @@ object MainWindow : JFrame() {
             if (!inited) return
             SwingUtilities.invokeLater {
                 progressBar.isIndeterminate = false
-                importButton.isEnabled = true
+                if (!disabled) {
+                  importButton.isEnabled = true
+                }
                 when (ConnectionManager.netStatus) {
                     NetStatus.CLIENT_OFFLINE, NetStatus.SERVER_OFFLINE -> {
                         lblLatestVerNumber.text = "(loading..)"
@@ -385,7 +382,9 @@ object MainWindow : JFrame() {
                     NetStatus.ONLINE -> {
                         lblLatestVerNumber.text = InstallationManager.latestCompilerVersion.toString()
                         lblLatestVerNumber.foreground = Color.decode("#005719")
-                        btnUpdate.isEnabled = true
+                        if (!disabled) {
+                            btnUpdate.isEnabled = true
+                        }
                     }
                     NetStatus.SERVER_CONTACT -> {
                         lblLatestVerNumber.text = "Loading.."
@@ -401,14 +400,18 @@ object MainWindow : JFrame() {
                     InstallationManager.InstallationStatus.INSTALLED_UPTODATE -> {
                         lblCurVerNumber.text = getVersionString()
                         lblCurVerNumber.foreground = Color.decode("#005719")
-                        btnCreate.isEnabled = true
+                        if (!disabled) {
+                          btnCreate.isEnabled = true
+                        }
                         btnUpdate.text = "Compiler up to date"
                         btnUpdate.isEnabled = false
                     }
                     InstallationManager.InstallationStatus.INSTALLED_UNKNOWN, InstallationManager.InstallationStatus.INSTALLED_OUTDATED -> {
                         lblCurVerNumber.text = getVersionString()
                         lblCurVerNumber.foreground = Color.decode("#702D2D")
-                        btnCreate.isEnabled = true
+                        if (!disabled) {
+                          btnCreate.isEnabled = true
+                        }
                         btnUpdate.text = "Update WurstScript"
                     }
                 }
@@ -418,26 +421,35 @@ object MainWindow : JFrame() {
         private fun getVersionString() =
                 if (InstallationManager.currentCompilerVersion > 0) InstallationManager.currentCompilerVersion.toString() else "(unofficial build)"
 
-        private fun disableButtons() {
+        private var disabled = false
+
+        fun enableButtons() {
+            disabled = false
+        }
+
+        fun disableButtons() {
+            disabled = true
             if (SwingUtilities.isEventDispatchThread()) {
                 btnCreate.isEnabled = false
                 btnUpdate.isEnabled = false
                 importButton.isEnabled = false
+                btnAdvanced.isEnabled = false
             } else {
                 SwingUtilities.invokeLater {
                     btnCreate.isEnabled = false
                     btnUpdate.isEnabled = false
                     importButton.isEnabled = false
+                    btnAdvanced.isEnabled = false
                 }
             }
 
-        }
+          }
 
         private fun createButtonTable() {
             val buttonTable = Table()
             buttonTable.setSize(420, 90)
             btnUpdate.addMouseListener(object : MouseAdapter() {
-                override fun mouseClicked(arg0: MouseEvent?) {
+                override fun mouseClicked(arg0: MouseEvent) {
                     if (btnUpdate.isEnabled && !progressBar.isIndeterminate) {
                         handleWurstUpdate()
                     }
@@ -446,7 +458,7 @@ object MainWindow : JFrame() {
             buttonTable.addCell(btnUpdate)
             buttonTable.addCell().growX()
             btnCreate.addMouseListener(object : MouseAdapter() {
-                override fun mouseClicked(arg0: MouseEvent?) {
+                override fun mouseClicked(arg0: MouseEvent) {
                     if (btnCreate.isEnabled && !progressBar.isIndeterminate) {
                         SwingUtilities.invokeLater { progressBar.isIndeterminate = true }
                         disableButtons()
@@ -465,6 +477,17 @@ object MainWindow : JFrame() {
                     }
                 }
             })
+			val that = this
+			importButton.addMouseListener(object : MouseAdapter() {
+				override fun mouseClicked(arg0: MouseEvent) {
+					if (importButton.isEnabled && !progressBar.isIndeterminate) {
+						if (importChooser.showOpenDialog(that) == JFileChooser.APPROVE_OPTION) {
+							handleImport()
+						}
+					}
+				}
+			})
+			buttonTable.addCell(importButton).padRight(6f)
             buttonTable.addCell(btnCreate)
             contentTable.addCell(buttonTable).growX().pad(2f)
         }
@@ -495,7 +518,7 @@ object MainWindow : JFrame() {
             val gameRoot = Paths.get(gamePathTF.text)
             val projectRoot = Paths.get(projectRootTF.text)
             if (selectedConfig != null) {
-                dependencies.forEach { e -> if (!selectedConfig?.dependencies?.contains(e)!!) selectedConfig?.dependencies?.add(e) }
+                dependencies.forEach { e -> if (selectedConfig?.dependencies?.contains(e) == false) selectedConfig?.dependencies?.add(e) }
                 log.info("Update project. gamepath <{}>, root <{}>", gameRoot, projectRoot)
                 if (SetupApp.setup.silent) {
                     WurstProjectConfig.handleUpdate(projectRoot, gameRoot, selectedConfig!!)
@@ -515,7 +538,7 @@ object MainWindow : JFrame() {
 
     }
 
-    fun initFilechooser() {
+    private fun initFilechooser() {
         saveChooser = JSystemFileChooser()
         saveChooser.fileSelectionMode = JFileChooser.DIRECTORIES_ONLY
         saveChooser.currentDirectory = java.io.File(".")

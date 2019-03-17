@@ -1,5 +1,6 @@
 package file
 
+import config.WurstProjectConfigData
 import global.Log
 import mu.KotlinLogging
 import org.eclipse.jgit.api.Git

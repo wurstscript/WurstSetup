@@ -1,6 +1,9 @@
 package global
 
 import file.Download
+import file.SetupApp
+import file.ZipArchiveExtractor
+import file.clearFolder
 import mu.KotlinLogging
 import net.ConnectionManager
 import net.NetStatus
@@ -11,7 +14,6 @@ import workers.ExtractWorker
 import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.Paths
-import java.util.concurrent.TimeUnit
 import java.util.regex.Pattern
 import javax.swing.SwingUtilities
 
@@ -41,19 +43,24 @@ object InstallationManager {
         currentCompilerVersion = -1
         latestCompilerVersion = 0
         if (Files.exists(installDir) && Files.exists(compilerJar)) {
+			log.info("Found installation")
             status = InstallationStatus.INSTALLED_UNKNOWN
             try {
                 if (!Files.isWritable(compilerJar)) {
-                    showWurstInUse()
+                    CLIParser.showWurstInUse()
                 } else {
-                    getVersionFomJar()
+					CLIParser.getVersionFomJar()
                 }
             } catch (_: Error) {
                 log.warn("Installation is custom.")
             }
-        }
+        } else {
+			log.info("Installation not found")
+		}
         if (ConnectionManager.netStatus == NetStatus.ONLINE) {
+			log.info("Client online, check for update")
             latestCompilerVersion = ConnectionManager.getLatestCompilerBuild()
+			log.info("latest compiler: $latestCompilerVersion")
             if (currentCompilerVersion >= latestCompilerVersion) {
                 status = InstallationStatus.INSTALLED_UPTODATE
             }
@@ -61,40 +68,6 @@ object InstallationManager {
         return status
     }
 
-    /** Gets the version of the wurstscript.jar via cli */
-    fun getVersionFomJar() {
-        val proc = Runtime.getRuntime().exec("java -jar " + compilerJar.toAbsolutePath() + " --version")
-        proc.waitFor(100, TimeUnit.MILLISECONDS)
-        val input = proc.inputStream.bufferedReader().use { it.readText() }.trim()
-        val err = proc.errorStream.bufferedReader().use { it.readText() }
-
-        when {
-            err.contains("AccessDeniedException", true) -> // If the err output contains this exception, the .jar is currently running
-                showWurstInUse()
-            err.contains("Exception") -> status = InstallationStatus.INSTALLED_OUTDATED
-            else -> {
-                parseCMDLine(input)
-            }
-        }
-    }
-
-    private fun parseCMDLine(input: String) {
-        val lines = input.split(System.getProperty("line.separator"))
-        lines.forEach { line ->
-            if (isJenkinsBuilt(line)) {
-                currentCompilerVersion = getJenkinsBuildVer(line)
-                status = InstallationStatus.INSTALLED_OUTDATED
-            }
-        }
-        if (status != InstallationStatus.INSTALLED_OUTDATED) {
-            throw Error("Installation failed!")
-        }
-    }
-
-    private fun showWurstInUse() {
-        ErrorDialog("The Wurst compiler is currently in use.\n" +
-                "Please close all running instances and vscode, then retry.", true)
-    }
 
     fun handleUpdate() {
         val isFreshInstall = status == InstallationStatus.NOT_INSTALLED
@@ -102,36 +75,9 @@ object InstallationManager {
             log.info(if (isFreshInstall) "isInstall" else "isUpdate")
             Log.print(if (isFreshInstall) "Installing WurstScript..\n" else "Updating WursScript..\n")
             Log.print("Downloading compiler..")
-            log.info("download compiler")
+            log.info("Downloading compiler..")
 
-            Download.downloadCompiler {
-                Log.print(" done.\n")
-
-                ExtractWorker(it, MainWindow.ui.progressBar) {
-                    if (it) {
-                        Log.print("done\n")
-                        if (status == InstallationStatus.NOT_INSTALLED) {
-                            wurstConfig = WurstConfigData()
-                        }
-                        log.info("done")
-                        if (!Files.exists(compilerJar)) {
-                            Log.print("ERROR")
-                        } else {
-                            Log.print(if (isFreshInstall) "Installation complete\n" else "Update complete\n")
-                            SwingUtilities.invokeLater { MainWindow.ui.progressBar.value = 0 }
-                            InstallationManager.verifyInstallation()
-                        }
-
-                    } else {
-                        Log.print("error\n")
-                        log.error("error")
-                        ErrorDialog("Could not extract patch files.\nWurst might still be in use.\nMake sure to close VSCode before updating.", false)
-                    }
-                    UiManager.refreshComponents()
-                }.execute()
-
-
-            }
+			downloadCompiler(isFreshInstall)
         } catch (e: Exception) {
             log.error("exception: ", e)
             Log.print("\n===ERROR COMPILER UPDATE===\n" + e.message + "\nPlease report here: github.com/wurstscript/WurstScript/issues\n")
@@ -139,7 +85,51 @@ object InstallationManager {
 
     }
 
-    private val jenkinsVerPattern = Pattern.compile("\\d\\.\\d\\.\\d\\.\\d(?:-\\w+)+-(\\d+)")
+	private fun downloadCompiler(isFreshInstall: Boolean) {
+		Download.downloadCompiler {
+			Log.print(" done.\n")
+
+			if (SetupApp.setup.silent) {
+				ZipArchiveExtractor.extractArchive(it, installDir)
+				Files.delete(it)
+			} else {
+				startExtractWorker(it, isFreshInstall)
+			}
+
+		}
+	}
+
+	private fun startExtractWorker(it: Path, isFreshInstall: Boolean) {
+		ExtractWorker(it, if (SetupApp.setup.silent) null else MainWindow.ui.progressBar) {
+			if (it) {
+				checkExtraction(isFreshInstall)
+			} else {
+				Log.print("error\n")
+				log.error("error")
+				ErrorDialog("Could not extract patch files.\nWurst might still be in use.\nMake sure to close VSCode before updating.", false)
+			}
+			UiManager.refreshComponents()
+		}.execute()
+	}
+
+	private fun checkExtraction(isFreshInstall: Boolean) {
+		Log.print("done\n")
+		if (status == InstallationStatus.NOT_INSTALLED) {
+			wurstConfig = WurstConfigData()
+		}
+		log.info("done")
+		if (!Files.exists(compilerJar)) {
+			Log.print("ERROR")
+		} else {
+			Log.print(if (isFreshInstall) "Installation complete\n" else "Update complete\n")
+			if (!SetupApp.setup.silent) {
+				SwingUtilities.invokeLater { MainWindow.ui.progressBar.value = 0 }
+			}
+			verifyInstallation()
+		}
+	}
+
+	private val jenkinsVerPattern = Pattern.compile("\\d\\.\\d\\.\\d\\.\\d(?:-\\w+)+-(\\d+)")
 
     fun isJenkinsBuilt(version: String): Boolean {
         val matcher = jenkinsVerPattern.matcher(version)
@@ -163,28 +153,16 @@ object InstallationManager {
         log.info("removed installation")
     }
 
-    private fun clearFolder(dir: Path) {
-        Files.walk(dir)
-                .forEach({
-                    if (it != dir) {
-                        if (Files.isDirectory(it)) {
-                            clearFolder(it)
-                        } else {
-                            try {
-                                Files.delete(it)
-                            } catch (_e: Exception) {
-                            }
-                        }
-                    }
-                })
-    }
 
-    enum class InstallationStatus {
+	fun getCompilerPath(): String {
+		return compilerJar.toAbsolutePath().toString()
+	}
+
+	enum class InstallationStatus {
         NOT_INSTALLED,
         INSTALLED_UNKNOWN,
         INSTALLED_OUTDATED,
         INSTALLED_UPTODATE
     }
-
 
 }

@@ -28,7 +28,7 @@ class UpdateFoundDialog(message: String) : JDialog() {
         contentPane.add(contentTable)
         modalityType = ModalityType.APPLICATION_MODAL
         try {
-            setIconImage(ImageIO.read(UpdateFoundDialog::class.java.getResourceAsStream("/icon.png")))
+            setIconImage(ImageIO.read(javaClass.classLoader.getResource("icon.png")))
         } catch (e: IOException) {
             e.printStackTrace()
         }
