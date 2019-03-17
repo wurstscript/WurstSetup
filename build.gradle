@@ -77,7 +77,7 @@ task versionInfoFile {
     doLast {
         def dir = new File('./src-gen/file/')
         dir.mkdirs()
-        def f = new File(dir, 'CompileTimeInfo.java')
+        def f = new File(dir, 'CompileTimeInfo.kt')
 
         String gitRevision = "unknown-version"
         String gitRevisionlong = "unknown-version"
@@ -106,13 +106,13 @@ task versionInfoFile {
         String currentTime = new Date().format("yyyy/MM/dd KK:mm:ss")
 
         f.text = """
-package file;
+package file
 
-public class CompileTimeInfo {
-\tpublic static final String time="${currentTime}";
-\tpublic static final String revision="${gitRevision}";
-\tpublic static final String revisionLong="${gitRevisionlong}";
-\tpublic static final String version="${setupVersion}";
+object CompileTimeInfo {
+\tval time="${currentTime}"
+\tval revision="${gitRevision}"
+\tval revisionLong="${gitRevisionlong}"
+\tval version="${setupVersion}"
 }"""
 
     }
