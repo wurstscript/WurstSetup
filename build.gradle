@@ -1,4 +1,3 @@
-import proguard.gradle.ProGuardTask
 
 apply plugin: 'java'
 apply plugin: 'kotlin'
@@ -64,7 +63,6 @@ buildscript {
         mavenCentral()
     }
     dependencies {
-        classpath ':proguard'
         classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlin_version"
     }
 }
@@ -134,15 +132,8 @@ task dist(type: Jar) {
 dist.dependsOn classes
 dist.dependsOn versionInfoFile
 
-dist.archiveName = "${jar.baseName}.raw.${jar.extension}"
+dist.archiveName = "${jar.baseName}.${jar.extension}"
 
-task proguardDist(type: ProGuardTask) {
-    configuration 'proguard-project.txt'
-    injars 'build/libs/WurstSetup.raw.jar'
-    outjars 'build/libs/WurstSetup.jar'
-
-}
-proguardDist.dependsOn dist
 
 task copy_jar(type: Copy) {
     mkdir("downloads/")
@@ -150,7 +141,7 @@ task copy_jar(type: Copy) {
     into 'downloads/'
 }
 
-copy_jar.dependsOn(proguardDist)
+copy_jar.dependsOn(dist)
 
 mainClassName = "file.SetupMain"
 
