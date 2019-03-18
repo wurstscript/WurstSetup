@@ -15,6 +15,9 @@ import javax.swing.SwingWorker
 
 class DownloadWithProgressWorker(private val filePath: String, private val progressBar: JProgressBar, val finish: Path.() -> Unit) : SwingWorker<Boolean, Void>() {
     private val log = KotlinLogging.logger {}
+
+	private var filename = "";
+
     @Throws(Exception::class)
     override fun doInBackground(): Boolean? {
         try {
@@ -26,12 +29,12 @@ class DownloadWithProgressWorker(private val filePath: String, private val progr
             val size = completeFileSize / 1024 / 1024
             Log.print("(" + (if (size == 0) "<1" else size) + "MB)")
             val input = java.io.BufferedInputStream(httpConnection.inputStream)
-            var substring = filePath.substring(filePath.lastIndexOf("/") + 1)
-            if (Files.exists(Paths.get(substring))) {
-                substring += ".2.jar"
+			filename = filePath.substring(filePath.lastIndexOf("/") + 1)
+            if (Files.exists(Paths.get(filename))) {
+				filename += ".2.jar"
             }
 
-            val fos = java.io.FileOutputStream(substring)
+            val fos = java.io.FileOutputStream(filename)
             val bout = BufferedOutputStream(fos, 1024)
             val data = ByteArray(1024)
             var downloadedFileSize: Long = 0
@@ -59,6 +62,6 @@ class DownloadWithProgressWorker(private val filePath: String, private val progr
 
     override fun done() {
         SwingUtilities.invokeLater { progressBar.isIndeterminate = true }
-        finish.invoke(Paths.get(filePath.substring(filePath.lastIndexOf("/") + 1)))
+        finish.invoke(Paths.get(filename))
     }
 }
