@@ -133,7 +133,7 @@ task dist(type: Jar) {
 dist.dependsOn classes
 dist.dependsOn versionInfoFile
 
-dist.archiveName = "${jar.baseName}.raw.${jar.extension}"
+dist.archiveName = "${jar.baseName}.${jar.extension}"
 
 task proguardDist(type: ProGuardTask) {
     configuration 'proguard-project.txt'
