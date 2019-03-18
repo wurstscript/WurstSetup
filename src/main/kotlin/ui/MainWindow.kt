@@ -309,7 +309,7 @@ object MainWindow : JFrame() {
             if (System.getProperty("os.name").startsWith("Windows")) {
                 try {
                     val key = Registry.getKey(Registry.HKEY_CURRENT_USER + "\\SOFTWARE\\Blizzard Entertainment\\Warcraft III")
-                    var wc3Path = key.getValueByName("InstallPath").rawValue
+                    var wc3Path = key.getValueByName("InstallPath")?.rawValue
                     if (wc3Path != null) {
                         if (!wc3Path.endsWith(File.separator)) wc3Path += File.separator
                         val gameFolder = File(wc3Path)
