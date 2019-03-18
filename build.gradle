@@ -69,7 +69,7 @@ buildscript {
     }
 }
 
-version '1.1.5.0'
+version '1.2.0.0'
 
 task versionInfoFile {
     description "Generates a file CompileTimeInfo.java with version number etc."
@@ -149,7 +149,7 @@ task copy_jar(type: Copy) {
     into 'downloads/'
 }
 
-copy_jar.dependsOn(proguardDist)
+copy_jar.dependsOn(dist)
 
 mainClassName = "file.SetupMain"
 
@@ -163,13 +163,5 @@ compileTestKotlin {
         jvmTarget = "1.8"
     }
 }
-tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile).all {
-  kotlinOptions {
-    jvmTarget = "1.8"
-  }
-}
-
-sourceCompatibility = 1.8
-targetCompatibility = 1.8
 
 
