@@ -91,7 +91,7 @@ data class WurstProjectBuildForceFlags(val allied: Boolean = true,
 
 /** Player race */
 enum class Race {
-    HUMAN, ORC, UNDEAD, NIGHTELF, SELECTABLE
+    HUMAN, ORC, UNDEAD, NIGHT_ELF, SELECTABLE
 }
 
 /** Player controller */
