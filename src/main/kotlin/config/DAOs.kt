@@ -102,8 +102,8 @@ enum class Controller {
 /** Data for one player */
 @JsonInclude(JsonInclude.Include.NON_DEFAULT)
 data class WurstProjectBuildPlayer(val id: Int = 0,
-                                   val name: String = "DefaultPlayer",
-                                   val race: Race = Race.SELECTABLE,
-                                   val controller: Controller = Controller.USER,
-                                   val fixedStartLoc: Boolean = false)
+                                   val name: String?,
+                                   val race: Race?,
+                                   val controller: Controller?,
+                                   val fixedStartLoc: Boolean?)
 
