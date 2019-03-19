@@ -57,7 +57,7 @@ object SetupApp {
 					log.info("Forcing update..")
                     InstallationManager.handleUpdate()
                 } else {
-					if (false && !setup.silent) {
+					if (!setup.silent) {
 						UpdateFoundDialog("A Wurst compiler update has been found!")
 					} else {
 						log.info("Do you want to update your wurst installation? (y/n)")
