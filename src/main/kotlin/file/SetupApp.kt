@@ -10,6 +10,7 @@ import ui.UpdateFoundDialog
 import java.nio.file.Files
 import java.nio.file.Paths
 import java.nio.file.StandardCopyOption
+import java.util.*
 
 
 object SetupApp {
@@ -33,6 +34,7 @@ object SetupApp {
 		ConnectionManager.checkConnectivity()
 		ConnectionManager.checkWurstBuild()
 		InstallationManager.verifyInstallation()
+		log.info("handle runargs")
 		if (setup.projectDir != DEFAULT_DIR) {
 			log.info("project dir exists")
 			if (setup.generate) {
@@ -48,15 +50,27 @@ object SetupApp {
                 InstallationManager.handleRemove()
             }
         } else if (setup.update) {
-            if (InstallationManager.status == InstallationManager.InstallationStatus.INSTALLED_OUTDATED
-                    || InstallationManager.status == InstallationManager.InstallationStatus.NOT_INSTALLED) {
-                log.info("compiler update found")
+			log.info("updating")
+            if (InstallationManager.status != InstallationManager.InstallationStatus.INSTALLED_UPTODATE) {
+                log.info("compiler update eligible")
                 if (setup.force) {
+					log.info("Forcing update..")
                     InstallationManager.handleUpdate()
                 } else {
-                    UpdateFoundDialog("A Wurst compiler update has been found!")
+					if (false && !setup.silent) {
+						UpdateFoundDialog("A Wurst compiler update has been found!")
+					} else {
+						log.info("Do you want to update your wurst installation? (y/n)")
+						val sc = Scanner(System.`in`)
+						val line = sc.nextLine()
+						if (line == "y") {
+							InstallationManager.handleUpdate()
+						}
+					}
                 }
-            }
+            } else {
+				log.info("Already up to date.")
+			}
         }
     }
 
