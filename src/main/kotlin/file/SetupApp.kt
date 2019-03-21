@@ -90,7 +90,7 @@ object SetupApp {
         log.info("path: $url")
         log.info("file: " + ownFile.toAbsolutePath())
         if (ownFile != null && Files.exists(ownFile) && ownFile.toString().endsWith(".jar") &&
-                (ownFile.parent == null || ownFile.parent.fileName.toString() != ".wurst")) {
+                (ownFile.parent == null || ownFile.parent?.fileName?.toString() != ".wurst")) {
             log.info("copy jar")
             Files.copy(ownFile, Paths.get(InstallationManager.installDir.toString(), "WurstSetup.jar"), StandardCopyOption.REPLACE_EXISTING)
         }
