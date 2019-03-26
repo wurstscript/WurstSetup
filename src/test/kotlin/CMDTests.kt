@@ -1,4 +1,3 @@
-
 import config.WurstProjectConfigData
 import file.DependencyManager
 import file.SetupMain
@@ -11,13 +10,8 @@ import java.io.PrintStream
 import java.nio.file.Paths
 import java.util.*
 
-
-private const val SILENT = "-silent"
-private const val FORCE = "-force"
-private const val UPDATE = "-update"
-private const val PROJECT_DIR = "bin/test/"
-
 class CMDTests {
+
 	@Test(priority = 1)
 	fun testUnInstallCmd() {
 		SetupMain.main(Arrays.asList(SILENT, FORCE, UPDATE).toTypedArray())
@@ -52,6 +46,13 @@ class CMDTests {
 		System.setErr(PrintStream(byteArrayOutputStream))
 		SetupMain.main(Arrays.asList(SILENT, "-jdrhersdgsadf").toTypedArray())
 		assert(byteArrayOutputStream.toString().contains("is not a valid option"))
+	}
+
+	companion object {
+		private const val SILENT = "-silent"
+		private const val FORCE = "-force"
+		private const val UPDATE = "-update"
+		private const val PROJECT_DIR = "bin/test/"
 	}
 
 }
