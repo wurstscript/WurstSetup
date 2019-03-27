@@ -1,5 +1,4 @@
-import config.WurstProjectConfigData
-import file.DependencyManager
+
 import file.SetupApp
 import file.SetupMain
 import global.InstallationManager
@@ -9,7 +8,6 @@ import org.testng.annotations.Test
 import java.io.ByteArrayOutputStream
 import java.io.PrintStream
 import java.nio.file.Files
-import java.nio.file.Paths
 import java.util.*
 
 class CMDTests {
@@ -20,7 +18,6 @@ class CMDTests {
 		private const val GENERATE = "generate"
 		private const val UPDATE = "update"
 		private const val WURSTSCRIPT = "wurstscript"
-		private const val PROJECT_DIR = "bin/test/"
 	}
 
 
@@ -48,8 +45,6 @@ class CMDTests {
 
 		Assert.assertTrue(Files.exists(SetupApp.DEFAULT_DIR.resolve("myname")))
 
-		DependencyManager.isUpdateAvailable(Paths.get(PROJECT_DIR), WurstProjectConfigData())
-
 		SetupMain.main(Arrays.asList(UPDATE, "-projectDir", "./myname/").toTypedArray())
 	}
 
@@ -59,7 +54,7 @@ class CMDTests {
 
 		SetupMain.main(Arrays.asList(INSTALL, "https://github.com/Frotty/Frentity/tree/master/wurst", "-projectDir", "./myname/").toTypedArray())
 
-		val buildfile = String(Files.readAllBytes(SetupApp.DEFAULT_DIR.resolve("myname/wurst.build")))
+		val buildfile = String(Files.readAllBytes(SetupApp.DEFAULT_DIR.resolve("./myname/wurst.build")))
 		Assert.assertTrue(buildfile.contains("https://github.com/Frotty/Frentity/tree/master/wurst"))
 	}
 
