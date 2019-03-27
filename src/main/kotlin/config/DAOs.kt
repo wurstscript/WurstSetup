@@ -23,9 +23,9 @@ data class WurstProjectConfigData(var projectName: String = "DefaultName",
 
 /** All data needed to generate the output map */
 @JsonInclude(JsonInclude.Include.NON_DEFAULT)
-data class WurstProjectBuildMapData(val name: String = "JustAnotherWurstMap",
-                                    val fileName: String = "MyWurstMap",
-                                    val author: String = "SomeWurstUser",
+data class WurstProjectBuildMapData(val name: String = "",
+                                    val fileName: String = "",
+                                    val author: String = "",
                                     val scenarioData: WurstProjectBuildScenarioData = WurstProjectBuildScenarioData(loadingScreen=null),
                                     val optionsFlags: WurstProjectBuildOptionFlagsData = WurstProjectBuildOptionFlagsData(),
                                     val players: ArrayList<WurstProjectBuildPlayer> = ArrayList(),

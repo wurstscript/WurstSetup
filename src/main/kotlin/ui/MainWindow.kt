@@ -1,6 +1,7 @@
 package ui
 
 import config.CONFIG_FILE_NAME
+import config.WurstProjectBuildMapData
 import config.WurstProjectConfig
 import config.WurstProjectConfigData
 import de.ralleytn.simple.registry.Registry
@@ -499,7 +500,7 @@ object MainWindow : JFrame() {
             val gamePath = gamePathTF.text
             val projectRoot = Paths.get(projectRootTF.text)
             val gameRoot = if (gamePath.isNotEmpty()) Paths.get(gamePath) else null
-            val config = WurstProjectConfigData()
+            val config = WurstProjectConfigData(buildMapData = WurstProjectBuildMapData(name = "MyMapName", fileName = "MyMapFile", author = System.getProperty("user.name")))
             config.projectName = projectNameTF.text
             dependencies.forEach { elem ->
                 if (!config.dependencies.contains(elem)) {
