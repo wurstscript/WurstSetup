@@ -23,11 +23,11 @@ object SetupApp {
 
     fun handleArgs(setup: SetupMain) {
         this.setup = setup
-        if (!setup.silent) {
-            log.info("is GUI launch")
+        if (setup.isGUILaunch) {
+            log.info("is GUI")
             UiManager.initUI()
         } else {
-            log.info("is silent launch")
+            log.info("is CLI")
             handleCMD()
         }
         startup()
@@ -42,7 +42,7 @@ object SetupApp {
 
 	private fun handleRunArgs() {
 		log.info("handle runargs")
-		val configFile = DEFAULT_DIR.resolve(CONFIG_FILE_NAME)
+		val configFile = setup.projectDir.resolve(CONFIG_FILE_NAME)
 		var configData: WurstProjectConfigData? = null
 		if (Files.exists(configFile)) {
 			configData = WurstProjectConfig.loadProject(configFile)!!
@@ -78,9 +78,9 @@ object SetupApp {
 					}
 				}
 			}
-			setup.generate -> {
+			setup.generate != "%unset%" -> {
 				if (configData == null) {
-					WurstProjectConfig.handleCreate(DEFAULT_DIR, null, WurstProjectConfigData())
+					WurstProjectConfig.handleCreate(DEFAULT_DIR.resolve(setup.generate), null, WurstProjectConfigData())
 				}
 			}
 		}
@@ -97,13 +97,13 @@ object SetupApp {
 	}
 
 	private fun handleRemoveWurst() {
-		if (setup.force) {
+		if (!setup.requireConfirmation) {
 			InstallationManager.handleRemove()
 		}
 	}
 
 	private fun handleUpdateProject(configData: WurstProjectConfigData) {
-		WurstProjectConfig.handleUpdate(DEFAULT_DIR, null, configData)
+		WurstProjectConfig.handleUpdate(setup.projectDir, null, configData)
 	}
 
 	private fun handleInstallDep(configData: WurstProjectConfigData) {
@@ -132,11 +132,8 @@ object SetupApp {
 		log.info("install/update wurstscript")
 		if (InstallationManager.status != InstallationManager.InstallationStatus.INSTALLED_UPTODATE) {
 			log.info("compiler update eligible")
-			if (setup.force) {
-				log.info("Forcing update..")
-				InstallationManager.handleUpdate()
-			} else {
-				if (!setup.silent) {
+			if (setup.requireConfirmation) {
+				if (setup.isGUILaunch) {
 					UpdateFoundDialog("A Wurst compiler update has been found!")
 				} else {
 					log.info("Do you want to update your wurst installation? (y/n)")
@@ -146,6 +143,9 @@ object SetupApp {
 						InstallationManager.handleUpdate()
 					}
 				}
+			} else {
+				log.info("Forcing update..")
+				InstallationManager.handleUpdate()
 			}
 		} else {
 			log.info("Already up to date.")

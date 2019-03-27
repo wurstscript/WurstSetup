@@ -89,18 +89,18 @@ object InstallationManager {
 		Download.downloadCompiler {
 			Log.print(" done.\n")
 
-			if (SetupApp.setup.silent) {
+			if (SetupApp.setup.isGUILaunch) {
+				startExtractWorker(it, isFreshInstall)
+			} else {
 				ZipArchiveExtractor.extractArchive(it, installDir)
 				Files.delete(it)
-			} else {
-				startExtractWorker(it, isFreshInstall)
 			}
 
 		}
 	}
 
 	private fun startExtractWorker(it: Path, isFreshInstall: Boolean) {
-		ExtractWorker(it, if (SetupApp.setup.silent) null else MainWindow.ui.progressBar) {
+		ExtractWorker(it, if (SetupApp.setup.isGUILaunch) MainWindow.ui.progressBar else null) {
 			if (it) {
 				checkExtraction(isFreshInstall)
 			} else {
@@ -122,7 +122,7 @@ object InstallationManager {
 			Log.print("ERROR")
 		} else {
 			Log.print(if (isFreshInstall) "Installation complete\n" else "Update complete\n")
-			if (!SetupApp.setup.silent) {
+			if (SetupApp.setup.isGUILaunch) {
 				SwingUtilities.invokeLater { MainWindow.ui.progressBar.value = 0 }
 			}
 			verifyInstallation()

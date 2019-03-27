@@ -9,11 +9,10 @@ import java.nio.file.Files
 import java.nio.file.Path
 
 class SetupMain {
-    @Option(name = "-silent", usage = "execute tasks without opening UI")
-    var silent = false
+    var isGUILaunch = false
 
-    @Option(name = "-force", usage = "force tasks without asking for user confirmation")
-    var force = false
+    @Option(name = "--req-confirm", usage = "requires confirmation by the user before executing tasks")
+    var requireConfirmation = false
 
 	@Option(name = "-install", usage = "Install wurst on this system or add a depenency to your project")
 	var install = "%unset%"
@@ -25,7 +24,7 @@ class SetupMain {
 	var update = "%unset%"
 
     @Option(name = "-generate", usage = "generates a new project at projectDir location")
-    var generate = false
+    var generate = "%unset%"
 
 	var projectDir: Path = SetupApp.DEFAULT_DIR
 
@@ -41,15 +40,19 @@ class SetupMain {
     @Throws(CmdLineException::class)
     fun doMain(args: Array<String>) {
         ExceptionHandler.setupExceptionHandler()
-        val parser = CmdLineParser(this)
-        try {
-            parser.parseArgument(args.asList())
-        } catch (e: CmdLineException) {
-            // handling of wrong arguments
-            System.err.println(e.message)
-            parser.printUsage(System.err)
-        }
-
+		val argsList = args.asList()
+		if (argsList.isEmpty()) {
+			isGUILaunch = true
+		} else {
+			val parser = CmdLineParser(this)
+			try {
+				parser.parseArgument(argsList)
+			} catch (e: CmdLineException) {
+				// handling of wrong arguments
+				System.err.println(e.message)
+				parser.printUsage(System.err)
+			}
+		}
         SetupApp.handleArgs(this)
     }
 

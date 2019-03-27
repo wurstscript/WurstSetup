@@ -1,5 +1,6 @@
 import config.WurstProjectConfigData
 import file.DependencyManager
+import file.SetupApp
 import file.SetupMain
 import global.InstallationManager
 import net.ConnectionManager
@@ -7,6 +8,7 @@ import org.testng.Assert
 import org.testng.annotations.Test
 import java.io.ByteArrayOutputStream
 import java.io.PrintStream
+import java.nio.file.Files
 import java.nio.file.Paths
 import java.util.*
 
@@ -46,13 +48,27 @@ class CMDTests {
 		Assert.assertEquals(InstallationManager.status, InstallationManager.InstallationStatus.INSTALLED_UPTODATE)
 		SetupMain.main(Arrays.asList(SILENT, GENERATE, "myname").toTypedArray())
 
+		Assert.assertTrue(Files.exists(SetupApp.DEFAULT_DIR.resolve("myname")))
+
+		DependencyManager.isUpdateAvailable(Paths.get(PROJECT_DIR), WurstProjectConfigData())
+
+		SetupMain.main(Arrays.asList(SILENT, UPDATE, "-projectDir ./myname/").toTypedArray())
+	}
+
+	@Test(priority = 3)
+	fun testAddDependency() {
+		Assert.assertEquals(InstallationManager.status, InstallationManager.InstallationStatus.INSTALLED_UPTODATE)
+		SetupMain.main(Arrays.asList(SILENT, GENERATE, "myname").toTypedArray())
+
+		Assert.assertTrue(Files.exists(SetupApp.DEFAULT_DIR.resolve("myname")))
+
 		DependencyManager.isUpdateAvailable(Paths.get(PROJECT_DIR), WurstProjectConfigData())
 
 		SetupMain.main(Arrays.asList(SILENT, UPDATE, "-projectDir ./myname/").toTypedArray())
 	}
 
 
-	@Test(priority = 3)
+	@Test(priority = 4)
 	fun testInvalid() {
 		val byteArrayOutputStream = ByteArrayOutputStream()
 		System.setErr(PrintStream(byteArrayOutputStream))

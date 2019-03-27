@@ -47,7 +47,7 @@ object CLIParser {
 	}
 
 	fun showWurstInUse() {
-		if (!SetupApp.setup.silent) {
+		if (SetupApp.setup.isGUILaunch) {
 			ErrorDialog("The Wurst compiler is currently in use.\n" +
 				"Please close all running instances and vscode, then retry.", true)
 		}

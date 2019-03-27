@@ -508,10 +508,10 @@ object MainWindow : JFrame() {
             }
 
             log.info("Creating new project. gamepath <{}>, root <{}>, config <{}>", gameRoot, projectRoot, config)
-            if (SetupApp.setup.silent) {
-                WurstProjectConfig.handleCreate(projectRoot, gameRoot, config)
-            } else {
-                ProjectCreateWorker(projectRoot, gameRoot, config).execute()
+            if (SetupApp.setup.isGUILaunch) {
+				ProjectCreateWorker(projectRoot, gameRoot, config).execute()
+			} else {
+				WurstProjectConfig.handleCreate(projectRoot, gameRoot, config)
             }
         }
 
@@ -521,10 +521,10 @@ object MainWindow : JFrame() {
             if (selectedConfig != null) {
                 dependencies.forEach { e -> if (selectedConfig?.dependencies?.contains(e) == false) selectedConfig?.dependencies?.add(e) }
                 log.info("Update project. gamepath <{}>, root <{}>", gameRoot, projectRoot)
-                if (SetupApp.setup.silent) {
-                    WurstProjectConfig.handleUpdate(projectRoot, gameRoot, selectedConfig!!)
-                } else {
-                    ProjectUpdateWorker(projectRoot, gameRoot, selectedConfig!!).execute()
+                if (SetupApp.setup.isGUILaunch) {
+					ProjectUpdateWorker(projectRoot, gameRoot, selectedConfig!!).execute()
+				} else {
+					WurstProjectConfig.handleUpdate(projectRoot, gameRoot, selectedConfig!!)
                 }
 
             }

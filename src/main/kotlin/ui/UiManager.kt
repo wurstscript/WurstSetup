@@ -19,7 +19,7 @@ object UiManager {
     }
 
     fun refreshComponents() {
-        if (!SetupApp.setup.silent) {
+        if (SetupApp.setup.isGUILaunch) {
             MainWindow.ui.refreshComponents()
             MainWindow.ui.enableButtons()
         }
