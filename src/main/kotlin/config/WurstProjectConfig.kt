@@ -114,7 +114,7 @@ object WurstProjectConfig {
 
 
 	@Throws(IOException::class)
-    private fun saveProjectConfig(projectRoot: Path, projectConfig: WurstProjectConfigData) {
+    fun saveProjectConfig(projectRoot: Path, projectConfig: WurstProjectConfigData) {
         val projectYaml = YamlHelper.dumpProjectConfig(projectConfig)
         Files.write(projectRoot.resolve(CONFIG_FILE_NAME), projectYaml.toByteArray())
     }

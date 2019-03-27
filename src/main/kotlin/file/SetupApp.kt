@@ -57,6 +57,7 @@ object SetupApp {
 				} else {
 					if (configData != null) {
 						handleInstallDep(configData)
+						WurstProjectConfig.saveProjectConfig(setup.projectDir, configData)
 					}
 				}
 			}
@@ -75,6 +76,7 @@ object SetupApp {
 				} else {
 					if (configData != null) {
 						handleRemoveDep(configData)
+						WurstProjectConfig.saveProjectConfig(setup.projectDir, configData)
 					}
 				}
 			}
