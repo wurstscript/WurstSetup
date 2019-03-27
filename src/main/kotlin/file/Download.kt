@@ -24,10 +24,10 @@ object Download {
 
     @Throws(IOException::class)
     private fun downloadFile(filePath: String, callback: (Path) -> Unit) {
-        if (SetupApp.setup.silent) {
-            downloadDirect(filePath, callback)
-        } else {
-            DownloadWithProgressWorker(filePath, MainWindow.ui.progressBar, callback).execute()
+        if (SetupApp.setup.isGUILaunch) {
+			DownloadWithProgressWorker(filePath, MainWindow.ui.progressBar, callback).execute()
+		} else {
+			downloadDirect(filePath, callback)
         }
     }
 

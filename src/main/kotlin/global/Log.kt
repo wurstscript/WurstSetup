@@ -7,7 +7,7 @@ import javax.swing.SwingUtilities
 object Log {
     fun print(text: String) {
         try {
-            if (!SetupApp.setup.silent) {
+            if (SetupApp.setup.isGUILaunch) {
                 if (SwingUtilities.isEventDispatchThread()) {
 					append(text)
 				} else {

@@ -4,6 +4,9 @@ import com.fasterxml.jackson.annotation.JsonInclude
 import java.util.*
 import kotlin.collections.ArrayList
 
+
+const val CONFIG_FILE_NAME = "wurst.build"
+
 /**
  * The root DAO that contains the child DAOs.
  * Represents a complete wurst.build file.
@@ -20,9 +23,9 @@ data class WurstProjectConfigData(var projectName: String = "DefaultName",
 
 /** All data needed to generate the output map */
 @JsonInclude(JsonInclude.Include.NON_DEFAULT)
-data class WurstProjectBuildMapData(val name: String = "JustAnotherWurstMap",
-                                    val fileName: String = "MyWurstMap",
-                                    val author: String = "SomeWurstUser",
+data class WurstProjectBuildMapData(val name: String = "",
+                                    val fileName: String = "",
+                                    val author: String = "",
                                     val scenarioData: WurstProjectBuildScenarioData = WurstProjectBuildScenarioData(loadingScreen=null),
                                     val optionsFlags: WurstProjectBuildOptionFlagsData = WurstProjectBuildOptionFlagsData(),
                                     val players: ArrayList<WurstProjectBuildPlayer> = ArrayList(),
@@ -35,8 +38,8 @@ data class WurstProjectBuildJob(val name: String = "DefaultJobName",
 
 /** Scenario related information */
 @JsonInclude(JsonInclude.Include.NON_DEFAULT)
-data class WurstProjectBuildScenarioData(val description: String = "WurstScript powered!",
-                                         val suggestedPlayers: String = "DefaultSuggestedPlayers",
+data class WurstProjectBuildScenarioData(val description: String = "",
+                                         val suggestedPlayers: String = "",
                                          var loadingScreen: WurstProjectBuildLoadingScreenData?)
 
 /** Load screen information. */

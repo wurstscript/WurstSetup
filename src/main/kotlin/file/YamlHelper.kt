@@ -8,12 +8,13 @@ import com.fasterxml.jackson.dataformat.yaml.YAMLFactory
 import com.fasterxml.jackson.dataformat.yaml.YAMLGenerator
 import com.fasterxml.jackson.module.kotlin.KotlinModule
 import config.WurstProjectConfigData
+import mu.KotlinLogging
 import java.nio.file.Files
 import java.nio.file.Path
-import java.nio.file.StandardOpenOption
 
 object YamlHelper {
     private var mapper: ObjectMapper
+	private val log = KotlinLogging.logger {}
 
     init {
         val yamlFactory = YAMLFactory()
@@ -29,26 +30,20 @@ object YamlHelper {
 
 
     fun loadProjectConfig(path: Path): WurstProjectConfigData {
-
         Files.newBufferedReader(path).use {
-            return try {
-                mapper.readValue(it, WurstProjectConfigData::class.java)
+            try {
+				return mapper.readValue(it, WurstProjectConfigData::class.java)
             } catch (e: Exception) {
-                generateNewConfig(path)
+                log.error("The config file could not be read", e)
+				throw YamlException("wurst.build file could not be read. Input malformed or corrupt.")
             }
-
         }
-    }
-
-    private fun generateNewConfig(path: Path): WurstProjectConfigData {
-        val configData = WurstProjectConfigData()
-        val projectConfigBytes = dumpProjectConfig(configData).toByteArray()
-        Files.write(path, projectConfigBytes, StandardOpenOption.WRITE, StandardOpenOption.TRUNCATE_EXISTING)
-        return configData
     }
 
     fun dumpProjectConfig(configData: WurstProjectConfigData): String {
         return mapper.writeValueAsString(configData)
     }
 
+	class YamlException(msg: String): RuntimeException(msg)
 }
+

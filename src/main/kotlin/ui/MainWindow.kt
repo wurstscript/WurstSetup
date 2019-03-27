@@ -1,5 +1,7 @@
 package ui
 
+import config.CONFIG_FILE_NAME
+import config.WurstProjectBuildMapData
 import config.WurstProjectConfig
 import config.WurstProjectConfigData
 import de.ralleytn.simple.registry.Registry
@@ -464,7 +466,7 @@ object MainWindow : JFrame() {
                         disableButtons()
                         if (selectedConfig == null) {
                             try {
-                                selectedConfig = WurstProjectConfig.loadProject(Paths.get(projectRootTF.text, "wurst.build"))
+                                selectedConfig = WurstProjectConfig.loadProject(Paths.get(projectRootTF.text, CONFIG_FILE_NAME))
                             } catch (e: IOException) {
                                 e.printStackTrace()
                             }
@@ -498,7 +500,7 @@ object MainWindow : JFrame() {
             val gamePath = gamePathTF.text
             val projectRoot = Paths.get(projectRootTF.text)
             val gameRoot = if (gamePath.isNotEmpty()) Paths.get(gamePath) else null
-            val config = WurstProjectConfigData()
+            val config = WurstProjectConfigData(buildMapData = WurstProjectBuildMapData(name = "MyMapName", fileName = "MyMapFile", author = System.getProperty("user.name")))
             config.projectName = projectNameTF.text
             dependencies.forEach { elem ->
                 if (!config.dependencies.contains(elem)) {
@@ -507,10 +509,10 @@ object MainWindow : JFrame() {
             }
 
             log.info("Creating new project. gamepath <{}>, root <{}>, config <{}>", gameRoot, projectRoot, config)
-            if (SetupApp.setup.silent) {
-                WurstProjectConfig.handleCreate(projectRoot, gameRoot, config)
-            } else {
-                ProjectCreateWorker(projectRoot, gameRoot, config).execute()
+            if (SetupApp.setup.isGUILaunch) {
+				ProjectCreateWorker(projectRoot, gameRoot, config).execute()
+			} else {
+				WurstProjectConfig.handleCreate(projectRoot, gameRoot, config)
             }
         }
 
@@ -520,10 +522,10 @@ object MainWindow : JFrame() {
             if (selectedConfig != null) {
                 dependencies.forEach { e -> if (selectedConfig?.dependencies?.contains(e) == false) selectedConfig?.dependencies?.add(e) }
                 log.info("Update project. gamepath <{}>, root <{}>", gameRoot, projectRoot)
-                if (SetupApp.setup.silent) {
-                    WurstProjectConfig.handleUpdate(projectRoot, gameRoot, selectedConfig!!)
-                } else {
-                    ProjectUpdateWorker(projectRoot, gameRoot, selectedConfig!!).execute()
+                if (SetupApp.setup.isGUILaunch) {
+					ProjectUpdateWorker(projectRoot, gameRoot, selectedConfig!!).execute()
+				} else {
+					WurstProjectConfig.handleUpdate(projectRoot, gameRoot, selectedConfig!!)
                 }
 
             }

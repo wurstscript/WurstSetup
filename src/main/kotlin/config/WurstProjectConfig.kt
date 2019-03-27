@@ -17,7 +17,7 @@ import javax.swing.JOptionPane
 
 object WurstProjectConfig {
 	private val BACKSLASH_REGEX = "\\\\".toRegex()
-	private val BACKSLASH_QUERY = "\\\\\\\\"
+	private const val BACKSLASH_QUERY = "\\\\\\\\"
 
     private val log = KotlinLogging.logger {}
 
@@ -34,16 +34,16 @@ object WurstProjectConfig {
     @Throws(IOException::class)
     fun loadProject(buildFile: Path): WurstProjectConfigData? {
         Log.println("Loading project..")
-        if (Files.exists(buildFile) && buildFile.fileName.toString().equals("wurst.build", ignoreCase = true)) {
+        if (Files.exists(buildFile) && buildFile.fileName.toString().equals(CONFIG_FILE_NAME, ignoreCase = true)) {
             val config = YamlHelper.loadProjectConfig(buildFile)
-            val projectRoot = buildFile.parent
-            if (config.projectName.isEmpty()) {
-                config.projectName = projectRoot?.fileName.toString()
-                WurstProjectConfig.saveProjectConfig(projectRoot, config)
-            }
-            Log.print("done\n")
-            return config
-        }
+			val projectRoot = buildFile.parent
+			if (config.projectName.isEmpty()) {
+				config.projectName = projectRoot?.fileName.toString()
+				WurstProjectConfig.saveProjectConfig(projectRoot, config)
+			}
+			Log.print("done\n")
+			return config
+		}
         return null
     }
 
@@ -114,9 +114,9 @@ object WurstProjectConfig {
 
 
 	@Throws(IOException::class)
-    private fun saveProjectConfig(projectRoot: Path, projectConfig: WurstProjectConfigData) {
+    fun saveProjectConfig(projectRoot: Path, projectConfig: WurstProjectConfigData) {
         val projectYaml = YamlHelper.dumpProjectConfig(projectConfig)
-        Files.write(projectRoot.resolve("wurst.build"), projectYaml.toByteArray())
+        Files.write(projectRoot.resolve(CONFIG_FILE_NAME), projectYaml.toByteArray())
     }
 
 
@@ -178,7 +178,7 @@ object WurstProjectConfig {
                     "   \"wurst.wurstJar\": \"%wurstjar%\",\n" +
                     "   \"wurst.wc3path\": \"%gamepath%\",\n" +
                     "   \"files.associations\": {\n" +
-                    "       \"wurst.build\": \"yaml\"\n" +
+                    "       \"$CONFIG_FILE_NAME\": \"yaml\"\n" +
                     "   }\n" +
                     "}"
 }
