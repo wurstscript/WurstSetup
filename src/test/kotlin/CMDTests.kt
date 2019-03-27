@@ -15,10 +15,10 @@ import java.util.*
 class CMDTests {
 
 	companion object {
-		private const val INSTALL = "-install"
-		private const val REMOVE = "-remove"
-		private const val GENERATE = "-generate"
-		private const val UPDATE = "-update"
+		private const val INSTALL = "install"
+		private const val REMOVE = "remove"
+		private const val GENERATE = "generate"
+		private const val UPDATE = "update"
 		private const val WURSTSCRIPT = "wurstscript"
 		private const val PROJECT_DIR = "bin/test/"
 	}

@@ -42,7 +42,7 @@ object SetupApp {
 
 	private fun handleRunArgs() {
 		log.info("handle runargs")
-		val configFile = setup.projectDir.resolve(CONFIG_FILE_NAME)
+		val configFile = setup.projectRoot.resolve(CONFIG_FILE_NAME)
 		var configData: WurstProjectConfigData? = null
 		if (Files.exists(configFile)) {
 			configData = WurstProjectConfig.loadProject(configFile)!!
@@ -51,18 +51,18 @@ object SetupApp {
 		}
 
 		when {
-			setup.install != "%unset%" -> {
-				if (setup.install.toLowerCase() == "wurstscript") {
+			setup.command == CLICommands.INSTALL -> {
+				if (setup.commandArg.toLowerCase() == "wurstscript") {
 					handleInstallWurst()
 				} else {
 					if (configData != null) {
 						handleInstallDep(configData)
-						WurstProjectConfig.saveProjectConfig(setup.projectDir, configData)
+						WurstProjectConfig.saveProjectConfig(setup.projectRoot, configData)
 					}
 				}
 			}
-			setup.update != "%unset%" -> {
-				if (setup.update.toLowerCase() == "wurstscript") {
+			setup.command == CLICommands.UPDATE -> {
+				if (setup.commandArg.toLowerCase() == "wurstscript") {
 					handleInstallWurst()
 				} else {
 					if (configData != null) {
@@ -70,19 +70,19 @@ object SetupApp {
 					}
 				}
 			}
-			setup.remove != "%unset%"  -> {
-				if (setup.remove.toLowerCase() == "wurstscript") {
+			setup.command == CLICommands.REMOVE -> {
+				if (setup.commandArg.toLowerCase() == "wurstscript") {
 					handleRemoveWurst()
 				} else {
 					if (configData != null) {
 						handleRemoveDep(configData)
-						WurstProjectConfig.saveProjectConfig(setup.projectDir, configData)
+						WurstProjectConfig.saveProjectConfig(setup.projectRoot, configData)
 					}
 				}
 			}
-			setup.generate != "%unset%" -> {
+			setup.command == CLICommands.GENERATE -> {
 				if (configData == null) {
-					WurstProjectConfig.handleCreate(DEFAULT_DIR.resolve(setup.generate), null, WurstProjectConfigData())
+					WurstProjectConfig.handleCreate(DEFAULT_DIR.resolve(setup.commandArg), null, WurstProjectConfigData())
 				}
 			}
 		}
@@ -90,9 +90,9 @@ object SetupApp {
 	}
 
 	private fun handleRemoveDep(configData: WurstProjectConfigData) {
-		log.error("removing ${setup.remove}")
-		if (configData.dependencies.contains(setup.remove)) {
-			configData.dependencies.remove(setup.remove)
+		log.error("removing ${setup.commandArg}")
+		if (configData.dependencies.contains(setup.commandArg)) {
+			configData.dependencies.remove(setup.commandArg)
 		} else {
 			log.error("dependency does not exist in project")
 		}
@@ -105,22 +105,22 @@ object SetupApp {
 	}
 
 	private fun handleUpdateProject(configData: WurstProjectConfigData) {
-		WurstProjectConfig.handleUpdate(setup.projectDir, null, configData)
+		WurstProjectConfig.handleUpdate(setup.projectRoot, null, configData)
 	}
 
 	private fun handleInstallDep(configData: WurstProjectConfigData) {
 		log.info("installing $setup.install")
-		if (configData.dependencies.contains(setup.install)) {
+		if (configData.dependencies.contains(setup.commandArg)) {
 			log.info("already installed")
 			return
 		}
 		try {
 			val result = Git.lsRemoteRepository()
-				.setRemote(setup.install)
+				.setRemote(setup.commandArg)
 				.call()
 			if (!result.isEmpty()) {
 				Log.print("valid!\n")
-				configData.dependencies.add(setup.install)
+				configData.dependencies.add(setup.commandArg)
 			} else {
 				log.error("Entered invalid git repo")
 			}

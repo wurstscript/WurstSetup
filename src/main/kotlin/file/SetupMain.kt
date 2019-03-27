@@ -1,63 +1,80 @@
 package file
 
-import org.kohsuke.args4j.CmdLineException
-import org.kohsuke.args4j.CmdLineParser
-import org.kohsuke.args4j.Option
-import java.io.File
-import java.io.IOException
+import mu.KotlinLogging
 import java.nio.file.Files
 import java.nio.file.Path
+import kotlin.system.exitProcess
+
 
 class SetupMain {
+	private val log = KotlinLogging.logger {}
+
     var isGUILaunch = false
 
-    @Option(name = "--req-confirm", usage = "requires confirmation by the user before executing tasks")
+	var command = CLICommands.BUILD
+
+	var commandArg = ""
+
+	var projectRoot: Path = SetupApp.DEFAULT_DIR
+
     var requireConfirmation = false
 
-	@Option(name = "-install", usage = "Install wurst on this system or add a depenency to your project")
-	var install = "%unset%"
-
-	@Option(name = "-remove", usage = "removes wurstscript from your machine")
-	var remove = "%unset%"
-
-	@Option(name = "-update", usage = "updates the current project, or wurst installation if ")
-	var update = "%unset%"
-
-    @Option(name = "-generate", usage = "generates a new project at projectDir location")
-    var generate = "%unset%"
-
-	var projectDir: Path = SetupApp.DEFAULT_DIR
-
-	@Option(name = "-projectDir", usage = "sets the root folder of the wurst project")
-	fun setDir(file: File) {
-		val dir = file.toPath()
+	fun setProjectDir(dir: Path) {
 		Files.createDirectories(dir)
 		if (Files.exists(dir)) {
-			projectDir = dir
+			projectRoot = dir
 		}
 	}
 
-    @Throws(CmdLineException::class)
     fun doMain(args: Array<String>) {
         ExceptionHandler.setupExceptionHandler()
 		val argsList = args.asList()
 		if (argsList.isEmpty()) {
 			isGUILaunch = true
 		} else {
-			val parser = CmdLineParser(this)
-			try {
-				parser.parseArgument(argsList)
-			} catch (e: CmdLineException) {
-				// handling of wrong arguments
-				System.err.println(e.message)
-				parser.printUsage(System.err)
-			}
+			parseCLIArgs(argsList)
 		}
         SetupApp.handleArgs(this)
     }
 
-    companion object {
-        @Throws(IOException::class, CmdLineException::class)
+	private fun parseCLIArgs(argsList: List<String>) {
+		val first = argsList[0]
+		try {
+			command = CLICommands.valueOf(first.toUpperCase())
+			log.info("found $command")
+			if (argsList.size > 1) {
+				if (!argsList[1].startsWith("-")) {
+					commandArg = argsList[1]
+					parseGlobalArgs(argsList, 2)
+				} else {
+					parseGlobalArgs(argsList, 1)
+				}
+
+			}
+		} catch(e: IllegalArgumentException) {
+			log.error("Invalid grill command $first. Syntax: grill [install|update|remove|generate] <command argument>")
+			exitProcess(1)
+		}
+	}
+
+	private fun parseGlobalArgs(argsList: List<String>, start: Int) {
+		var skip = 0
+		for (i in start until argsList.size) {
+			if (skip > 0) {
+				skip -= 1
+				continue
+			} else {
+				GlobalOptions.values().forEach {
+					if(it.optionName == argsList[start]) {
+						it.runOption(this, argsList.subList(i, i + it.argCount))
+					}
+				}
+			}
+		}
+
+	}
+
+	companion object {
         @JvmStatic
         fun main(args: Array<String>) {
             SetupMain().doMain(args)

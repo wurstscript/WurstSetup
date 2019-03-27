@@ -1,7 +1,5 @@
 package file
 
-import org.kohsuke.args4j.CmdLineException
-import java.io.IOException
 import java.io.PrintWriter
 import java.io.StringWriter
 import javax.swing.JOptionPane
@@ -10,7 +8,6 @@ import javax.swing.UIManager
 
 object ExceptionHandler {
 
-    @Throws(IOException::class, CmdLineException::class)
     @JvmStatic
     fun main(args: Array<String>) {
         SetupMain().doMain(args)
