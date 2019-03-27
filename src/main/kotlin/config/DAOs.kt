@@ -38,8 +38,8 @@ data class WurstProjectBuildJob(val name: String = "DefaultJobName",
 
 /** Scenario related information */
 @JsonInclude(JsonInclude.Include.NON_DEFAULT)
-data class WurstProjectBuildScenarioData(val description: String = "WurstScript powered!",
-                                         val suggestedPlayers: String = "DefaultSuggestedPlayers",
+data class WurstProjectBuildScenarioData(val description: String = "",
+                                         val suggestedPlayers: String = "",
                                          var loadingScreen: WurstProjectBuildLoadingScreenData?)
 
 /** Load screen information. */
