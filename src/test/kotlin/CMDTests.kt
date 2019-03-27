@@ -50,14 +50,14 @@ class CMDTests {
 
 		DependencyManager.isUpdateAvailable(Paths.get(PROJECT_DIR), WurstProjectConfigData())
 
-		SetupMain.main(Arrays.asList(UPDATE, "-projectDir ./myname/").toTypedArray())
+		SetupMain.main(Arrays.asList(UPDATE, "-projectDir", "./myname/").toTypedArray())
 	}
 
 	@Test(priority = 3)
 	fun testAddDependency() {
 		Assert.assertTrue(Files.exists(SetupApp.DEFAULT_DIR.resolve("myname/wurst.build")))
 
-		SetupMain.main(Arrays.asList(INSTALL, "https://github.com/Frotty/Frentity/tree/master/wurst", "-projectDir ./myname/").toTypedArray())
+		SetupMain.main(Arrays.asList(INSTALL, "https://github.com/Frotty/Frentity/tree/master/wurst", "-projectDir", "./myname/").toTypedArray())
 
 		val buildfile = String(Files.readAllBytes(SetupApp.DEFAULT_DIR.resolve("myname/wurst.build")))
 		Assert.assertTrue(buildfile.contains("https://github.com/Frotty/Frentity/tree/master/wurst"))

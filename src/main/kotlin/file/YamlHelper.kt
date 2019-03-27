@@ -29,14 +29,14 @@ object YamlHelper {
     }
 
 
-    fun loadProjectConfig(path: Path): WurstProjectConfigData? {
+    fun loadProjectConfig(path: Path): WurstProjectConfigData {
         Files.newBufferedReader(path).use {
             try {
 				return mapper.readValue(it, WurstProjectConfigData::class.java)
             } catch (e: Exception) {
-                log.error("The config file could not be read")
+                log.error("The config file could not be read", e)
+				throw YamlException("wurst.build file could not be read. Input malformed or corrupt.")
             }
-			return null
         }
     }
 
@@ -44,4 +44,6 @@ object YamlHelper {
         return mapper.writeValueAsString(configData)
     }
 
+	class YamlException(msg: String): RuntimeException(msg)
 }
+
