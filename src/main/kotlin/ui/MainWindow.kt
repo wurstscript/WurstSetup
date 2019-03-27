@@ -1,5 +1,6 @@
 package ui
 
+import config.CONFIG_FILE_NAME
 import config.WurstProjectConfig
 import config.WurstProjectConfigData
 import de.ralleytn.simple.registry.Registry
@@ -464,7 +465,7 @@ object MainWindow : JFrame() {
                         disableButtons()
                         if (selectedConfig == null) {
                             try {
-                                selectedConfig = WurstProjectConfig.loadProject(Paths.get(projectRootTF.text, "wurst.build"))
+                                selectedConfig = WurstProjectConfig.loadProject(Paths.get(projectRootTF.text, CONFIG_FILE_NAME))
                             } catch (e: IOException) {
                                 e.printStackTrace()
                             }

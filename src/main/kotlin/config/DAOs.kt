@@ -4,6 +4,9 @@ import com.fasterxml.jackson.annotation.JsonInclude
 import java.util.*
 import kotlin.collections.ArrayList
 
+
+const val CONFIG_FILE_NAME = "wurst.build"
+
 /**
  * The root DAO that contains the child DAOs.
  * Represents a complete wurst.build file.

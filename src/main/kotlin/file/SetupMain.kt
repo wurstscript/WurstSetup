@@ -15,25 +15,28 @@ class SetupMain {
     @Option(name = "-force", usage = "force tasks without asking for user confirmation")
     var force = false
 
-    @Option(name = "-remove", usage = "removes wurstscript from your machine")
-    var remove = false
+	@Option(name = "-install", usage = "Install wurst on this system or add a depenency to your project")
+	var install = "%unset%"
 
-    @Option(name = "-update", usage = "updates your current wurst installation or project if projectDir present")
-    var update = false
+	@Option(name = "-remove", usage = "removes wurstscript from your machine")
+	var remove = "%unset%"
+
+	@Option(name = "-update", usage = "updates the current project, or wurst installation if ")
+	var update = "%unset%"
 
     @Option(name = "-generate", usage = "generates a new project at projectDir location")
     var generate = false
 
-    var projectDir: Path = SetupApp.DEFAULT_DIR
+	var projectDir: Path = SetupApp.DEFAULT_DIR
 
-    @Option(name = "-projectDir", usage = "sets the root folder of the wurst project")
-    fun setDir(file: File) {
-        val dir = file.toPath()
-        Files.createDirectories(dir)
-        if (Files.exists(dir)) {
-            projectDir = dir
-        }
-    }
+	@Option(name = "-projectDir", usage = "sets the root folder of the wurst project")
+	fun setDir(file: File) {
+		val dir = file.toPath()
+		Files.createDirectories(dir)
+		if (Files.exists(dir)) {
+			projectDir = dir
+		}
+	}
 
     @Throws(CmdLineException::class)
     fun doMain(args: Array<String>) {
