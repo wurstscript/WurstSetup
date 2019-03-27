@@ -15,8 +15,6 @@ import java.util.*
 class CMDTests {
 
 	companion object {
-		private const val SILENT = "-silent"
-		private const val FORCE = "-force"
 		private const val INSTALL = "-install"
 		private const val REMOVE = "-remove"
 		private const val GENERATE = "-generate"
@@ -28,17 +26,17 @@ class CMDTests {
 
 	@Test(priority = 1)
 	fun testUnInstallCmd() {
-		SetupMain.main(Arrays.asList(SILENT, FORCE, INSTALL, WURSTSCRIPT).toTypedArray())
+		SetupMain.main(Arrays.asList(INSTALL, WURSTSCRIPT).toTypedArray())
 		ConnectionManager.checkConnectivity()
 		ConnectionManager.checkWurstBuild()
 		InstallationManager.verifyInstallation()
 		Assert.assertEquals(InstallationManager.status, InstallationManager.InstallationStatus.INSTALLED_UPTODATE)
 
-		SetupMain.main(Arrays.asList(SILENT, FORCE, REMOVE, WURSTSCRIPT).toTypedArray())
+		SetupMain.main(Arrays.asList(REMOVE, WURSTSCRIPT).toTypedArray())
 		InstallationManager.verifyInstallation()
 		Assert.assertEquals(InstallationManager.status, InstallationManager.InstallationStatus.NOT_INSTALLED)
 
-		SetupMain.main(Arrays.asList(SILENT, FORCE, UPDATE, WURSTSCRIPT).toTypedArray())
+		SetupMain.main(Arrays.asList(UPDATE, WURSTSCRIPT).toTypedArray())
 		InstallationManager.verifyInstallation()
 		Assert.assertEquals(InstallationManager.status, InstallationManager.InstallationStatus.INSTALLED_UPTODATE)
 	}
@@ -46,25 +44,23 @@ class CMDTests {
 	@Test(priority = 2)
 	fun testCreateProjectCmd() {
 		Assert.assertEquals(InstallationManager.status, InstallationManager.InstallationStatus.INSTALLED_UPTODATE)
-		SetupMain.main(Arrays.asList(SILENT, GENERATE, "myname").toTypedArray())
+		SetupMain.main(Arrays.asList(GENERATE, "myname").toTypedArray())
 
 		Assert.assertTrue(Files.exists(SetupApp.DEFAULT_DIR.resolve("myname")))
 
 		DependencyManager.isUpdateAvailable(Paths.get(PROJECT_DIR), WurstProjectConfigData())
 
-		SetupMain.main(Arrays.asList(SILENT, UPDATE, "-projectDir ./myname/").toTypedArray())
+		SetupMain.main(Arrays.asList(UPDATE, "-projectDir ./myname/").toTypedArray())
 	}
 
 	@Test(priority = 3)
 	fun testAddDependency() {
-		Assert.assertEquals(InstallationManager.status, InstallationManager.InstallationStatus.INSTALLED_UPTODATE)
-		SetupMain.main(Arrays.asList(SILENT, GENERATE, "myname").toTypedArray())
+		Assert.assertTrue(Files.exists(SetupApp.DEFAULT_DIR.resolve("myname/wurst.build")))
 
-		Assert.assertTrue(Files.exists(SetupApp.DEFAULT_DIR.resolve("myname")))
+		SetupMain.main(Arrays.asList(INSTALL, "https://github.com/Frotty/Frentity/tree/master/wurst", "-projectDir ./myname/").toTypedArray())
 
-		DependencyManager.isUpdateAvailable(Paths.get(PROJECT_DIR), WurstProjectConfigData())
-
-		SetupMain.main(Arrays.asList(SILENT, UPDATE, "-projectDir ./myname/").toTypedArray())
+		val buildfile = String(Files.readAllBytes(SetupApp.DEFAULT_DIR.resolve("myname/wurst.build")))
+		Assert.assertTrue(buildfile.contains("https://github.com/Frotty/Frentity/tree/master/wurst"))
 	}
 
 
@@ -72,7 +68,7 @@ class CMDTests {
 	fun testInvalid() {
 		val byteArrayOutputStream = ByteArrayOutputStream()
 		System.setErr(PrintStream(byteArrayOutputStream))
-		SetupMain.main(Arrays.asList(SILENT, "-jdrhersdgsadf").toTypedArray())
+		SetupMain.main(Arrays.asList("-someInvalidCommand").toTypedArray())
 		assert(byteArrayOutputStream.toString().contains("is not a valid option"))
 	}
 
