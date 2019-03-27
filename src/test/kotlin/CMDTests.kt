@@ -5,8 +5,6 @@ import global.InstallationManager
 import net.ConnectionManager
 import org.testng.Assert
 import org.testng.annotations.Test
-import java.io.ByteArrayOutputStream
-import java.io.PrintStream
 import java.nio.file.Files
 import java.util.*
 
@@ -61,10 +59,7 @@ class CMDTests {
 
 	@Test(priority = 4)
 	fun testInvalid() {
-		val byteArrayOutputStream = ByteArrayOutputStream()
-		System.setErr(PrintStream(byteArrayOutputStream))
-		SetupMain.main(Arrays.asList("-someInvalidCommand").toTypedArray())
-		assert(byteArrayOutputStream.toString().contains("Invalid grill command"))
+		Assert.expectThrows(IllegalArgumentException::class.java) { SetupMain.main(Arrays.asList("-someInvalidCommand").toTypedArray()) }
 	}
 
 }

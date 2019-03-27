@@ -8,11 +8,6 @@ import javax.swing.UIManager
 
 object ExceptionHandler {
 
-    @JvmStatic
-    fun main(args: Array<String>) {
-        SetupMain().doMain(args)
-    }
-
     fun setupExceptionHandler() {
         Thread.setDefaultUncaughtExceptionHandler { _, exception ->
             exception.printStackTrace()

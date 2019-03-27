@@ -3,7 +3,6 @@ package file
 import mu.KotlinLogging
 import java.nio.file.Files
 import java.nio.file.Path
-import kotlin.system.exitProcess
 
 
 class SetupMain {
@@ -37,6 +36,7 @@ class SetupMain {
         SetupApp.handleArgs(this)
     }
 
+	@Throws(IllegalArgumentException::class)
 	private fun parseCLIArgs(argsList: List<String>) {
 		val first = argsList[0]
 		try {
@@ -53,7 +53,7 @@ class SetupMain {
 			}
 		} catch(e: IllegalArgumentException) {
 			log.error("Invalid grill command $first. Syntax: grill [install|update|remove|generate] <command argument>")
-			exitProcess(1)
+			throw e
 		}
 	}
 
