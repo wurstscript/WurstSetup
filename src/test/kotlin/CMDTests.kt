@@ -53,7 +53,7 @@ class CMDTests {
 		SetupMain.main(Arrays.asList(INSTALL, "https://github.com/Frotty/Frentity", "-projectDir", "./myname/").toTypedArray())
 
 		val buildfile = String(Files.readAllBytes(SetupApp.DEFAULT_DIR.resolve("./myname/wurst.build")))
-		Assert.assertTrue(buildfile.contains("https://github.com/Frotty/Frentity/tree/master/wurst"))
+		Assert.assertTrue(buildfile.contains("https://github.com/Frotty/Frentity"))
 	}
 
 
