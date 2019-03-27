@@ -69,7 +69,7 @@ class CMDTests {
 		val byteArrayOutputStream = ByteArrayOutputStream()
 		System.setErr(PrintStream(byteArrayOutputStream))
 		SetupMain.main(Arrays.asList("-someInvalidCommand").toTypedArray())
-		assert(byteArrayOutputStream.toString().contains("is not a valid option"))
+		assert(byteArrayOutputStream.toString().contains("Invalid grill command"))
 	}
 
 }
