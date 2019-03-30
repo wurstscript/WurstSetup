@@ -32,10 +32,10 @@ object ConnectionManager {
                 ?: JSONObject()
     }
 
-    fun checkConnectivity(): NetStatus {
+    fun checkConnectivity(url: String): NetStatus {
         // If google can be reached, the client is not offline
         try {
-            val json = resty.json("http://google.com")
+            val json = resty.json(url)
             if (json == null || json.toString().isBlank()) {
                 netStatus = NetStatus.CLIENT_OFFLINE
                 return netStatus
@@ -73,6 +73,7 @@ object ConnectionManager {
     }
 
     fun getLatestSetupBuild(): Int {
+		log.info("getting latest setup build")
         return try {
             getBuildNumber("https://" + WURST_SETUP_URL, MASTER_BRANCH)
         } catch (e: IOException) {
@@ -81,6 +82,7 @@ object ConnectionManager {
     }
 
     fun getLatestCompilerBuild(): Int {
+		log.info("getting latest compiler build")
         return try {
             getBuildNumber("https://" + WURST_COMPILER_URL, MASTER_BRANCH)
         } catch (e: IOException) {
@@ -89,6 +91,7 @@ object ConnectionManager {
     }
 
     fun checkWurstBuild(): NetStatus {
+		log.info("checking wurst build")
         contactWurstServer("https://" + WURST_COMPILER_URL)
         if (netStatus == NetStatus.SERVER_OFFLINE) {
             contactWurstServer("http://" + WURST_COMPILER_URL)

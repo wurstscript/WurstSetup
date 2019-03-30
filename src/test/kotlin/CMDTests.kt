@@ -22,7 +22,7 @@ class CMDTests {
 	@Test(priority = 1)
 	fun testUnInstallCmd() {
 		SetupMain.main(Arrays.asList(INSTALL, WURSTSCRIPT).toTypedArray())
-		ConnectionManager.checkConnectivity()
+		ConnectionManager.checkConnectivity("http://google.com")
 		ConnectionManager.checkWurstBuild()
 		InstallationManager.verifyInstallation()
 		Assert.assertEquals(InstallationManager.status, InstallationManager.InstallationStatus.INSTALLED_UPTODATE)

@@ -13,10 +13,7 @@ import mu.KotlinLogging
 import net.ConnectionManager
 import net.NetStatus
 import tablelayout.Table
-import workers.CompilerUpdateWorker
-import workers.OnlineCheckWorker
-import workers.ProjectCreateWorker
-import workers.ProjectUpdateWorker
+import workers.*
 import java.awt.*
 import java.awt.GridBagConstraints.NORTHWEST
 import java.awt.GridBagConstraints.VERTICAL
@@ -85,7 +82,9 @@ object MainWindow : JFrame() {
             }
         })
         isVisible = true
-        OnlineCheckWorker().execute()
+        OnlineCheckWorker("http://google.com") {if (ConnectionManager.netStatus == NetStatus.SERVER_CONTACT) WurstBuildCheckWorker().execute()}.execute()
+		OnlineCheckWorker("http://bing.com") {if (ConnectionManager.netStatus == NetStatus.SERVER_CONTACT) WurstBuildCheckWorker().execute()}.execute()
+		OnlineCheckWorker("http://baidu.com") {if (ConnectionManager.netStatus == NetStatus.SERVER_CONTACT) WurstBuildCheckWorker().execute()}.execute()
     }
 
     class UI : JPanel() {

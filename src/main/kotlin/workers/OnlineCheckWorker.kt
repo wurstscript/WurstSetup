@@ -5,16 +5,16 @@ import net.ConnectionManager
 import ui.UiManager
 import javax.swing.SwingWorker
 
-class OnlineCheckWorker : SwingWorker<Boolean, Void>() {
+class OnlineCheckWorker(private val url: String, private val doneListener: () -> Unit) : SwingWorker<Boolean, Void>() {
     private val log = KotlinLogging.logger {}
 
     @Throws(Exception::class)
     override fun doInBackground(): Boolean? {
         log.info("check connectivity")
-        ConnectionManager.checkConnectivity()
+        ConnectionManager.checkConnectivity(url)
         UiManager.refreshComponents()
         log.info("check build")
-        WurstBuildCheckWorker().execute()
+        doneListener.invoke()
         return null
     }
 }

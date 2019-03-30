@@ -34,7 +34,7 @@ object SetupApp {
     }
 
     private fun handleCMD() {
-		ConnectionManager.checkConnectivity()
+		ConnectionManager.checkConnectivity("http://google.com")
 		ConnectionManager.checkWurstBuild()
 		InstallationManager.verifyInstallation()
 		handleRunArgs()
