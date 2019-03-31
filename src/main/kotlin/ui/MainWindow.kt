@@ -23,7 +23,9 @@ import java.awt.event.MouseMotionAdapter
 import java.io.File
 import java.io.IOException
 import java.lang.reflect.InvocationTargetException
+import java.nio.file.Files
 import java.nio.file.Paths
+import java.security.PrivilegedActionException
 import java.util.*
 import java.util.regex.Pattern
 import java.util.stream.Collectors
@@ -310,17 +312,21 @@ object MainWindow : JFrame() {
             if (System.getProperty("os.name").startsWith("Windows")) {
                 try {
                     val key = Registry.getKey(Registry.HKEY_CURRENT_USER + "\\SOFTWARE\\Blizzard Entertainment\\Warcraft III")
-                    var wc3Path = key.getValueByName("InstallPath")?.rawValue
+                    var wc3Path = key?.getValueByName("InstallPath")?.rawValue
                     if (wc3Path != null) {
                         if (!wc3Path.endsWith(File.separator)) wc3Path += File.separator
-                        val gameFolder = File(wc3Path)
-                        if (gameFolder.exists()) {
+                        val gameFolder = Paths.get(wc3Path)
+                        if (Files.exists(gameFolder)) {
                             gamePathTF.text = wc3Path
                         }
+                    } else {
+                        checkDefaultWinLocation()
                     }
                 } catch (e: IllegalAccessException) {
                     e.printStackTrace()
                 } catch (e: InvocationTargetException) {
+                    e.printStackTrace()
+                } catch (e: PrivilegedActionException) {
                     e.printStackTrace()
                 }
 
@@ -348,6 +354,19 @@ object MainWindow : JFrame() {
 
             contentTable.addCell(configTable).growX().pad(2f)
         }
+
+        private fun checkDefaultWinLocation() {
+            var gameFolder = Paths.get(System.getenv("ProgramFiles")).resolve("Warcraft III")
+            if (Files.exists(gameFolder)) {
+                gamePathTF.text = gameFolder.toAbsolutePath().toString()
+            } else {
+                gameFolder = Paths.get(System.getenv("%programfiles% (x86)")).resolve("Warcraft III")
+                if (Files.exists(gameFolder)) {
+                    gamePathTF.text = gameFolder.toAbsolutePath().toString()
+                }
+            }
+        }
+
         private fun handleImport() {
             try {
                 val buildFile = importChooser.selectedFile.toPath()
