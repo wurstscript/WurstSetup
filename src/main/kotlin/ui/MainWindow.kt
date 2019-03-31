@@ -349,13 +349,15 @@ object MainWindow : JFrame() {
         }
 
         private fun checkDefaultWinLocation() {
-            var gameFolder = Paths.get(System.getenv("ProgramFiles")).resolve("Warcraft III")
-            if (Files.exists(gameFolder)) {
+            var gameFolder = Paths.get(System.getenv("ProgramFiles"))?.resolve("Warcraft III")
+            if (gameFolder != null && Files.exists(gameFolder)) {
                 gamePathTF.text = gameFolder.toAbsolutePath().toString()
             } else {
-                gameFolder = Paths.get(System.getenv("%programfiles% (x86)")).resolve("Warcraft III")
-                if (Files.exists(gameFolder)) {
+                gameFolder = Paths.get(System.getenv("ProgramFiles") + " (x86)")?.resolve("Warcraft III")
+                if (gameFolder != null && Files.exists(gameFolder)) {
                     gamePathTF.text = gameFolder.toAbsolutePath().toString()
+                } else {
+                    log.warn("Didn't find warcraft installation.")
                 }
             }
         }
