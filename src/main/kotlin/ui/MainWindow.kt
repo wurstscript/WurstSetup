@@ -22,10 +22,8 @@ import java.awt.event.MouseEvent
 import java.awt.event.MouseMotionAdapter
 import java.io.File
 import java.io.IOException
-import java.lang.reflect.InvocationTargetException
 import java.nio.file.Files
 import java.nio.file.Paths
-import java.security.PrivilegedActionException
 import java.util.*
 import java.util.regex.Pattern
 import java.util.stream.Collectors
@@ -322,14 +320,9 @@ object MainWindow : JFrame() {
                     } else {
                         checkDefaultWinLocation()
                     }
-                } catch (e: IllegalAccessException) {
-                    e.printStackTrace()
-                } catch (e: InvocationTargetException) {
-                    e.printStackTrace()
-                } catch (e: PrivilegedActionException) {
-                    e.printStackTrace()
+                } catch (e: Exception) {
+                    checkDefaultWinLocation()
                 }
-
             }
             gameTF.addCell(selectGamePath).height(24f).pad(0f, 2f, 0f, 2f)
 
