@@ -10,7 +10,7 @@ class SetupMain {
 
     var isGUILaunch = false
 
-	var command = CLICommands.BUILD
+	var command = CLICommand.BUILD
 
 	var commandArg = ""
 
@@ -40,7 +40,7 @@ class SetupMain {
 	private fun parseCLIArgs(argsList: List<String>) {
 		val first = argsList[0]
 		try {
-			command = CLICommands.valueOf(first.toUpperCase())
+			command = CLICommand.valueOf(first.toUpperCase())
 			log.info("found $command")
 			if (argsList.size > 1) {
 				if (!argsList[1].startsWith("-")) {

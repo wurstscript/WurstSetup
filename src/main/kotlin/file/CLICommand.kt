@@ -1,6 +1,7 @@
 package file
 
-enum class CLICommands {
+enum class CLICommand {
+    HELP,
 	INSTALL,
 	REMOVE,
 	UPDATE,

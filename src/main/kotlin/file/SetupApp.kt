@@ -51,7 +51,10 @@ object SetupApp {
 		}
 
 		when {
-			setup.command == CLICommands.INSTALL -> {
+            setup.command == CLICommand.HELP -> {
+                log.info("Grill version ${CompileTimeInfo.version}\nUse one of the following commands: ${CLICommand.values().joinToString(", ")}")
+            }
+			setup.command == CLICommand.INSTALL -> {
 				if (setup.commandArg.toLowerCase() == "wurstscript") {
 					handleInstallWurst()
 				} else {
@@ -61,7 +64,7 @@ object SetupApp {
 					}
 				}
 			}
-			setup.command == CLICommands.UPDATE -> {
+			setup.command == CLICommand.UPDATE -> {
 				if (setup.commandArg.toLowerCase() == "wurstscript") {
 					handleInstallWurst()
 				} else {
@@ -70,7 +73,7 @@ object SetupApp {
 					}
 				}
 			}
-			setup.command == CLICommands.REMOVE -> {
+			setup.command == CLICommand.REMOVE -> {
 				if (setup.commandArg.toLowerCase() == "wurstscript") {
 					handleRemoveWurst()
 				} else {
@@ -80,7 +83,7 @@ object SetupApp {
 					}
 				}
 			}
-			setup.command == CLICommands.GENERATE -> {
+			setup.command == CLICommand.GENERATE -> {
 				if (configData == null) {
 					WurstProjectConfig.handleCreate(DEFAULT_DIR.resolve(setup.commandArg), null, WurstProjectConfigData())
 				}

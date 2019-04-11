@@ -1,4 +1,5 @@
 
+import file.CLICommand
 import file.SetupApp
 import file.SetupMain
 import global.InstallationManager
@@ -14,6 +15,7 @@ class CMDTests {
 		private const val INSTALL = "install"
 		private const val REMOVE = "remove"
 		private const val GENERATE = "generate"
+        private const val HELP = "help"
 		private const val UPDATE = "update"
 		private const val WURSTSCRIPT = "wurstscript"
 	}
@@ -35,6 +37,15 @@ class CMDTests {
 		InstallationManager.verifyInstallation()
 		Assert.assertEquals(InstallationManager.status, InstallationManager.InstallationStatus.INSTALLED_UPTODATE)
 	}
+
+    @Test(priority = 2)
+    fun testCreateHelpCmd() {
+        Assert.assertEquals(InstallationManager.status, InstallationManager.InstallationStatus.INSTALLED_UPTODATE)
+        val setupMain = SetupMain()
+        setupMain.doMain(Arrays.asList(HELP).toTypedArray())
+
+        Assert.assertEquals(setupMain.command, CLICommand.HELP)
+    }
 
 	@Test(priority = 2)
 	fun testCreateProjectCmd() {
