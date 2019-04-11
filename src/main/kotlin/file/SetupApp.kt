@@ -10,10 +10,13 @@ import net.ConnectionManager
 import org.eclipse.jgit.api.Git
 import ui.UiManager
 import ui.UpdateFoundDialog
+import java.lang.ProcessBuilder.Redirect
 import java.nio.file.Files
 import java.nio.file.Paths
 import java.nio.file.StandardCopyOption
 import java.util.*
+
+
 
 
 object SetupApp {
@@ -88,11 +91,29 @@ object SetupApp {
 					WurstProjectConfig.handleCreate(DEFAULT_DIR.resolve(setup.commandArg), null, WurstProjectConfigData())
 				}
 			}
+            setup.command == CLICommand.TEST -> {
+                if (InstallationManager.status != InstallationManager.InstallationStatus.NOT_INSTALLED && configData != null) {
+                    testProject()
+                }
+            }
 		}
 
 	}
 
-	private fun handleRemoveDep(configData: WurstProjectConfigData) {
+    private fun testProject() {
+        val pb = ProcessBuilder("java",  "-jar",
+            InstallationManager.installDir.resolve("wurstscript.jar").toAbsolutePath().toString(),
+            InstallationManager.installDir.resolve("common.j").toAbsolutePath().toString(),
+            InstallationManager.installDir.resolve("blizzard.j").toAbsolutePath().toString(),
+            setup.projectRoot.toAbsolutePath().toString(),
+            "-runcompiletimefunctions", "-runtests")
+        pb.redirectOutput(Redirect.INHERIT)
+        pb.redirectError(Redirect.INHERIT)
+        val p = pb.start()
+        p.waitFor()
+    }
+
+    private fun handleRemoveDep(configData: WurstProjectConfigData) {
 		log.error("removing ${setup.commandArg}")
 		if (configData.dependencies.contains(setup.commandArg)) {
 			configData.dependencies.remove(setup.commandArg)

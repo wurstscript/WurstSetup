@@ -1,13 +1,17 @@
 
 import file.CLICommand
+import file.DependencyManager
 import file.SetupApp
 import file.SetupMain
 import global.InstallationManager
 import net.ConnectionManager
 import org.testng.Assert
+import org.testng.annotations.AfterMethod
 import org.testng.annotations.Test
 import java.nio.file.Files
 import java.util.*
+
+
 
 class CMDTests {
 
@@ -16,6 +20,7 @@ class CMDTests {
 		private const val REMOVE = "remove"
 		private const val GENERATE = "generate"
         private const val HELP = "help"
+        private const val TEST = "test"
 		private const val UPDATE = "update"
 		private const val WURSTSCRIPT = "wurstscript"
 	}
@@ -66,6 +71,26 @@ class CMDTests {
 		val buildfile = String(Files.readAllBytes(SetupApp.DEFAULT_DIR.resolve("./myname/wurst.build")))
 		Assert.assertTrue(buildfile.contains("https://github.com/Frotty/Frentity"))
 	}
+
+
+    @Test(priority = 3)
+    fun testProjectTest() {
+
+        val testproject = SetupApp.DEFAULT_DIR.resolve("testproject")
+        DependencyManager.cloneRepo("https://github.com/wurstscript/WurstStdlib2.git", testproject)
+        Assert.assertTrue(Files.exists(testproject.resolve("wurst.build")))
+
+        val setupMain = SetupMain()
+        setupMain.projectRoot = testproject
+        setupMain.doMain(arrayOf(TEST))
+    }
+
+    private val originalErr = System.err
+
+    @AfterMethod
+    fun restoreStreams() {
+        System.setErr(originalErr)
+    }
 
 
 	@Test(priority = 4)

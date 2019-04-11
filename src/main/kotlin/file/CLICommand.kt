@@ -6,7 +6,8 @@ enum class CLICommand {
 	REMOVE,
 	UPDATE,
 	GENERATE,
-	BUILD
+	TEST,
+    BUILD
 }
 
 enum class GlobalOptions(val optionName: String = "", val argCount: Int = 0) {

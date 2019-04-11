@@ -52,7 +52,7 @@ class SetupUpdateDialog(message: String) : JDialog() {
             Log.print("Updating setup..")
             MainWindow.ui.disableButtons()
             Download.downloadSetup {
-                Runtime.getRuntime().exec("java -jar " + it.fileName.toAbsolutePath())
+                Runtime.getRuntime().exec(arrayOf("java",  "-jar", it.fileName.toAbsolutePath().toString()))
                 System.exit(0)
             }
             dispose()
