@@ -6,7 +6,6 @@ import file.SetupMain
 import global.InstallationManager
 import net.ConnectionManager
 import org.testng.Assert
-import org.testng.annotations.AfterMethod
 import org.testng.annotations.Test
 import java.nio.file.Files
 import java.util.*
@@ -83,13 +82,6 @@ class CMDTests {
         val setupMain = SetupMain()
         setupMain.projectRoot = testproject
         setupMain.doMain(arrayOf(TEST))
-    }
-
-    private val originalErr = System.err
-
-    @AfterMethod
-    fun restoreStreams() {
-        System.setErr(originalErr)
     }
 
 
