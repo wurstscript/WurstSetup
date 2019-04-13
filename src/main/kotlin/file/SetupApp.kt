@@ -102,7 +102,7 @@ object SetupApp {
 
     private fun testProject(configData: WurstProjectConfigData) {
         val buildFolder = setup.projectRoot.resolve("_build")
-        val args = Arrays.asList("java", "-jar",
+        val args = arrayListOf("java", "-jar",
             InstallationManager.installDir.resolve("wurstscript.jar").toAbsolutePath().toString(),
             buildFolder.resolve("common.j").toAbsolutePath().toString(),
             buildFolder.resolve("blizzard.j").toAbsolutePath().toString(),
