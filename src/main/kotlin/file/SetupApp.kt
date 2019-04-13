@@ -93,20 +93,28 @@ object SetupApp {
 			}
             setup.command == CLICommand.TEST -> {
                 if (InstallationManager.status != InstallationManager.InstallationStatus.NOT_INSTALLED && configData != null) {
-                    testProject()
+                    testProject(configData)
                 }
             }
 		}
 
 	}
 
-    private fun testProject() {
-        val pb = ProcessBuilder("java",  "-jar",
+    private fun testProject(configData: WurstProjectConfigData) {
+        val buildFolder = setup.projectRoot.resolve("_build")
+        val args = Arrays.asList("java", "-jar",
             InstallationManager.installDir.resolve("wurstscript.jar").toAbsolutePath().toString(),
-            InstallationManager.installDir.resolve("common.j").toAbsolutePath().toString(),
-            InstallationManager.installDir.resolve("blizzard.j").toAbsolutePath().toString(),
-            setup.projectRoot.toAbsolutePath().toString(),
+            buildFolder.resolve("common.j").toAbsolutePath().toString(),
+            buildFolder.resolve("blizzard.j").toAbsolutePath().toString(),
+            setup.projectRoot.resolve("wurst").toAbsolutePath().toString(),
             "-runcompiletimefunctions", "-runtests")
+
+        configData.dependencies.stream().forEach {
+            args.add("-lib")
+            args.add(buildFolder.resolve(it.substring(it.lastIndexOf("/") + 1)).toAbsolutePath().toString())
+        }
+
+        val pb = ProcessBuilder(args)
         pb.redirectOutput(Redirect.INHERIT)
         pb.redirectError(Redirect.INHERIT)
         val p = pb.start()
