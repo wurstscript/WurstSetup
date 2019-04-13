@@ -1,11 +1,13 @@
 package file
 
-enum class CLICommands {
+enum class CLICommand {
+    HELP,
 	INSTALL,
 	REMOVE,
 	UPDATE,
 	GENERATE,
-	BUILD
+	TEST,
+    BUILD
 }
 
 enum class GlobalOptions(val optionName: String = "", val argCount: Int = 0) {

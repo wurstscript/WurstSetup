@@ -35,6 +35,7 @@ import javax.swing.event.DocumentEvent
 import javax.swing.event.DocumentListener
 import javax.swing.filechooser.FileNameExtensionFilter
 import javax.swing.text.DefaultCaret
+import kotlin.collections.ArrayList
 
 object MainWindow : JFrame() {
     private val log = KotlinLogging.logger {}
@@ -82,9 +83,17 @@ object MainWindow : JFrame() {
             }
         })
         isVisible = true
-        OnlineCheckWorker("http://google.com") {if (ConnectionManager.netStatus == NetStatus.SERVER_CONTACT) WurstBuildCheckWorker().execute()}.execute()
-		OnlineCheckWorker("http://bing.com") {if (ConnectionManager.netStatus == NetStatus.SERVER_CONTACT) WurstBuildCheckWorker().execute()}.execute()
-		OnlineCheckWorker("http://baidu.com") {if (ConnectionManager.netStatus == NetStatus.SERVER_CONTACT) WurstBuildCheckWorker().execute()}.execute()
+        OnlineCheckWorker("http://google.com") {if (ConnectionManager.netStatus == NetStatus.SERVER_CONTACT) executeListener()}.execute()
+		OnlineCheckWorker("http://bing.com") {if (ConnectionManager.netStatus == NetStatus.SERVER_CONTACT) executeListener()}.execute()
+		OnlineCheckWorker("http://baidu.com") {if (ConnectionManager.netStatus == NetStatus.SERVER_CONTACT) executeListener()}.execute()
+    }
+
+    var hasExecuted = false
+    private fun executeListener() {
+        if (!hasExecuted) {
+            hasExecuted = true
+            WurstBuildCheckWorker().execute()
+        }
     }
 
     class UI : JPanel() {

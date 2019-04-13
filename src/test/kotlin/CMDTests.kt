@@ -1,4 +1,6 @@
 
+import file.CLICommand
+import file.DependencyManager
 import file.SetupApp
 import file.SetupMain
 import global.InstallationManager
@@ -8,12 +10,16 @@ import org.testng.annotations.Test
 import java.nio.file.Files
 import java.util.*
 
+
+
 class CMDTests {
 
 	companion object {
 		private const val INSTALL = "install"
 		private const val REMOVE = "remove"
 		private const val GENERATE = "generate"
+        private const val HELP = "help"
+        private const val TEST = "test"
 		private const val UPDATE = "update"
 		private const val WURSTSCRIPT = "wurstscript"
 	}
@@ -36,6 +42,15 @@ class CMDTests {
 		Assert.assertEquals(InstallationManager.status, InstallationManager.InstallationStatus.INSTALLED_UPTODATE)
 	}
 
+    @Test(priority = 2)
+    fun testCreateHelpCmd() {
+        Assert.assertEquals(InstallationManager.status, InstallationManager.InstallationStatus.INSTALLED_UPTODATE)
+        val setupMain = SetupMain()
+        setupMain.doMain(Arrays.asList(HELP).toTypedArray())
+
+        Assert.assertEquals(setupMain.command, CLICommand.HELP)
+    }
+
 	@Test(priority = 2)
 	fun testCreateProjectCmd() {
 		Assert.assertEquals(InstallationManager.status, InstallationManager.InstallationStatus.INSTALLED_UPTODATE)
@@ -55,6 +70,19 @@ class CMDTests {
 		val buildfile = String(Files.readAllBytes(SetupApp.DEFAULT_DIR.resolve("./myname/wurst.build")))
 		Assert.assertTrue(buildfile.contains("https://github.com/Frotty/Frentity"))
 	}
+
+
+    @Test(priority = 3)
+    fun testProjectTest() {
+
+        val testproject = SetupApp.DEFAULT_DIR.resolve("testproject")
+        DependencyManager.cloneRepo("https://github.com/wurstscript/WurstStdlib2.git", testproject)
+        Assert.assertTrue(Files.exists(testproject.resolve("wurst.build")))
+
+        val setupMain = SetupMain()
+        setupMain.projectRoot = testproject
+        setupMain.doMain(arrayOf(TEST))
+    }
 
 
 	@Test(priority = 4)

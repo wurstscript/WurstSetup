@@ -26,7 +26,7 @@ object DependencyManager {
             val dependencyName = dependency.substring(dependency.lastIndexOf("/") + 1)
             log.info("updating dependency $dependencyName")
             Log.print("Updating dependency - $dependencyName ..")
-            val depFolder = projectRoot.resolve("_build/dependencies/" + dependencyName)
+            val depFolder = projectRoot.resolve("_build/dependencies/$dependencyName")
             if (Files.exists(depFolder)) {
                 log.info("depencency exists locally")
                 depFolders.add(depFolder.toAbsolutePath().toString())
@@ -65,7 +65,7 @@ object DependencyManager {
         return false
     }
 
-    private fun cloneRepo(dependency: String, depFolder: Path) {
+    fun cloneRepo(dependency: String, depFolder: Path) {
         try {
             Files.createDirectories(depFolder)
         } catch (e: IOException) {
