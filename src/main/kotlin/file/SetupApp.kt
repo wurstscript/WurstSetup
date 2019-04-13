@@ -102,10 +102,20 @@ object SetupApp {
 
     private fun testProject(configData: WurstProjectConfigData) {
         val buildFolder = setup.projectRoot.resolve("_build")
+        val common = if (Files.exists(buildFolder.resolve("common.j"))) {
+            buildFolder.resolve("common.j")
+        } else {
+            InstallationManager.installDir.resolve("common.j")
+        }
+        val blizzard = if (Files.exists(buildFolder.resolve("blizzard.j"))) {
+            buildFolder.resolve("blizzard.j")
+        } else {
+            InstallationManager.installDir.resolve("blizzard.j")
+        }
         val args = arrayListOf("java", "-jar",
             InstallationManager.installDir.resolve("wurstscript.jar").toAbsolutePath().toString(),
-            buildFolder.resolve("common.j").toAbsolutePath().toString(),
-            buildFolder.resolve("blizzard.j").toAbsolutePath().toString(),
+            common.toAbsolutePath().toString(),
+            blizzard.toAbsolutePath().toString(),
             setup.projectRoot.resolve("wurst").toAbsolutePath().toString(),
             "-runcompiletimefunctions", "-runtests")
 
