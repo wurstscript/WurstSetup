@@ -12,11 +12,10 @@ Pro users can make use of grill from the shell:
 
 ### Update/Remove wurst installation
 
-Update or remove the global wurst installation by using the special `wurst` identifier.
+Update or remove the global wurst installation by using the special `wurstscript` identifier.
 
 ```cmd
 > grill install wurstscript
-> grill update wurstscript
 > grill remove wurstscript
 ```
 
@@ -25,17 +24,17 @@ Update or remove the global wurst installation by using the special `wurst` iden
 To create a new project, use `generate` and supply your name of choice.
 
 ```cmd
-> grill generate [project_name]
+> grill generate <project_name>
 ```
 
-### Updating projects
+### Updating a project
 
 By not passing any additional arguments grill will assume that the execution location is a wurst project.
 
 To update all project dependencies use:
 
 ```cmd
-> grill update
+> grill install
 ```
 
 To add a new dependency to your project, use:
@@ -44,13 +43,21 @@ To add a new dependency to your project, use:
 > grill install <git_url>
 ```
 
-### Building the project
+### Testing a project
 
-Use `build` to compile the project at the current location and generate the output map.
-
+Use `test` to compile the project at the current location and run unit tests.
 
 ```cmd
-> grill build (optionally: -o <out_file_name>)
+> grill test
+```
+
+
+### Building the project
+
+Use `build` to generate an output map according to `wurst.build` specifications.
+
+```cmd
+> grill build
 ```
 
 ## How it works

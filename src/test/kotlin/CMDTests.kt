@@ -20,7 +20,6 @@ class CMDTests {
 		private const val GENERATE = "generate"
         private const val HELP = "help"
         private const val TEST = "test"
-		private const val UPDATE = "update"
 		private const val WURSTSCRIPT = "wurstscript"
 	}
 
@@ -37,7 +36,7 @@ class CMDTests {
 		InstallationManager.verifyInstallation()
 		Assert.assertEquals(InstallationManager.status, InstallationManager.InstallationStatus.NOT_INSTALLED)
 
-		SetupMain.main(Arrays.asList(UPDATE, WURSTSCRIPT).toTypedArray())
+		SetupMain.main(Arrays.asList(INSTALL, WURSTSCRIPT).toTypedArray())
 		InstallationManager.verifyInstallation()
 		Assert.assertEquals(InstallationManager.status, InstallationManager.InstallationStatus.INSTALLED_UPTODATE)
 	}
@@ -58,7 +57,7 @@ class CMDTests {
 
 		Assert.assertTrue(Files.exists(SetupApp.DEFAULT_DIR.resolve("myname")))
 
-		SetupMain.main(Arrays.asList(UPDATE, "-projectDir", "./myname/").toTypedArray())
+		SetupMain.main(Arrays.asList(INSTALL, "-projectDir", "./myname/").toTypedArray())
 	}
 
 	@Test(priority = 3)

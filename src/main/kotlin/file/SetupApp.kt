@@ -58,21 +58,16 @@ object SetupApp {
                 log.info("Grill version ${CompileTimeInfo.version}\nUse one of the following commands: ${CLICommand.values().joinToString(", ")}")
             }
 			setup.command == CLICommand.INSTALL -> {
-				if (setup.commandArg.toLowerCase() == "wurstscript") {
+                if (setup.commandArg.isBlank()) {
+                    if (configData != null) {
+                        handleUpdateProject(configData)
+                    }
+                } else if (setup.commandArg.toLowerCase() == "wurstscript") {
 					handleInstallWurst()
 				} else {
 					if (configData != null) {
 						handleInstallDep(configData)
 						WurstProjectConfig.saveProjectConfig(setup.projectRoot, configData)
-					}
-				}
-			}
-			setup.command == CLICommand.UPDATE -> {
-				if (setup.commandArg.toLowerCase() == "wurstscript") {
-					handleInstallWurst()
-				} else {
-					if (configData != null) {
-						handleUpdateProject(configData)
 					}
 				}
 			}
