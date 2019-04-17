@@ -24,7 +24,7 @@ object DependencyManager {
         Log.print("Updating dependencies...\n")
         for (dependency in projectConfig.dependencies) {
             val dependencyName = dependency.substring(dependency.lastIndexOf("/") + 1)
-            log.info("\uD83D\uDD39 Installing <$dependencyName>")
+            log.info("\t\uD83D\uDD39 Pulling <$dependencyName>")
             Log.print("Updating dependency - $dependencyName ..")
             val depFolder = projectRoot.resolve("_build/dependencies/$dependencyName")
             if (Files.exists(depFolder)) {
@@ -47,7 +47,7 @@ object DependencyManager {
                 e.printStackTrace()
             }
         }
-        log.info("\u2714 Installed dependencies!")
+        log.info("✔ Installed dependencies!")
     }
 
     fun isUpdateAvailable(projectRoot: Path, projectConfig: WurstProjectConfigData): Boolean {

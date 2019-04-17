@@ -26,6 +26,7 @@ object SetupApp {
 
     fun handleArgs(setup: SetupMain) {
         this.setup = setup
+        copyJar()
         if (setup.isGUILaunch) {
             log.info("\uD83D\uDDBC launching Wurst Setup GUI")
             UiManager.initUI()
@@ -33,14 +34,13 @@ object SetupApp {
             log.info("\u2668 Grill warming up..")
             handleCMD()
         }
-        startup()
-        log.info("\u2668 Ready. Version: <{}>", CompileTimeInfo.version)
     }
 
     private fun handleCMD() {
 		ConnectionManager.checkConnectivity("http://google.com")
 		ConnectionManager.checkWurstBuild()
 		InstallationManager.verifyInstallation()
+        log.info("\u2668 Ready. Version: <{}>", CompileTimeInfo.version)
 		handleRunArgs()
     }
 
@@ -171,7 +171,7 @@ object SetupApp {
 	private fun handleInstallWurst() {
 		log.info("\uD83C\uDF2D Installing WurstScript..")
 		if (InstallationManager.status != InstallationManager.InstallationStatus.INSTALLED_UPTODATE) {
-			log.info("Update available.")
+			log.info("\tUpdate available!")
 			if (setup.requireConfirmation) {
 				if (setup.isGUILaunch) {
 					UpdateFoundDialog("A Wurst compiler update has been found!")
@@ -190,11 +190,6 @@ object SetupApp {
 			log.info("Already up to date.")
 		}
 	}
-
-	private fun startup() {
-        InstallationManager.verifyInstallation()
-        copyJar()
-    }
 
     private fun copyJar() {
         val url = InstallationManager::class.java.protectionDomain.codeSource.location

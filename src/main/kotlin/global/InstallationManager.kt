@@ -55,7 +55,7 @@ object InstallationManager {
                 log.warn("Custom WurstScript installation detected.")
             }
         } else {
-			log.info("WurstScript is not installed.")
+			log.info("WurstScript is not currently installed.")
 		}
         if (ConnectionManager.netStatus == NetStatus.ONLINE) {
 			log.debug("Client online, check for update")
@@ -121,6 +121,7 @@ object InstallationManager {
 			Log.print("ERROR")
 		} else {
 			Log.print(if (isFreshInstall) "Installation complete\n" else "Update complete\n")
+            log.info("✔ Installed WzrstScript")
 			if (SetupApp.setup.isGUILaunch) {
 				SwingUtilities.invokeLater { MainWindow.ui.progressBar.value = 0 }
 			}
