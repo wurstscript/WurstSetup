@@ -31,7 +31,7 @@ object SetupApp {
             log.info("\uD83D\uDDBC launching Wurst Setup GUI")
             UiManager.initUI()
         } else {
-            log.info("\u2668 Grill warming up..")
+            log.info("\uD83D\uDD25 Grill warming up..")
             handleCMD()
         }
     }
@@ -40,7 +40,7 @@ object SetupApp {
 		ConnectionManager.checkConnectivity("http://google.com")
 		ConnectionManager.checkWurstBuild()
 		InstallationManager.verifyInstallation()
-        log.info("\u2668 Ready. Version: <{}>", CompileTimeInfo.version)
+        log.info("\uD83D\uDD25 Ready. Version: <{}>", CompileTimeInfo.version)
 		handleRunArgs()
     }
 

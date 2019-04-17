@@ -24,11 +24,9 @@ import javax.swing.SwingUtilities
 object InstallationManager {
     private val log = KotlinLogging.logger {}
     private const val FOLDER_PATH = ".wurst"
-    private const val CONFIG_FILE_NAME = "wurst_config.yml"
     private const val COMPILER_FILE_NAME = "wurstscript.jar"
 
     val installDir: Path = Paths.get(System.getProperty("user.home"), FOLDER_PATH)
-    val configFile: Path = installDir.resolve(CONFIG_FILE_NAME)
     val compilerJar: Path = installDir.resolve(COMPILER_FILE_NAME)
 
     var wurstConfig: WurstConfigData? = null
@@ -92,8 +90,10 @@ object InstallationManager {
 			if (SetupApp.setup.isGUILaunch) {
 				startExtractWorker(it, isFreshInstall)
 			} else {
+                log.info("\uD83D\uDCE6 Extracting..")
 				ZipArchiveExtractor.extractArchive(it, installDir)
 				Files.delete(it)
+                log.info("✔ Installed WurstScript")
 			}
 
 		}
@@ -121,7 +121,7 @@ object InstallationManager {
 			Log.print("ERROR")
 		} else {
 			Log.print(if (isFreshInstall) "Installation complete\n" else "Update complete\n")
-            log.info("✔ Installed WzrstScript")
+            log.debug("Installed WurstScript")
 			if (SetupApp.setup.isGUILaunch) {
 				SwingUtilities.invokeLater { MainWindow.ui.progressBar.value = 0 }
 			}
