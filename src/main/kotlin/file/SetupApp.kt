@@ -56,7 +56,7 @@ object SetupApp {
 
 		when {
             setup.command == CLICommand.HELP -> {
-                log.info("Grill version ${CompileTimeInfo.version}\nUse one of the following commands: ${CLICommand.values().joinToString(", ")}")
+                log.info("Use one of the following commands: ${CLICommand.values().joinToString(", ")}")
             }
 			setup.command == CLICommand.INSTALL -> {
                 if (setup.commandArg.isBlank()) {
