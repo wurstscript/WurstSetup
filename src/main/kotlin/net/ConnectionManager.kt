@@ -41,7 +41,7 @@ object ConnectionManager {
                 return netStatus
             }
         } catch (e: IOException) {
-            log.info("couldn't contact google: " + e.localizedMessage)
+            log.debug("couldn't contact google: " + e.localizedMessage)
         }
         netStatus = NetStatus.SERVER_CONTACT
 
@@ -57,7 +57,7 @@ object ConnectionManager {
                 NetStatus.ONLINE
             }
         } catch (e: IOException) {
-            log.info("couldn't contact wurst jenkins: " + e.localizedMessage)
+            log.debug("couldn't contact wurst jenkins: " + e.localizedMessage)
             NetStatus.SERVER_OFFLINE
         }
     }
@@ -73,7 +73,7 @@ object ConnectionManager {
     }
 
     fun getLatestSetupBuild(): Int {
-		log.info("getting latest setup build")
+		log.debug("getting latest setup build")
         return try {
             getBuildNumber("https://" + WURST_SETUP_URL, MASTER_BRANCH)
         } catch (e: IOException) {
@@ -82,7 +82,7 @@ object ConnectionManager {
     }
 
     fun getLatestCompilerBuild(): Int {
-		log.info("getting latest compiler build")
+		log.debug("getting latest compiler build")
         return try {
             getBuildNumber("https://" + WURST_COMPILER_URL, MASTER_BRANCH)
         } catch (e: IOException) {
@@ -91,7 +91,7 @@ object ConnectionManager {
     }
 
     fun checkWurstBuild(): NetStatus {
-		log.info("checking wurst build")
+		log.debug("checking wurst build")
         contactWurstServer("https://" + WURST_COMPILER_URL)
         if (netStatus == NetStatus.SERVER_OFFLINE) {
             contactWurstServer("http://" + WURST_COMPILER_URL)

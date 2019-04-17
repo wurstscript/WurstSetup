@@ -57,7 +57,7 @@ object MainWindow : JFrame() {
      */
     fun init() {
         initFilechooser()
-        log.info("init UI")
+        log.debug("init UI")
         layout = BorderLayout()
         setSize(570, 355)
         background = Color(36, 36, 36)
@@ -345,7 +345,7 @@ object MainWindow : JFrame() {
             dependencyTable.addCell(dependencyTF).height(24f).growX()
             btnAdvanced.addMouseListener(object : MouseAdapter() {
                 override fun mouseClicked(arg0: MouseEvent) {
-                    log.info("Adding dependency")
+                    log.debug("Adding dependency")
                     AddRepoDialog()
                 }
             })
@@ -530,7 +530,7 @@ object MainWindow : JFrame() {
                 }
             }
 
-            log.info("Creating new project. gamepath <{}>, root <{}>, config <{}>", gameRoot, projectRoot, config)
+            log.info("Generating new project.\n\t-> gamepath <{}>, root <{}>, config <{}>", gameRoot, projectRoot, config)
             if (SetupApp.setup.isGUILaunch) {
 				ProjectCreateWorker(projectRoot, gameRoot, config).execute()
 			} else {
@@ -543,18 +543,13 @@ object MainWindow : JFrame() {
             val projectRoot = Paths.get(projectRootTF.text)
             if (selectedConfig != null) {
                 dependencies.forEach { e -> if (selectedConfig?.dependencies?.contains(e) == false) selectedConfig?.dependencies?.add(e) }
-                log.info("Update project. gamepath <{}>, root <{}>", gameRoot, projectRoot)
-                if (SetupApp.setup.isGUILaunch) {
-					ProjectUpdateWorker(projectRoot, gameRoot, selectedConfig!!).execute()
-				} else {
-					WurstProjectConfig.handleUpdate(projectRoot, gameRoot, selectedConfig!!)
-                }
-
+                log.info("Installing project. gamepath <{}>, root <{}>", gameRoot, projectRoot)
+                ProjectUpdateWorker(projectRoot, gameRoot, selectedConfig!!).execute()
             }
         }
 
         private fun handleWurstUpdate() {
-            log.info("handle wurst update")
+            log.debug("handle wurst update")
             SwingUtilities.invokeLater { progressBar.isIndeterminate = true }
             disableButtons()
             CompilerUpdateWorker().execute()

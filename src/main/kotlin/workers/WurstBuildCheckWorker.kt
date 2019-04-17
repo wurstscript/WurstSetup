@@ -19,7 +19,7 @@ class WurstBuildCheckWorker : SwingWorker<Boolean, Void>() {
         InstallationManager.verifyInstallation()
         if (ConnectionManager.netStatus == NetStatus.ONLINE) {
             val latestSetupBuild = ConnectionManager.getLatestSetupBuild()
-            log.info("current setup ver: ${InstallationManager.getJenkinsBuildVer(CompileTimeInfo.version)} latest Setup: $latestSetupBuild")
+            log.debug("current setup ver: ${InstallationManager.getJenkinsBuildVer(CompileTimeInfo.version)} latest Setup: $latestSetupBuild")
             if (latestSetupBuild > InstallationManager.getJenkinsBuildVer(CompileTimeInfo.version)) {
                 SetupUpdateDialog("There is a more recent version of the setup tool available. It is highly recommended" +
                         " to update before making any further changes.")

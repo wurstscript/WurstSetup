@@ -10,7 +10,7 @@ object CLIParser {
 
 	/** Gets the version of the wurstscript.jar via cli */
 	fun getVersionFomJar() {
-		log.info("running wurst to extract the version")
+		log.debug("running wurst to extract the version")
 		val proc = Runtime.getRuntime().exec(arrayOf("java", "-jar", InstallationManager.compilerJar.toAbsolutePath().toString(), "--version"))
 		proc.waitFor(100, TimeUnit.MILLISECONDS)
 		val input = proc.inputStream.bufferedReader().use { it.readText() }.trim()
@@ -32,11 +32,11 @@ object CLIParser {
 	}
 
 	private fun parseCMDLine(input: String) {
-		log.info("parsing CMD output")
+		log.debug("parsing CMD output")
 		val lines = input.split(System.getProperty("line.separator"))
 		lines.forEach { line ->
 			if (InstallationManager.isJenkinsBuilt(line)) {
-				log.info("Found jenkins build string $line")
+				log.debug("Found jenkins build string $line")
 				InstallationManager.currentCompilerVersion = InstallationManager.getJenkinsBuildVer(line)
 				InstallationManager.status = InstallationManager.InstallationStatus.INSTALLED_OUTDATED
 			}

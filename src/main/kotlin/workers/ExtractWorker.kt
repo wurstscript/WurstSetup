@@ -23,7 +23,7 @@ class ExtractWorker(private val filePath: Path, val progressBar: JProgressBar?, 
         }
       }
       Log.print("Extracting compiler..")
-      log.info("extract compiler")
+      log.debug("extract compiler")
       extractSuccess = file.ZipArchiveExtractor.extractArchive(filePath, InstallationManager.installDir)
       Files.delete(filePath)
     } catch (e: Exception) {

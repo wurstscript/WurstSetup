@@ -41,7 +41,7 @@ class SetupMain {
 		val first = argsList[0]
 		try {
 			command = CLICommand.valueOf(first.toUpperCase())
-			log.info("found $command")
+			log.debug("found $command")
 			if (argsList.size > 1) {
 				if (!argsList[1].startsWith("-")) {
 					commandArg = argsList[1]
@@ -52,7 +52,7 @@ class SetupMain {
 
 			}
 		} catch(e: IllegalArgumentException) {
-			log.error("Invalid grill command $first. Syntax: grill [install|update|remove|generate] <command argument>")
+			log.error("\\uD83D\\uDD25 Invalid grill command <$first> ! Available commands: [generate|install|remove|test|build] <command argument>")
 			throw e
 		}
 	}

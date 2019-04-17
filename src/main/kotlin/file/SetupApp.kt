@@ -27,13 +27,14 @@ object SetupApp {
     fun handleArgs(setup: SetupMain) {
         this.setup = setup
         if (setup.isGUILaunch) {
-            log.info("is GUI")
+            log.info("\\uD83D\\uDDBC launching Wurst Setup GUI")
             UiManager.initUI()
         } else {
-            log.info("is CLI")
+            log.info("\\u2668 Grill warming up..")
             handleCMD()
         }
         startup()
+        log.info("\\u2668 Ready. Version: <{}>", CompileTimeInfo.version)
     }
 
     private fun handleCMD() {
@@ -44,13 +45,13 @@ object SetupApp {
     }
 
 	private fun handleRunArgs() {
-		log.info("handle runargs")
+		log.debug("handle runargs")
 		val configFile = setup.projectRoot.resolve(CONFIG_FILE_NAME)
 		var configData: WurstProjectConfigData? = null
 		if (Files.exists(configFile)) {
 			configData = WurstProjectConfig.loadProject(configFile)!!
 		} else {
-			log.warn("No wurst project found at current location")
+			log.warn("No wurst project found at the current location.")
 		}
 
 		when {
@@ -146,9 +147,9 @@ object SetupApp {
 	}
 
 	private fun handleInstallDep(configData: WurstProjectConfigData) {
-		log.info("installing $setup.install")
+		log.info("\\uD83D\\uDD39 Installing ${setup.commandArg}")
 		if (configData.dependencies.contains(setup.commandArg)) {
-			log.info("already installed")
+			log.info("Dependency is already installed.")
 			return
 		}
 		try {
@@ -159,18 +160,18 @@ object SetupApp {
 				Log.print("valid!\n")
 				configData.dependencies.add(setup.commandArg)
 			} else {
-				log.error("Entered invalid git repo")
+				log.error("Entered invalid git repo.")
 			}
 		} catch (e: Exception) {
-			log.error("Entered invalid git repo")
+			log.error("Entered invalid git repo.")
 			e.printStackTrace()
 		}
 	}
 
 	private fun handleInstallWurst() {
-		log.info("install/update wurstscript")
+		log.info("\\uD83C\\uDF2D Installing WurstScript..")
 		if (InstallationManager.status != InstallationManager.InstallationStatus.INSTALLED_UPTODATE) {
-			log.info("compiler update eligible")
+			log.info("Update available.")
 			if (setup.requireConfirmation) {
 				if (setup.isGUILaunch) {
 					UpdateFoundDialog("A Wurst compiler update has been found!")
@@ -183,7 +184,6 @@ object SetupApp {
 					}
 				}
 			} else {
-				log.info("Forcing update..")
 				InstallationManager.handleUpdate()
 			}
 		} else {
@@ -192,7 +192,6 @@ object SetupApp {
 	}
 
 	private fun startup() {
-        log.info("startup setup version: <{}>", CompileTimeInfo.version)
         InstallationManager.verifyInstallation()
         copyJar()
     }
@@ -201,14 +200,14 @@ object SetupApp {
         val url = InstallationManager::class.java.protectionDomain.codeSource.location
         val ownFile = Paths.get(url.toURI())
         if (ownFile.endsWith(".2.jar")) {
-            log.info("copy jar from own")
+            log.debug("copy jar from own")
             Files.copy(ownFile, ownFile.resolveSibling("WurstSetup.jar"), StandardCopyOption.REPLACE_EXISTING)
         }
-        log.info("path: $url")
-        log.info("file: " + ownFile.toAbsolutePath())
+        log.debug("path: $url")
+        log.debug("file: " + ownFile.toAbsolutePath())
         if (ownFile != null && Files.exists(ownFile) && ownFile.toString().endsWith(".jar") &&
                 (ownFile.parent == null || ownFile.parent?.fileName?.toString() != ".wurst")) {
-            log.info("copy jar")
+            log.debug("copy jar")
             Files.copy(ownFile, Paths.get(InstallationManager.installDir.toString(), "WurstSetup.jar"), StandardCopyOption.REPLACE_EXISTING)
         }
     }

@@ -38,12 +38,12 @@ object InstallationManager {
     var latestCompilerVersion = 0
 
     fun verifyInstallation(): InstallationStatus {
-        log.info("verify Install")
+        log.debug("verify Install")
         status = InstallationStatus.NOT_INSTALLED
         currentCompilerVersion = -1
         latestCompilerVersion = 0
         if (Files.exists(installDir) && Files.exists(compilerJar)) {
-			log.info("Found installation")
+			log.debug("Found installation")
             status = InstallationStatus.INSTALLED_UNKNOWN
             try {
                 if (!Files.isWritable(compilerJar)) {
@@ -52,15 +52,15 @@ object InstallationManager {
 					CLIParser.getVersionFomJar()
                 }
             } catch (_: Error) {
-                log.warn("Installation is custom.")
+                log.warn("Custom WurstScript installation detected.")
             }
         } else {
-			log.info("Installation not found")
+			log.info("WurstScript is not installed.")
 		}
         if (ConnectionManager.netStatus == NetStatus.ONLINE) {
-			log.info("Client online, check for update")
+			log.debug("Client online, check for update")
             latestCompilerVersion = ConnectionManager.getLatestCompilerBuild()
-			log.info("latest compiler: $latestCompilerVersion")
+			log.debug("latest compiler: $latestCompilerVersion")
             if (currentCompilerVersion >= latestCompilerVersion) {
                 status = InstallationStatus.INSTALLED_UPTODATE
             }
@@ -72,14 +72,14 @@ object InstallationManager {
     fun handleUpdate() {
         val isFreshInstall = status == InstallationStatus.NOT_INSTALLED
         try {
-            log.info(if (isFreshInstall) "isInstall" else "isUpdate")
+            log.debug(if (isFreshInstall) "isInstall" else "isUpdate")
             Log.print(if (isFreshInstall) "Installing WurstScript..\n" else "Updating WursScript..\n")
             Log.print("Downloading compiler..")
-            log.info("Downloading compiler..")
+            log.info("\\u23EC Downloading WurstScript..")
 
 			downloadCompiler(isFreshInstall)
         } catch (e: Exception) {
-            log.error("exception: ", e)
+            log.error("Exception: ", e)
             Log.print("\n===ERROR COMPILER UPDATE===\n" + e.message + "\nPlease report here: github.com/wurstscript/WurstScript/issues\n")
         }
 
@@ -117,7 +117,6 @@ object InstallationManager {
 		if (status == InstallationStatus.NOT_INSTALLED) {
 			wurstConfig = WurstConfigData()
 		}
-		log.info("done")
 		if (!Files.exists(compilerJar)) {
 			Log.print("ERROR")
 		} else {
@@ -150,7 +149,7 @@ object InstallationManager {
     fun handleRemove() {
         clearFolder(installDir)
         verifyInstallation()
-        log.info("removed installation")
+        log.info("WurstScript has been removed.")
     }
 
 
