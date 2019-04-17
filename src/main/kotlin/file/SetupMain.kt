@@ -10,7 +10,7 @@ class SetupMain {
 
     var isGUILaunch = false
 
-	var command = CLICommand.BUILD
+	var command = CLICommand.HELP
 
 	var commandArg = ""
 

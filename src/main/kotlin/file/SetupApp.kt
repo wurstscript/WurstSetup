@@ -17,8 +17,6 @@ import java.nio.file.StandardCopyOption
 import java.util.*
 
 
-
-
 object SetupApp {
 	val DEFAULT_DIR = Paths.get(".")!!
     private val log = KotlinLogging.logger {}
@@ -92,11 +90,53 @@ object SetupApp {
                     testProject(configData)
                 }
             }
+            setup.command == CLICommand.BUILD -> {
+                log.info("\uD83D\uDD28 Building project..")
+                if (setup.commandArg.isBlank()) {
+                    log.error("\tNo input map specified.")
+                } else if (!Files.exists(setup.projectRoot.resolve(setup.commandArg))) {
+                    log.error("\tInput map cannot be found ar project root.")
+                } else {
+                    if (InstallationManager.status != InstallationManager.InstallationStatus.NOT_INSTALLED && configData != null) {
+                        buildProject(configData)
+                    }
+                }
+            }
 		}
 
 	}
 
+    private fun buildProject(configData: WurstProjectConfigData) {
+        val args = commonArgs(configData)
+
+        args.add("-build")
+
+        args.add("-workspaceroot")
+        args.add(setup.projectRoot.toAbsolutePath().toString())
+
+        args.add("-inputmap")
+        args.add(setup.projectRoot.resolve(setup.commandArg).toAbsolutePath().toString())
+
+        startWurstProcess(args)
+    }
+
     private fun testProject(configData: WurstProjectConfigData) {
+        val args = commonArgs(configData)
+
+        args.add("-runtests")
+
+        startWurstProcess(args)
+    }
+
+    private fun startWurstProcess(args: ArrayList<String>): Int {
+        val pb = ProcessBuilder(args)
+        pb.redirectOutput(Redirect.INHERIT)
+        pb.redirectError(Redirect.INHERIT)
+        val p = pb.start()
+        return p.waitFor()
+    }
+
+    private fun commonArgs(configData: WurstProjectConfigData): ArrayList<String> {
         val buildFolder = setup.projectRoot.resolve("_build")
         val common = if (Files.exists(buildFolder.resolve("common.j"))) {
             buildFolder.resolve("common.j")
@@ -109,22 +149,17 @@ object SetupApp {
             InstallationManager.installDir.resolve("blizzard.j")
         }
         val args = arrayListOf("java", "-jar",
-            InstallationManager.installDir.resolve("wurstscript.jar").toAbsolutePath().toString(),
-            common.toAbsolutePath().toString(),
-            blizzard.toAbsolutePath().toString(),
-            setup.projectRoot.resolve("wurst").toAbsolutePath().toString(),
-            "-runcompiletimefunctions", "-runtests")
+                InstallationManager.installDir.resolve("wurstscript.jar").toAbsolutePath().toString(),
+                common.toAbsolutePath().toString(),
+                blizzard.toAbsolutePath().toString(),
+                setup.projectRoot.resolve("wurst").toAbsolutePath().toString(),
+                "-runcompiletimefunctions")
 
         configData.dependencies.stream().forEach {
             args.add("-lib")
             args.add(buildFolder.resolve("dependencies").resolve(it.substring(it.lastIndexOf("/") + 1)).toAbsolutePath().toString())
         }
-
-        val pb = ProcessBuilder(args)
-        pb.redirectOutput(Redirect.INHERIT)
-        pb.redirectError(Redirect.INHERIT)
-        val p = pb.start()
-        p.waitFor()
+        return args
     }
 
     private fun handleRemoveDep(configData: WurstProjectConfigData) {
