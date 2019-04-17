@@ -81,7 +81,7 @@ object SetupApp {
 				}
 			}
 			setup.command == CLICommand.GENERATE -> {
-                ️log.info("✈ Testing project..")
+                log.info("✈ Testing project..")
 				if (configData == null) {
 					WurstProjectConfig.handleCreate(DEFAULT_DIR.resolve(setup.commandArg), null, WurstProjectConfigData())
 				}
