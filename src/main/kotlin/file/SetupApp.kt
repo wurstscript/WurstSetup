@@ -49,7 +49,7 @@ object SetupApp {
 		if (Files.exists(configFile)) {
 			configData = WurstProjectConfig.loadProject(configFile)!!
 		} else {
-			log.warn("❌ No wurst.build configuration file found at the current location.")
+			log.warn("⚠️ No wurst.build configuration file at current location.")
 		}
 
 		when {
@@ -81,12 +81,13 @@ object SetupApp {
 				}
 			}
 			setup.command == CLICommand.GENERATE -> {
-                log.info("✈ Testing project..")
+                log.info("✈ Generating project..")
 				if (configData == null) {
 					WurstProjectConfig.handleCreate(DEFAULT_DIR.resolve(setup.commandArg), null, WurstProjectConfigData())
 				}
 			}
             setup.command == CLICommand.TEST -> {
+                log.info("⚗️ Testing project..")
                 if (InstallationManager.status != InstallationManager.InstallationStatus.NOT_INSTALLED && configData != null) {
                     testProject(configData)
                 }
@@ -120,7 +121,7 @@ object SetupApp {
 
         val result = startWurstProcess(args)
         when (result) {
-            0 -> log.info("✔ Map has been built!")
+            0 -> log.info("\uD83D\uDDFA️ Map has been built!")
             else -> log.info("There was an issue with the wurst build process.")
         }
     }

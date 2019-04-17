@@ -58,6 +58,7 @@ object WurstProjectConfig {
             Log.print("done\n")
 
             Log.print("Download template..")
+            log.info("⏬ Downloading template..")
             Download.downloadBareboneProject {
 				extractDownload(it, projectRoot, gameRoot, projectConfig)
 			}
@@ -81,6 +82,8 @@ object WurstProjectConfig {
 		}
 
 		setupEnvironment(projectRoot, gameRoot, projectConfig)
+
+        log.info("✔ Project generated.")
 		UiManager.refreshComponents()
 	}
 
