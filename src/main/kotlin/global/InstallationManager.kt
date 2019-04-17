@@ -75,7 +75,7 @@ object InstallationManager {
             log.debug(if (isFreshInstall) "isInstall" else "isUpdate")
             Log.print(if (isFreshInstall) "Installing WurstScript..\n" else "Updating WursScript..\n")
             Log.print("Downloading compiler..")
-            log.info("\\u23EC Downloading WurstScript..")
+            log.info("\u23EC Downloading WurstScript..")
 
 			downloadCompiler(isFreshInstall)
         } catch (e: Exception) {

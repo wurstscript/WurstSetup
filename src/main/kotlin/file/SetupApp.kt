@@ -27,14 +27,14 @@ object SetupApp {
     fun handleArgs(setup: SetupMain) {
         this.setup = setup
         if (setup.isGUILaunch) {
-            log.info("\\uD83D\\uDDBC launching Wurst Setup GUI")
+            log.info("\uD83D\uDDBC launching Wurst Setup GUI")
             UiManager.initUI()
         } else {
-            log.info("\\u2668 Grill warming up..")
+            log.info("\u2668 Grill warming up..")
             handleCMD()
         }
         startup()
-        log.info("\\u2668 Ready. Version: <{}>", CompileTimeInfo.version)
+        log.info("\u2668 Ready. Version: <{}>", CompileTimeInfo.version)
     }
 
     private fun handleCMD() {
@@ -147,7 +147,7 @@ object SetupApp {
 	}
 
 	private fun handleInstallDep(configData: WurstProjectConfigData) {
-		log.info("\\uD83D\\uDD39 Installing ${setup.commandArg}")
+		log.info("\uD83D\uDD39 Installing ${setup.commandArg}")
 		if (configData.dependencies.contains(setup.commandArg)) {
 			log.info("Dependency is already installed.")
 			return
@@ -169,7 +169,7 @@ object SetupApp {
 	}
 
 	private fun handleInstallWurst() {
-		log.info("\\uD83C\\uDF2D Installing WurstScript..")
+		log.info("\uD83C\uDF2D Installing WurstScript..")
 		if (InstallationManager.status != InstallationManager.InstallationStatus.INSTALLED_UPTODATE) {
 			log.info("Update available.")
 			if (setup.requireConfirmation) {

@@ -20,11 +20,11 @@ object DependencyManager {
     fun updateDependencies(projectRoot: Path, projectConfig: WurstProjectConfigData) {
         val depFolders = ArrayList<String>()
         // Iterate through git dependencies
-        log.info("\\uD83D\\uDD37 Installing dependencies..")
+        log.info("\uD83D\uDD37 Installing dependencies..")
         Log.print("Updating dependencies...\n")
         for (dependency in projectConfig.dependencies) {
             val dependencyName = dependency.substring(dependency.lastIndexOf("/") + 1)
-            log.info("\\uD83D\\uDD39 Installing <$dependencyName>")
+            log.info("\uD83D\uDD39 Installing <$dependencyName>")
             Log.print("Updating dependency - $dependencyName ..")
             val depFolder = projectRoot.resolve("_build/dependencies/$dependencyName")
             if (Files.exists(depFolder)) {
@@ -47,7 +47,7 @@ object DependencyManager {
                 e.printStackTrace()
             }
         }
-        log.info("\\u2714 Installed dependencies!")
+        log.info("\u2714 Installed dependencies!")
     }
 
     fun isUpdateAvailable(projectRoot: Path, projectConfig: WurstProjectConfigData): Boolean {

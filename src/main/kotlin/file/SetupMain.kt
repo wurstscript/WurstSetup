@@ -52,7 +52,7 @@ class SetupMain {
 
 			}
 		} catch(e: IllegalArgumentException) {
-			log.error("\\uD83D\\uDD25 Invalid grill command <$first> ! Available commands: [generate|install|remove|test|build] <command argument>")
+			log.error("\uD83D\uDD25 Invalid grill command <$first> ! Available commands: [generate|install|remove|test|build] <command argument>")
 			throw e
 		}
 	}
