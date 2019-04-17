@@ -49,7 +49,7 @@ object SetupApp {
 		if (Files.exists(configFile)) {
 			configData = WurstProjectConfig.loadProject(configFile)!!
 		} else {
-			log.warn("No wurst project found at the current location.")
+			log.warn("❌ No wurst.build configuration file found at the current location.")
 		}
 
 		when {
@@ -81,6 +81,7 @@ object SetupApp {
 				}
 			}
 			setup.command == CLICommand.GENERATE -> {
+                ️log.info("✈ Testing project..")
 				if (configData == null) {
 					WurstProjectConfig.handleCreate(DEFAULT_DIR.resolve(setup.commandArg), null, WurstProjectConfigData())
 				}
@@ -93,9 +94,9 @@ object SetupApp {
             setup.command == CLICommand.BUILD -> {
                 log.info("\uD83D\uDD28 Building project..")
                 if (setup.commandArg.isBlank()) {
-                    log.error("\tNo input map specified.")
+                    log.error("\t❌ No input map specified.")
                 } else if (!Files.exists(setup.projectRoot.resolve(setup.commandArg))) {
-                    log.error("\tInput map cannot be found ar project root.")
+                    log.error("\t❌ Input map cannot be found ar project root.")
                 } else {
                     if (InstallationManager.status != InstallationManager.InstallationStatus.NOT_INSTALLED && configData != null) {
                         buildProject(configData)
