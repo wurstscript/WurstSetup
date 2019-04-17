@@ -78,6 +78,8 @@ class CMDTests {
         DependencyManager.cloneRepo("https://github.com/wurstscript/WurstStdlib2.git", testproject)
         Assert.assertTrue(Files.exists(testproject.resolve("wurst.build")))
 
+        SetupMain.main(Arrays.asList(INSTALL, "-projectDir", "./testproject/").toTypedArray())
+
         val setupMain = SetupMain()
         setupMain.projectRoot = testproject
         setupMain.doMain(arrayOf(TEST))

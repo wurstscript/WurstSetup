@@ -90,7 +90,7 @@ object InstallationManager {
 			if (SetupApp.setup.isGUILaunch) {
 				startExtractWorker(it, isFreshInstall)
 			} else {
-                log.info("\uD83D\uDCE6 Extracting..")
+                log.info("\t\uD83D\uDCE6 Extracting..")
 				ZipArchiveExtractor.extractArchive(it, installDir)
 				Files.delete(it)
                 log.info("✔ Installed WurstScript")

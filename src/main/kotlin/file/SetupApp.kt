@@ -117,7 +117,7 @@ object SetupApp {
 
         configData.dependencies.stream().forEach {
             args.add("-lib")
-            args.add(buildFolder.resolve(it.substring(it.lastIndexOf("/") + 1)).toAbsolutePath().toString())
+            args.add(buildFolder.resolve("dependencies").resolve(it.substring(it.lastIndexOf("/") + 1)).toAbsolutePath().toString())
         }
 
         val pb = ProcessBuilder(args)
