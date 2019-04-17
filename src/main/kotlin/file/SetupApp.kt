@@ -117,7 +117,11 @@ object SetupApp {
         args.add("-inputmap")
         args.add(setup.projectRoot.resolve(setup.commandArg).toAbsolutePath().toString())
 
-        startWurstProcess(args)
+        val result = startWurstProcess(args)
+        when (result) {
+            0 -> log.info("✔ Map has been built!")
+            else -> log.info("There was an issue with the wurst build process.")
+        }
     }
 
     private fun testProject(configData: WurstProjectConfigData) {
@@ -125,7 +129,11 @@ object SetupApp {
 
         args.add("-runtests")
 
-        startWurstProcess(args)
+        val result = startWurstProcess(args)
+        when (result) {
+            0 -> log.info("✔ All tests succeeded.")
+            else -> log.info("Tests did not execute successfully.")
+        }
     }
 
     private fun startWurstProcess(args: ArrayList<String>): Int {
