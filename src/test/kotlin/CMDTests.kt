@@ -20,7 +20,7 @@ class CMDTests {
 		private const val GENERATE = "generate"
         private const val HELP = "help"
         private const val TEST = "test"
-		private const val UPDATE = "update"
+        private const val BUILD = "build"
 		private const val WURSTSCRIPT = "wurstscript"
 	}
 
@@ -37,7 +37,7 @@ class CMDTests {
 		InstallationManager.verifyInstallation()
 		Assert.assertEquals(InstallationManager.status, InstallationManager.InstallationStatus.NOT_INSTALLED)
 
-		SetupMain.main(Arrays.asList(UPDATE, WURSTSCRIPT).toTypedArray())
+		SetupMain.main(Arrays.asList(INSTALL, WURSTSCRIPT).toTypedArray())
 		InstallationManager.verifyInstallation()
 		Assert.assertEquals(InstallationManager.status, InstallationManager.InstallationStatus.INSTALLED_UPTODATE)
 	}
@@ -58,7 +58,7 @@ class CMDTests {
 
 		Assert.assertTrue(Files.exists(SetupApp.DEFAULT_DIR.resolve("myname")))
 
-		SetupMain.main(Arrays.asList(UPDATE, "-projectDir", "./myname/").toTypedArray())
+		SetupMain.main(Arrays.asList(INSTALL, "-projectDir", "./myname/").toTypedArray())
 	}
 
 	@Test(priority = 3)
@@ -79,9 +79,25 @@ class CMDTests {
         DependencyManager.cloneRepo("https://github.com/wurstscript/WurstStdlib2.git", testproject)
         Assert.assertTrue(Files.exists(testproject.resolve("wurst.build")))
 
+        SetupMain.main(Arrays.asList(INSTALL, "-projectDir", "./testproject/").toTypedArray())
+
         val setupMain = SetupMain()
         setupMain.projectRoot = testproject
         setupMain.doMain(arrayOf(TEST))
+    }
+
+    @Test(priority = 3)
+    fun testProjectBuild() {
+
+        val testproject = SetupApp.DEFAULT_DIR.resolve("buildproject")
+        DependencyManager.cloneRepo("https://github.com/Frotty/ConflagrationSpell.git", testproject)
+        Assert.assertTrue(Files.exists(testproject.resolve("wurst.build")))
+
+        SetupMain.main(Arrays.asList(INSTALL, "-projectDir", "./buildproject/").toTypedArray())
+
+        val setupMain = SetupMain()
+        setupMain.projectRoot = testproject
+        setupMain.doMain(arrayOf(BUILD, "ExampleMap.w3x"))
     }
 
 

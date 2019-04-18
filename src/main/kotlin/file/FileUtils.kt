@@ -8,7 +8,7 @@ import java.nio.file.StandardCopyOption
 val log = KotlinLogging.logger {}
 
 fun clearFolder(dir: Path) {
-	log.info("clearing: $dir")
+	log.debug("clearing: $dir")
 	Files.walk(dir).forEach {
 		clearPathInternal(it, dir)
 	}

@@ -20,15 +20,15 @@ object DependencyManager {
     fun updateDependencies(projectRoot: Path, projectConfig: WurstProjectConfigData) {
         val depFolders = ArrayList<String>()
         // Iterate through git dependencies
-        log.info("updating dependencies")
+        log.info("\uD83D\uDD37 Installing dependencies..")
         Log.print("Updating dependencies...\n")
         for (dependency in projectConfig.dependencies) {
             val dependencyName = dependency.substring(dependency.lastIndexOf("/") + 1)
-            log.info("updating dependency $dependencyName")
+            log.info("\t\uD83D\uDD39 Pulling <$dependencyName>")
             Log.print("Updating dependency - $dependencyName ..")
             val depFolder = projectRoot.resolve("_build/dependencies/$dependencyName")
             if (Files.exists(depFolder)) {
-                log.info("depencency exists locally")
+                log.debug("depencency exists locally")
                 depFolders.add(depFolder.toAbsolutePath().toString())
                 // clean
                 cleanRepo(depFolder)
@@ -47,6 +47,7 @@ object DependencyManager {
                 e.printStackTrace()
             }
         }
+        log.info("✔ Installed dependencies!")
     }
 
     fun isUpdateAvailable(projectRoot: Path, projectConfig: WurstProjectConfigData): Boolean {
@@ -90,7 +91,7 @@ object DependencyManager {
                         git.fetch().call()
                         val pullResult = git.pull().call()
                         Log.print("done (success=" + pullResult.isSuccessful + ")\n")
-                        log.info("Was pull successful?: " + pullResult.isSuccessful)
+                        log.debug("Was pull successful?: " + pullResult.isSuccessful)
                     }
                 } catch (e: Exception) {
                     Log.print("error when trying to fetch remote\n")
@@ -111,7 +112,7 @@ object DependencyManager {
                         git.clean().setCleanDirectories(true).setForce(true).call()
                         git.checkout().setAllPaths(true).call()
                         git.reset().call()
-                        log.info("cleaned repo")
+                        log.debug("cleaned repo")
                     }
                 } catch (e: Exception) {
                     Log.print("error when trying to clean repository\n")

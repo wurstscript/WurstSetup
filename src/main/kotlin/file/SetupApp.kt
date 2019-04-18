@@ -17,8 +17,6 @@ import java.nio.file.StandardCopyOption
 import java.util.*
 
 
-
-
 object SetupApp {
 	val DEFAULT_DIR = Paths.get(".")!!
     private val log = KotlinLogging.logger {}
@@ -26,53 +24,49 @@ object SetupApp {
 
     fun handleArgs(setup: SetupMain) {
         this.setup = setup
+        copyJar()
         if (setup.isGUILaunch) {
-            log.info("is GUI")
+            log.info("\uD83D\uDDBC launching Wurst Setup GUI")
             UiManager.initUI()
         } else {
-            log.info("is CLI")
+            log.info("\uD83D\uDD25 Grill warming up..")
             handleCMD()
         }
-        startup()
     }
 
     private fun handleCMD() {
 		ConnectionManager.checkConnectivity("http://google.com")
 		ConnectionManager.checkWurstBuild()
 		InstallationManager.verifyInstallation()
+        log.info("\uD83D\uDD25 Ready. Version: <{}>", CompileTimeInfo.version)
 		handleRunArgs()
     }
 
 	private fun handleRunArgs() {
-		log.info("handle runargs")
+		log.debug("handle runargs")
 		val configFile = setup.projectRoot.resolve(CONFIG_FILE_NAME)
 		var configData: WurstProjectConfigData? = null
 		if (Files.exists(configFile)) {
 			configData = WurstProjectConfig.loadProject(configFile)!!
 		} else {
-			log.warn("No wurst project found at current location")
+			log.warn("⚠️ No wurst.build configuration file at current location.")
 		}
 
 		when {
             setup.command == CLICommand.HELP -> {
-                log.info("Grill version ${CompileTimeInfo.version}\nUse one of the following commands: ${CLICommand.values().joinToString(", ")}")
+                log.info("Use one of the following commands: ${CLICommand.values().joinToString(", ")}")
             }
 			setup.command == CLICommand.INSTALL -> {
-				if (setup.commandArg.toLowerCase() == "wurstscript") {
+                if (setup.commandArg.isBlank()) {
+                    if (configData != null) {
+                        handleUpdateProject(configData)
+                    }
+                } else if (setup.commandArg.toLowerCase() == "wurstscript") {
 					handleInstallWurst()
 				} else {
 					if (configData != null) {
 						handleInstallDep(configData)
 						WurstProjectConfig.saveProjectConfig(setup.projectRoot, configData)
-					}
-				}
-			}
-			setup.command == CLICommand.UPDATE -> {
-				if (setup.commandArg.toLowerCase() == "wurstscript") {
-					handleInstallWurst()
-				} else {
-					if (configData != null) {
-						handleUpdateProject(configData)
 					}
 				}
 			}
@@ -87,20 +81,72 @@ object SetupApp {
 				}
 			}
 			setup.command == CLICommand.GENERATE -> {
+                log.info("✈ Generating project..")
 				if (configData == null) {
 					WurstProjectConfig.handleCreate(DEFAULT_DIR.resolve(setup.commandArg), null, WurstProjectConfigData())
 				}
 			}
             setup.command == CLICommand.TEST -> {
+                log.info("⚗️ Testing project..")
                 if (InstallationManager.status != InstallationManager.InstallationStatus.NOT_INSTALLED && configData != null) {
                     testProject(configData)
+                }
+            }
+            setup.command == CLICommand.BUILD -> {
+                log.info("\uD83D\uDD28 Building project..")
+                if (setup.commandArg.isBlank()) {
+                    log.error("\t❌ No input map specified.")
+                } else if (!Files.exists(setup.projectRoot.resolve(setup.commandArg))) {
+                    log.error("\t❌ Input map cannot be found ar project root.")
+                } else {
+                    if (InstallationManager.status != InstallationManager.InstallationStatus.NOT_INSTALLED && configData != null) {
+                        buildProject(configData)
+                    }
                 }
             }
 		}
 
 	}
 
+    private fun buildProject(configData: WurstProjectConfigData) {
+        val args = commonArgs(configData)
+
+        args.add("-build")
+
+        args.add("-workspaceroot")
+        args.add(setup.projectRoot.toAbsolutePath().toString())
+
+        args.add("-inputmap")
+        args.add(setup.projectRoot.resolve(setup.commandArg).toAbsolutePath().toString())
+
+        val result = startWurstProcess(args)
+        when (result) {
+            0 -> log.info("\uD83D\uDDFA️ Map has been built!")
+            else -> log.info("❌ There was an issue with the wurst build process.")
+        }
+    }
+
     private fun testProject(configData: WurstProjectConfigData) {
+        val args = commonArgs(configData)
+
+        args.add("-runtests")
+
+        val result = startWurstProcess(args)
+        when (result) {
+            0 -> log.info("✔ All tests succeeded.")
+            else -> log.info("❌ Tests did not execute successfully.")
+        }
+    }
+
+    private fun startWurstProcess(args: ArrayList<String>): Int {
+        val pb = ProcessBuilder(args)
+        pb.redirectOutput(Redirect.INHERIT)
+        pb.redirectError(Redirect.INHERIT)
+        val p = pb.start()
+        return p.waitFor()
+    }
+
+    private fun commonArgs(configData: WurstProjectConfigData): ArrayList<String> {
         val buildFolder = setup.projectRoot.resolve("_build")
         val common = if (Files.exists(buildFolder.resolve("common.j"))) {
             buildFolder.resolve("common.j")
@@ -113,22 +159,17 @@ object SetupApp {
             InstallationManager.installDir.resolve("blizzard.j")
         }
         val args = arrayListOf("java", "-jar",
-            InstallationManager.installDir.resolve("wurstscript.jar").toAbsolutePath().toString(),
-            common.toAbsolutePath().toString(),
-            blizzard.toAbsolutePath().toString(),
-            setup.projectRoot.resolve("wurst").toAbsolutePath().toString(),
-            "-runcompiletimefunctions", "-runtests")
+                InstallationManager.installDir.resolve("wurstscript.jar").toAbsolutePath().toString(),
+                common.toAbsolutePath().toString(),
+                blizzard.toAbsolutePath().toString(),
+                setup.projectRoot.resolve("wurst").toAbsolutePath().toString(),
+                "-runcompiletimefunctions")
 
         configData.dependencies.stream().forEach {
             args.add("-lib")
-            args.add(buildFolder.resolve(it.substring(it.lastIndexOf("/") + 1)).toAbsolutePath().toString())
+            args.add(buildFolder.resolve("dependencies").resolve(it.substring(it.lastIndexOf("/") + 1)).toAbsolutePath().toString())
         }
-
-        val pb = ProcessBuilder(args)
-        pb.redirectOutput(Redirect.INHERIT)
-        pb.redirectError(Redirect.INHERIT)
-        val p = pb.start()
-        p.waitFor()
+        return args
     }
 
     private fun handleRemoveDep(configData: WurstProjectConfigData) {
@@ -151,9 +192,9 @@ object SetupApp {
 	}
 
 	private fun handleInstallDep(configData: WurstProjectConfigData) {
-		log.info("installing $setup.install")
+		log.info("\uD83D\uDD39 Installing ${setup.commandArg}")
 		if (configData.dependencies.contains(setup.commandArg)) {
-			log.info("already installed")
+			log.info("Dependency is already installed.")
 			return
 		}
 		try {
@@ -164,18 +205,18 @@ object SetupApp {
 				Log.print("valid!\n")
 				configData.dependencies.add(setup.commandArg)
 			} else {
-				log.error("Entered invalid git repo")
+				log.error("Entered invalid git repo.")
 			}
 		} catch (e: Exception) {
-			log.error("Entered invalid git repo")
+			log.error("Entered invalid git repo.")
 			e.printStackTrace()
 		}
 	}
 
 	private fun handleInstallWurst() {
-		log.info("install/update wurstscript")
+		log.info("\uD83C\uDF2D Installing WurstScript..")
 		if (InstallationManager.status != InstallationManager.InstallationStatus.INSTALLED_UPTODATE) {
-			log.info("compiler update eligible")
+			log.info("\tUpdate available!")
 			if (setup.requireConfirmation) {
 				if (setup.isGUILaunch) {
 					UpdateFoundDialog("A Wurst compiler update has been found!")
@@ -188,7 +229,6 @@ object SetupApp {
 					}
 				}
 			} else {
-				log.info("Forcing update..")
 				InstallationManager.handleUpdate()
 			}
 		} else {
@@ -196,24 +236,18 @@ object SetupApp {
 		}
 	}
 
-	private fun startup() {
-        log.info("startup setup version: <{}>", CompileTimeInfo.version)
-        InstallationManager.verifyInstallation()
-        copyJar()
-    }
-
     private fun copyJar() {
         val url = InstallationManager::class.java.protectionDomain.codeSource.location
         val ownFile = Paths.get(url.toURI())
         if (ownFile.endsWith(".2.jar")) {
-            log.info("copy jar from own")
+            log.debug("copy jar from own")
             Files.copy(ownFile, ownFile.resolveSibling("WurstSetup.jar"), StandardCopyOption.REPLACE_EXISTING)
         }
-        log.info("path: $url")
-        log.info("file: " + ownFile.toAbsolutePath())
+        log.debug("path: $url")
+        log.debug("file: " + ownFile.toAbsolutePath())
         if (ownFile != null && Files.exists(ownFile) && ownFile.toString().endsWith(".jar") &&
                 (ownFile.parent == null || ownFile.parent?.fileName?.toString() != ".wurst")) {
-            log.info("copy jar")
+            log.debug("copy jar")
             Files.copy(ownFile, Paths.get(InstallationManager.installDir.toString(), "WurstSetup.jar"), StandardCopyOption.REPLACE_EXISTING)
         }
     }

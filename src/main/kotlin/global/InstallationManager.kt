@@ -24,11 +24,9 @@ import javax.swing.SwingUtilities
 object InstallationManager {
     private val log = KotlinLogging.logger {}
     private const val FOLDER_PATH = ".wurst"
-    private const val CONFIG_FILE_NAME = "wurst_config.yml"
     private const val COMPILER_FILE_NAME = "wurstscript.jar"
 
     val installDir: Path = Paths.get(System.getProperty("user.home"), FOLDER_PATH)
-    val configFile: Path = installDir.resolve(CONFIG_FILE_NAME)
     val compilerJar: Path = installDir.resolve(COMPILER_FILE_NAME)
 
     var wurstConfig: WurstConfigData? = null
@@ -38,12 +36,12 @@ object InstallationManager {
     var latestCompilerVersion = 0
 
     fun verifyInstallation(): InstallationStatus {
-        log.info("verify Install")
+        log.debug("verify Install")
         status = InstallationStatus.NOT_INSTALLED
         currentCompilerVersion = -1
         latestCompilerVersion = 0
         if (Files.exists(installDir) && Files.exists(compilerJar)) {
-			log.info("Found installation")
+			log.debug("Found installation")
             status = InstallationStatus.INSTALLED_UNKNOWN
             try {
                 if (!Files.isWritable(compilerJar)) {
@@ -52,15 +50,15 @@ object InstallationManager {
 					CLIParser.getVersionFomJar()
                 }
             } catch (_: Error) {
-                log.warn("Installation is custom.")
+                log.warn("Custom WurstScript installation detected.")
             }
         } else {
-			log.info("Installation not found")
+			log.info("WurstScript is not currently installed.")
 		}
         if (ConnectionManager.netStatus == NetStatus.ONLINE) {
-			log.info("Client online, check for update")
+			log.debug("Client online, check for update")
             latestCompilerVersion = ConnectionManager.getLatestCompilerBuild()
-			log.info("latest compiler: $latestCompilerVersion")
+			log.debug("latest compiler: $latestCompilerVersion")
             if (currentCompilerVersion >= latestCompilerVersion) {
                 status = InstallationStatus.INSTALLED_UPTODATE
             }
@@ -72,14 +70,14 @@ object InstallationManager {
     fun handleUpdate() {
         val isFreshInstall = status == InstallationStatus.NOT_INSTALLED
         try {
-            log.info(if (isFreshInstall) "isInstall" else "isUpdate")
+            log.debug(if (isFreshInstall) "isInstall" else "isUpdate")
             Log.print(if (isFreshInstall) "Installing WurstScript..\n" else "Updating WursScript..\n")
             Log.print("Downloading compiler..")
-            log.info("Downloading compiler..")
+            log.info("⏬ Downloading WurstScript..")
 
 			downloadCompiler(isFreshInstall)
         } catch (e: Exception) {
-            log.error("exception: ", e)
+            log.error("Exception: ", e)
             Log.print("\n===ERROR COMPILER UPDATE===\n" + e.message + "\nPlease report here: github.com/wurstscript/WurstScript/issues\n")
         }
 
@@ -92,8 +90,10 @@ object InstallationManager {
 			if (SetupApp.setup.isGUILaunch) {
 				startExtractWorker(it, isFreshInstall)
 			} else {
+                log.info("\t\uD83D\uDCE6 Extracting..")
 				ZipArchiveExtractor.extractArchive(it, installDir)
 				Files.delete(it)
+                log.info("✔ Installed WurstScript")
 			}
 
 		}
@@ -117,11 +117,11 @@ object InstallationManager {
 		if (status == InstallationStatus.NOT_INSTALLED) {
 			wurstConfig = WurstConfigData()
 		}
-		log.info("done")
 		if (!Files.exists(compilerJar)) {
 			Log.print("ERROR")
 		} else {
 			Log.print(if (isFreshInstall) "Installation complete\n" else "Update complete\n")
+            log.debug("Installed WurstScript")
 			if (SetupApp.setup.isGUILaunch) {
 				SwingUtilities.invokeLater { MainWindow.ui.progressBar.value = 0 }
 			}
@@ -150,7 +150,7 @@ object InstallationManager {
     fun handleRemove() {
         clearFolder(installDir)
         verifyInstallation()
-        log.info("removed installation")
+        log.info("WurstScript has been removed.")
     }
 
 

@@ -10,10 +10,10 @@ class OnlineCheckWorker(private val url: String, private val doneListener: () ->
 
     @Throws(Exception::class)
     override fun doInBackground(): Boolean? {
-        log.info("check connectivity")
+        log.debug("check connectivity")
         ConnectionManager.checkConnectivity(url)
         UiManager.refreshComponents()
-        log.info("check build")
+        log.debug("check build")
         doneListener.invoke()
         return null
     }

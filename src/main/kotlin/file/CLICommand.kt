@@ -4,7 +4,6 @@ enum class CLICommand {
     HELP,
 	INSTALL,
 	REMOVE,
-	UPDATE,
 	GENERATE,
 	TEST,
     BUILD
