@@ -36,7 +36,7 @@ dependencies {
     compile "org.jetbrains.kotlin:kotlin-stdlib-jdk8:$kotlin_version"
     compile 'io.github.microutils:kotlin-logging:1.6.26'
     compile 'com.github.Frotty:SimpleRegistry:f96dda96bd'
-    compile group: 'org.slf4j', name: 'slf4j-apii', version: '1.7.26'
+    compile group: 'org.slf4j', name: 'slf4j-api', version: '1.7.26'
     compile group: 'ch.qos.logback', name: 'logback-classic', version: '1.2.3'
     testCompile 'org.testng:testng:6.14.3'
 }
