@@ -74,7 +74,7 @@ task versionInfoFile {
     description "Generates a file CompileTimeInfo.java with version number etc."
 
     doLast {
-        def dir = new File('./src-gen/file/')
+        def dir = new File("$projectDir/src-gen/file/")
         dir.mkdirs()
         def f = new File(dir, 'CompileTimeInfo.kt')
 
