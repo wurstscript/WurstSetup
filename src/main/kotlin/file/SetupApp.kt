@@ -15,6 +15,7 @@ import java.nio.file.Files
 import java.nio.file.Paths
 import java.nio.file.StandardCopyOption
 import java.util.*
+import kotlin.system.exitProcess
 
 
 object SetupApp {
@@ -122,7 +123,10 @@ object SetupApp {
         val result = startWurstProcess(args)
         when (result) {
             0 -> log.info("\uD83D\uDDFA️ Map has been built!")
-            else -> log.info("❌ There was an issue with the wurst build process.")
+            else -> {
+                log.info("❌ There was an issue with the wurst build process.")
+                exitProcess(1)
+            }
         }
     }
 
@@ -134,7 +138,10 @@ object SetupApp {
         val result = startWurstProcess(args)
         when (result) {
             0 -> log.info("✔ All tests succeeded.")
-            else -> log.info("❌ Tests did not execute successfully.")
+            else -> {
+                log.info("❌ Tests did not execute successfully.")
+                exitProcess(1)
+            }
         }
     }
 
