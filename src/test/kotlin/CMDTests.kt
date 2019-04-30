@@ -1,46 +1,45 @@
-
 import file.CLICommand
 import file.DependencyManager
 import file.SetupApp
 import file.SetupMain
 import global.InstallationManager
 import net.ConnectionManager
+import org.eclipse.jgit.internal.storage.file.FileRepository
 import org.testng.Assert
 import org.testng.annotations.Test
 import java.nio.file.Files
 import java.util.*
 
 
-
 class CMDTests {
 
-	companion object {
-		private const val INSTALL = "install"
-		private const val REMOVE = "remove"
-		private const val GENERATE = "generate"
+    companion object {
+        private const val INSTALL = "install"
+        private const val REMOVE = "remove"
+        private const val GENERATE = "generate"
         private const val HELP = "help"
         private const val TEST = "test"
         private const val BUILD = "build"
-		private const val WURSTSCRIPT = "wurstscript"
-	}
+        private const val WURSTSCRIPT = "wurstscript"
+    }
 
 
-	@Test(priority = 1)
-	fun testUnInstallCmd() {
-		SetupMain.main(Arrays.asList(INSTALL, WURSTSCRIPT).toTypedArray())
-		ConnectionManager.checkConnectivity("http://google.com")
-		ConnectionManager.checkWurstBuild()
-		InstallationManager.verifyInstallation()
-		Assert.assertEquals(InstallationManager.status, InstallationManager.InstallationStatus.INSTALLED_UPTODATE)
+    @Test(priority = 1)
+    fun testUnInstallCmd() {
+        SetupMain.main(Arrays.asList(INSTALL, WURSTSCRIPT).toTypedArray())
+        ConnectionManager.checkConnectivity("http://google.com")
+        ConnectionManager.checkWurstBuild()
+        InstallationManager.verifyInstallation()
+        Assert.assertEquals(InstallationManager.status, InstallationManager.InstallationStatus.INSTALLED_UPTODATE)
 
-		SetupMain.main(Arrays.asList(REMOVE, WURSTSCRIPT).toTypedArray())
-		InstallationManager.verifyInstallation()
-		Assert.assertEquals(InstallationManager.status, InstallationManager.InstallationStatus.NOT_INSTALLED)
+        SetupMain.main(Arrays.asList(REMOVE, WURSTSCRIPT).toTypedArray())
+        InstallationManager.verifyInstallation()
+        Assert.assertEquals(InstallationManager.status, InstallationManager.InstallationStatus.NOT_INSTALLED)
 
-		SetupMain.main(Arrays.asList(INSTALL, WURSTSCRIPT).toTypedArray())
-		InstallationManager.verifyInstallation()
-		Assert.assertEquals(InstallationManager.status, InstallationManager.InstallationStatus.INSTALLED_UPTODATE)
-	}
+        SetupMain.main(Arrays.asList(INSTALL, WURSTSCRIPT).toTypedArray())
+        InstallationManager.verifyInstallation()
+        Assert.assertEquals(InstallationManager.status, InstallationManager.InstallationStatus.INSTALLED_UPTODATE)
+    }
 
     @Test(priority = 2)
     fun testCreateHelpCmd() {
@@ -51,25 +50,25 @@ class CMDTests {
         Assert.assertEquals(setupMain.command, CLICommand.HELP)
     }
 
-	@Test(priority = 2)
-	fun testCreateProjectCmd() {
-		Assert.assertEquals(InstallationManager.status, InstallationManager.InstallationStatus.INSTALLED_UPTODATE)
-		SetupMain.main(Arrays.asList(GENERATE, "myname").toTypedArray())
+    @Test(priority = 2)
+    fun testCreateProjectCmd() {
+        Assert.assertEquals(InstallationManager.status, InstallationManager.InstallationStatus.INSTALLED_UPTODATE)
+        SetupMain.main(Arrays.asList(GENERATE, "myname").toTypedArray())
 
-		Assert.assertTrue(Files.exists(SetupApp.DEFAULT_DIR.resolve("myname")))
+        Assert.assertTrue(Files.exists(SetupApp.DEFAULT_DIR.resolve("myname")))
 
-		SetupMain.main(Arrays.asList(INSTALL, "-projectDir", "./myname/").toTypedArray())
-	}
+        SetupMain.main(Arrays.asList(INSTALL, "-projectDir", "./myname/").toTypedArray())
+    }
 
-	@Test(priority = 3)
-	fun testAddDependency() {
-		Assert.assertTrue(Files.exists(SetupApp.DEFAULT_DIR.resolve("myname/wurst.build")))
+    @Test(priority = 3)
+    fun testAddDependency() {
+        Assert.assertTrue(Files.exists(SetupApp.DEFAULT_DIR.resolve("myname/wurst.build")))
 
-		SetupMain.main(Arrays.asList(INSTALL, "https://github.com/Frotty/Frentity", "-projectDir", "./myname/").toTypedArray())
+        SetupMain.main(Arrays.asList(INSTALL, "https://github.com/Frotty/Frentity", "-projectDir", "./myname/").toTypedArray())
 
-		val buildfile = String(Files.readAllBytes(SetupApp.DEFAULT_DIR.resolve("./myname/wurst.build")))
-		Assert.assertTrue(buildfile.contains("https://github.com/Frotty/Frentity"))
-	}
+        val buildfile = String(Files.readAllBytes(SetupApp.DEFAULT_DIR.resolve("./myname/wurst.build")))
+        Assert.assertTrue(buildfile.contains("https://github.com/Frotty/Frentity"))
+    }
 
 
     @Test(priority = 3)
@@ -87,6 +86,18 @@ class CMDTests {
     }
 
     @Test(priority = 3)
+    fun testBranchPull() {
+        val testproject = SetupApp.DEFAULT_DIR.resolve("ptrtestproject")
+        DependencyManager.cloneRepo("https://github.com/wurstscript/WurstStdlib2:ptr", testproject)
+
+        Assert.assertTrue(Files.exists(testproject))
+        FileRepository(testproject.resolve(".git").toFile()).use { repository ->
+            Assert.assertEquals(repository.branch, "ptr")
+
+        }
+    }
+
+    @Test(priority = 3)
     fun testProjectBuild() {
 
         val testproject = SetupApp.DEFAULT_DIR.resolve("buildproject")
@@ -101,9 +112,9 @@ class CMDTests {
     }
 
 
-	@Test(priority = 4)
-	fun testInvalid() {
-		Assert.expectThrows(IllegalArgumentException::class.java) { SetupMain.main(Arrays.asList("-someInvalidCommand").toTypedArray()) }
-	}
+    @Test(priority = 4)
+    fun testInvalid() {
+        Assert.expectThrows(IllegalArgumentException::class.java) { SetupMain.main(Arrays.asList("-someInvalidCommand").toTypedArray()) }
+    }
 
 }

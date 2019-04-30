@@ -23,8 +23,8 @@ object DependencyManager {
         log.info("\uD83D\uDD37 Installing dependencies..")
         Log.print("Updating dependencies...\n")
         for (dependency in projectConfig.dependencies) {
-            val dependencyName = dependency.substring(dependency.lastIndexOf("/") + 1)
-            log.info("\t\uD83D\uDD39 Pulling <$dependencyName>")
+            val (_, dependencyName, branch) = resolveName(dependency)
+            log.info("\t\uD83D\uDD39 Pulling <$dependencyName:$branch>")
             Log.print("Updating dependency - $dependencyName ..")
             val depFolder = projectRoot.resolve("_build/dependencies/$dependencyName")
             if (Files.exists(depFolder)) {
@@ -33,7 +33,7 @@ object DependencyManager {
                 // clean
                 cleanRepo(depFolder)
                 // update
-                updateRepo(depFolder)
+                updateRepo(depFolder, branch)
             } else {
                 // clone
                 cloneRepo(dependency, depFolder)
@@ -48,6 +48,19 @@ object DependencyManager {
             }
         }
         log.info("✔ Installed dependencies!")
+    }
+
+    private fun resolveName(dependency: String): Triple<String, String, String> {
+        var dependencyName = dependency.substring(dependency.lastIndexOf("/") + 1)
+        var branch = "HEAD"
+        var depURI = dependency
+
+        if (dependencyName.contains(":")) {
+            depURI = depURI.substring(0, depURI.lastIndexOf(":"))
+            branch = dependencyName.substring(dependencyName.lastIndexOf(":") + 1)
+            dependencyName = dependencyName.substring(0, dependencyName.lastIndexOf(":"))
+        }
+        return Triple(depURI, dependencyName, branch)
     }
 
     fun isUpdateAvailable(projectRoot: Path, projectConfig: WurstProjectConfigData): Boolean {
@@ -67,6 +80,7 @@ object DependencyManager {
     }
 
     fun cloneRepo(dependency: String, depFolder: Path) {
+        val (depURI, _, branch) = resolveName(dependency)
         try {
             Files.createDirectories(depFolder)
         } catch (e: IOException) {
@@ -74,7 +88,7 @@ object DependencyManager {
             throw RuntimeException("Could not create dependency folder", e)
         }
         try {
-            Git.cloneRepository().setURI(dependency)
+            Git.cloneRepository().setURI(depURI).setBranch(branch)
                     .setDirectory(depFolder.toFile())
                     .call().use { result -> Log.print("done\n") }
         } catch (e: Exception) {
@@ -83,12 +97,13 @@ object DependencyManager {
         }
     }
 
-    private fun updateRepo(depFolder: Path) {
+    private fun updateRepo(depFolder: Path, branch: String) {
         try {
             FileRepository(depFolder.resolve(".git").toFile()).use { repository ->
                 try {
                     Git(repository).use { git ->
                         git.fetch().call()
+                        git.checkout().setName(branch).call()
                         val pullResult = git.pull().call()
                         Log.print("done (success=" + pullResult.isSuccessful + ")\n")
                         log.debug("Was pull successful?: " + pullResult.isSuccessful)
