@@ -3,13 +3,16 @@ package file
 import config.WurstProjectConfigData
 import global.Log
 import mu.KotlinLogging
+import org.eclipse.jgit.api.CreateBranchCommand
 import org.eclipse.jgit.api.Git
 import org.eclipse.jgit.internal.storage.file.FileRepository
+import java.io.File
 import java.io.IOException
 import java.nio.charset.Charset
 import java.nio.file.Files
 import java.nio.file.Path
 import java.util.*
+
 
 /**
  * Created by Frotty on 17.07.2017.
@@ -31,9 +34,13 @@ object DependencyManager {
                 log.debug("depencency exists locally")
                 depFolders.add(depFolder.toAbsolutePath().toString())
                 // clean
-                cleanRepo(depFolder)
-                // update
-                updateRepo(depFolder, branch)
+                if(!cleanRepo(depFolder, branch)) {
+                    deleteDirectoryStream(depFolder)
+                    cloneRepo(dependency, depFolder)
+                } else {
+                    // update
+                    updateRepo(depFolder, branch)
+                }
             } else {
                 // clone
                 cloneRepo(dependency, depFolder)
@@ -52,7 +59,7 @@ object DependencyManager {
 
     private fun resolveName(dependency: String): Triple<String, String, String> {
         var dependencyName = dependency.substring(dependency.lastIndexOf("/") + 1)
-        var branch = "HEAD"
+        var branch = "master"
         var depURI = dependency
 
         if (dependencyName.contains(":")) {
@@ -102,8 +109,6 @@ object DependencyManager {
             FileRepository(depFolder.resolve(".git").toFile()).use { repository ->
                 try {
                     Git(repository).use { git ->
-                        git.fetch().call()
-                        git.checkout().setName(branch).call()
                         val pullResult = git.pull().call()
                         Log.print("done (success=" + pullResult.isSuccessful + ")\n")
                         log.debug("Was pull successful?: " + pullResult.isSuccessful)
@@ -119,7 +124,16 @@ object DependencyManager {
         }
     }
 
-    private fun cleanRepo(depFolder: Path) {
+    @Throws(IOException::class)
+    private fun deleteDirectoryStream(path: Path) {
+        Files.walk(path)
+            .sorted(Comparator.reverseOrder())
+            .map<File> { it.toFile() }
+            .forEach { it.delete() }
+    }
+
+
+    private fun cleanRepo(depFolder: Path, branch: String): Boolean {
         try {
             FileRepository(depFolder.resolve(".git").toFile()).use { repository ->
                 try {
@@ -128,6 +142,7 @@ object DependencyManager {
                         git.checkout().setAllPaths(true).call()
                         git.reset().call()
                         log.debug("cleaned repo")
+                        return prepareRepo(git, branch)
                     }
                 } catch (e: Exception) {
                     Log.print("error when trying to clean repository\n")
@@ -137,6 +152,26 @@ object DependencyManager {
         } catch (e: Exception) {
             Log.print("error when trying open repository")
             e.printStackTrace()
+        }
+        return false
+    }
+
+    private fun prepareRepo(git: Git, branch: String): Boolean {
+        return try {
+            git.checkout().setCreateBranch(true).setName(branch)
+                .setUpstreamMode(CreateBranchCommand.SetupUpstreamMode.SET_UPSTREAM)
+                .setStartPoint("origin/$branch").call()
+            true
+        } catch (e: java.lang.Exception) {
+            try {
+                e.printStackTrace()
+                git.checkout().setName(branch)
+                    .setUpstreamMode(CreateBranchCommand.SetupUpstreamMode.SET_UPSTREAM)
+                    .setStartPoint("origin/$branch").call()
+                true
+            } catch (e: java.lang.Exception) {
+                false
+            }
         }
     }
 

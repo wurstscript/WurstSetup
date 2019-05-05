@@ -39,7 +39,7 @@ object WurstProjectConfig {
 			val projectRoot = buildFile.parent
 			if (config.projectName.isEmpty()) {
 				config.projectName = projectRoot?.fileName.toString()
-				WurstProjectConfig.saveProjectConfig(projectRoot, config)
+				saveProjectConfig(projectRoot, config)
 			}
 			Log.print("done\n")
 			return config
@@ -163,8 +163,8 @@ object WurstProjectConfig {
 	fun handleUpdate(projectRoot: Path, gamePath: Path?, config: WurstProjectConfigData) {
         Log.print("Updating project...\n")
         try {
-            WurstProjectConfig.setupVSCode(projectRoot, gamePath)
-            WurstProjectConfig.saveProjectConfig(projectRoot, config)
+            setupVSCode(projectRoot, gamePath)
+            saveProjectConfig(projectRoot, config)
             DependencyManager.updateDependencies(projectRoot, config)
 
             Log.print("Project successfully updated!\nReload vscode to apply the changed dependencies.\n")
