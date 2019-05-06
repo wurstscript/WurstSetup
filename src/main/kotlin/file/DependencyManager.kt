@@ -57,7 +57,7 @@ object DependencyManager {
         log.info("✔ Installed dependencies!")
     }
 
-    private fun resolveName(dependency: String): Triple<String, String, String> {
+    public fun resolveName(dependency: String): Triple<String, String, String> {
         var dependencyName = dependency.substring(dependency.lastIndexOf("/") + 1)
         var branch = "master"
         var depURI = dependency

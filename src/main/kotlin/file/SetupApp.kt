@@ -174,7 +174,8 @@ object SetupApp {
 
         configData.dependencies.stream().forEach {
             args.add("-lib")
-            args.add(buildFolder.resolve("dependencies").resolve(it.substring(it.lastIndexOf("/") + 1)).toAbsolutePath().toString())
+            val (_, dependencyName, _) = DependencyManager.resolveName(it)
+            args.add(buildFolder.resolve("dependencies").resolve(dependencyName).toAbsolutePath().toString())
         }
         return args
     }
