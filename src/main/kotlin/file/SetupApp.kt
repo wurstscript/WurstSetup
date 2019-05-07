@@ -154,23 +154,34 @@ object SetupApp {
     }
 
     private fun commonArgs(configData: WurstProjectConfigData): ArrayList<String> {
-        val buildFolder = setup.projectRoot.resolve("_build")
-        val common = if (Files.exists(buildFolder.resolve("common.j"))) {
-            buildFolder.resolve("common.j")
-        } else {
-            InstallationManager.installDir.resolve("common.j")
-        }
-        val blizzard = if (Files.exists(buildFolder.resolve("blizzard.j"))) {
-            buildFolder.resolve("blizzard.j")
-        } else {
-            InstallationManager.installDir.resolve("blizzard.j")
-        }
         val args = arrayListOf("java", "-jar",
-                InstallationManager.installDir.resolve("wurstscript.jar").toAbsolutePath().toString(),
-                common.toAbsolutePath().toString(),
-                blizzard.toAbsolutePath().toString(),
-                setup.projectRoot.resolve("wurst").toAbsolutePath().toString(),
-                "-runcompiletimefunctions")
+            InstallationManager.installDir.resolve("wurstscript.jar").toAbsolutePath().toString())
+
+        val buildFolder = setup.projectRoot.resolve("_build")
+        val jassdoc = buildFolder.resolve("dependencies").resolve("jassdoc")
+        if (Files.exists(jassdoc)) {
+            for (f in jassdoc.toFile().listFiles()!!) {
+                if (f.name.endsWith(".j") && !f.name.startsWith("builtin-types")) {
+                    args.add(f.absolutePath.toString())
+                }
+            }
+        } else {
+            val common = if (Files.exists(buildFolder.resolve("common.j"))) {
+                buildFolder.resolve("common.j")
+            } else {
+                InstallationManager.installDir.resolve("common.j")
+            }
+            val blizzard = if (Files.exists(buildFolder.resolve("blizzard.j"))) {
+                buildFolder.resolve("blizzard.j")
+            } else {
+                InstallationManager.installDir.resolve("blizzard.j")
+            }
+            args.add(common.toAbsolutePath().toString())
+            args.add(blizzard.toAbsolutePath().toString())
+        }
+
+        args.add(setup.projectRoot.resolve("wurst").toAbsolutePath().toString())
+        args.add("-runcompiletimefunctions")
 
         configData.dependencies.stream().forEach {
             args.add("-lib")
