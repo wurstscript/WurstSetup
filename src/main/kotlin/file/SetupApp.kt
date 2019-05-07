@@ -182,6 +182,9 @@ object SetupApp {
 
         args.add(setup.projectRoot.resolve("wurst").toAbsolutePath().toString())
         args.add("-runcompiletimefunctions")
+        if (setup.noPJass) {
+            args.add("-noPJass")
+        }
 
         configData.dependencies.stream().forEach {
             args.add("-lib")

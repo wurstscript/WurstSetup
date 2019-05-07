@@ -19,7 +19,12 @@ enum class GlobalOptions(val optionName: String = "", val argCount: Int = 0) {
 		override fun runOption(setupMain: SetupMain, args: List<String>) {
 			setupMain.setProjectDir(SetupApp.DEFAULT_DIR.resolve(args[0]))
 		}
-	};
+	},
+    NO_PJASS("--noPJass") {
+        override fun runOption(setupMain: SetupMain, args: List<String>) {
+            setupMain.noPJass = true
+        }
+    };
 
 	abstract fun runOption(setupMain: SetupMain, args: List<String>)
 }

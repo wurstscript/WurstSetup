@@ -6,8 +6,7 @@ import java.nio.file.Path
 
 
 class SetupMain {
-	private val log = KotlinLogging.logger {}
-
+    private val log = KotlinLogging.logger {}
     var isGUILaunch = false
 
 	var command = CLICommand.HELP
@@ -17,6 +16,8 @@ class SetupMain {
 	var projectRoot: Path = SetupApp.DEFAULT_DIR
 
     var requireConfirmation = false
+
+    var noPJass = false
 
 	fun setProjectDir(dir: Path) {
 		Files.createDirectories(dir)
