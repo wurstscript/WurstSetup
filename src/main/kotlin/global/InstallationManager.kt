@@ -62,6 +62,8 @@ object InstallationManager {
             if (currentCompilerVersion >= latestCompilerVersion) {
                 status = InstallationStatus.INSTALLED_UPTODATE
             }
+        } else {
+            log.debug("Client offline, check for update")
         }
         return status
     }

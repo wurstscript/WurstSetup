@@ -88,7 +88,7 @@ object MainWindow : JFrame() {
 		OnlineCheckWorker("http://baidu.com") {if (ConnectionManager.netStatus == NetStatus.SERVER_CONTACT) executeListener()}.execute()
     }
 
-    var hasExecuted = false
+    private var hasExecuted = false
     private fun executeListener() {
         if (!hasExecuted) {
             hasExecuted = true

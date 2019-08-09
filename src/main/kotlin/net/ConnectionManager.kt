@@ -34,16 +34,16 @@ object ConnectionManager {
 
     fun checkConnectivity(url: String): NetStatus {
         // If google can be reached, the client is not offline
+        netStatus = NetStatus.SERVER_CONTACT
         try {
             val json = resty.json(url)
-            if (json == null || json.toString().isBlank()) {
+            if (netStatus == NetStatus.SERVER_CONTACT && (json == null || json.toString().isBlank())) {
                 netStatus = NetStatus.CLIENT_OFFLINE
                 return netStatus
             }
         } catch (e: IOException) {
-            log.debug("couldn't contact google: " + e.localizedMessage)
+            log.debug("couldn't contact: " + e.localizedMessage)
         }
-        netStatus = NetStatus.SERVER_CONTACT
 
         return netStatus
     }
