@@ -24,6 +24,11 @@ enum class GlobalOptions(val optionName: String = "", val argCount: Int = 0) {
         override fun runOption(setupMain: SetupMain, args: List<String>) {
             setupMain.noPJass = true
         }
+    },
+    MEASURE("--measure") {
+        override fun runOption(setupMain: SetupMain, args: List<String>) {
+            setupMain.measure = true
+        }
     };
 
 	abstract fun runOption(setupMain: SetupMain, args: List<String>)

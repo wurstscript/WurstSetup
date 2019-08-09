@@ -12,6 +12,7 @@ import ui.UiManager
 import ui.UpdateFoundDialog
 import java.lang.ProcessBuilder.Redirect
 import java.nio.file.Files
+import java.nio.file.Path
 import java.nio.file.Paths
 import java.nio.file.StandardCopyOption
 import java.util.*
@@ -19,7 +20,7 @@ import kotlin.system.exitProcess
 
 
 object SetupApp {
-	val DEFAULT_DIR = Paths.get(".")!!
+	val DEFAULT_DIR: Path = Paths.get(".")
     private val log = KotlinLogging.logger {}
     lateinit var setup: SetupMain
 
@@ -113,6 +114,10 @@ object SetupApp {
         val args = commonArgs(configData)
 
         args.add("-build")
+
+        if (setup.measure) {
+            args.add("-measure")
+        }
 
         args.add("-workspaceroot")
         args.add(setup.projectRoot.toAbsolutePath().toString())

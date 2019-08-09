@@ -8,10 +8,11 @@ import java.nio.file.Path
 class SetupMain {
     private val log = KotlinLogging.logger {}
     var isGUILaunch = false
-
 	var command = CLICommand.HELP
 
 	var commandArg = ""
+
+    var measure = false
 
 	var projectRoot: Path = SetupApp.DEFAULT_DIR
 
