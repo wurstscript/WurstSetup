@@ -95,13 +95,21 @@ object InstallationManager {
                 log.info("\t\uD83D\uDCE6 Extracting..")
 				ZipArchiveExtractor.extractArchive(it, installDir)
 				Files.delete(it)
+                setGrillExectuable()
                 log.info("✔ Installed WurstScript")
 			}
 
 		}
 	}
 
-	private fun startExtractWorker(it: Path, isFreshInstall: Boolean) {
+    private fun setGrillExectuable() {
+        try {
+            installDir.resolve("grill").toFile().setExecutable(true)
+        } catch (_: Exception) {
+        }
+    }
+
+    private fun startExtractWorker(it: Path, isFreshInstall: Boolean) {
 		ExtractWorker(it, if (SetupApp.setup.isGUILaunch) MainWindow.ui.progressBar else null) {
 			if (it) {
 				checkExtraction(isFreshInstall)
