@@ -10,6 +10,7 @@ import net.ConnectionManager
 import org.eclipse.jgit.api.Git
 import ui.UiManager
 import ui.UpdateFoundDialog
+import java.awt.GraphicsEnvironment
 import java.lang.ProcessBuilder.Redirect
 import java.nio.file.Files
 import java.nio.file.Path
@@ -28,7 +29,11 @@ object SetupApp {
         this.setup = setup
         copyJar()
         if (setup.isGUILaunch) {
-            log.info("\uD83D\uDDBC launching Wurst Setup GUI")
+            log.info("\uD83D\uDDBC No arguments found. Launching Wurst Setup GUI..")
+            if (!GraphicsEnvironment.isHeadless()) {
+                log.error("\uD83D\uDD25 Error: Can't run GUI in headless environment!")
+                exitProcess(1)
+            }
             UiManager.initUI()
         } else {
             log.info("\uD83D\uDD25 Grill warming up..")
