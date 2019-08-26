@@ -164,7 +164,6 @@ object DependencyManager {
             true
         } catch (e: java.lang.Exception) {
             try {
-                e.printStackTrace()
                 git.checkout().setName(branch)
                     .setUpstreamMode(CreateBranchCommand.SetupUpstreamMode.SET_UPSTREAM)
                     .setStartPoint("origin/$branch").call()
