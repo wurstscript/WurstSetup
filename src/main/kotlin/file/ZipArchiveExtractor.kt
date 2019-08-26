@@ -1,15 +1,16 @@
 package file
 
 
-import java.io.BufferedInputStream
-import java.io.BufferedOutputStream
-import java.io.File
-import java.io.FileOutputStream
+import global.Log
+import mu.KotlinLogging
+import java.io.*
 import java.nio.file.Files
 import java.nio.file.Path
 import java.util.zip.ZipFile
 
 object ZipArchiveExtractor {
+
+    private val log = KotlinLogging.logger {}
 
     /**
      *
@@ -44,19 +45,26 @@ object ZipArchiveExtractor {
                     zipFile.close()
                     return false
                 }
-                val bos = BufferedOutputStream(FileOutputStream(targetFile))
 
-                val bis = BufferedInputStream(zipFile.getInputStream(entry))
+                try {
+                    val bos = BufferedOutputStream(FileOutputStream(targetFile))
 
-                var len = bis.read(buffer)
-                while (len > 0) {
-                    bos.write(buffer, 0, len)
-                    len = bis.read(buffer)
+                    val bis = BufferedInputStream(zipFile.getInputStream(entry))
+
+                    var len = bis.read(buffer)
+                    while (len > 0) {
+                        bos.write(buffer, 0, len)
+                        len = bis.read(buffer)
+                    }
+
+                    bos.flush()
+                    bos.close()
+                    bis.close()
+                } catch (e: FileNotFoundException) {
+                    log.warn("Warning: <$entryFileName> could not be extracted (might be in use)")
+                    Log.print("\nWarning: <$entryFileName> could not be extracted (might be in use)!\n")
                 }
 
-                bos.flush()
-                bos.close()
-                bis.close()
             }
         }
         zipFile.close()
