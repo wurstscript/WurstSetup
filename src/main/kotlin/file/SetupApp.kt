@@ -30,7 +30,7 @@ object SetupApp {
         copyJar()
         if (setup.isGUILaunch) {
             log.info("\uD83D\uDDBC No arguments found. Launching Wurst Setup GUI..")
-            if (!GraphicsEnvironment.isHeadless()) {
+            if (GraphicsEnvironment.isHeadless()) {
                 log.error("\uD83D\uDD25 Error: Can't run GUI in headless environment!")
                 exitProcess(1)
             }
