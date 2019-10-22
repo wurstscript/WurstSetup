@@ -24,6 +24,7 @@ object WurstProjectConfig {
         MAPPER.enable(JsonParser.Feature.ALLOW_TRAILING_COMMA)
     }
 
+    private val schema by lazy { javaClass.classLoader.getResource("wbschema.json") }
     private val log = KotlinLogging.logger {}
 
     fun handleCreate(projectRoot: Path, gameRoot: Path?, projectConfig: WurstProjectConfigData) {
@@ -136,7 +137,9 @@ object WurstProjectConfig {
         }
         val vsCode = projectRoot?.resolve(".vscode/settings.json")
 		createConfigFile(vsCode)
+        val wbschema = projectRoot?.resolve(".vscode/wbschema.json")
 
+        Files.write(wbschema, schema!!.readBytes())
 		setConfigValues(vsCode, gamePath)
 		Log.print("done.\n")
     }
