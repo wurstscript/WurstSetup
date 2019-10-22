@@ -1,6 +1,9 @@
 package config
 
 
+import com.fasterxml.jackson.core.JsonParser
+import com.fasterxml.jackson.databind.ObjectMapper
+import com.fasterxml.jackson.databind.node.ObjectNode
 import file.*
 import global.InstallationManager
 import global.Log
@@ -16,8 +19,10 @@ import javax.swing.JOptionPane
  */
 
 object WurstProjectConfig {
-	private val BACKSLASH_REGEX = "\\\\".toRegex()
-	private const val BACKSLASH_QUERY = "\\\\\\\\"
+    private val MAPPER = ObjectMapper()
+    init {
+        MAPPER.enable(JsonParser.Feature.ALLOW_TRAILING_COMMA)
+    }
 
     private val log = KotlinLogging.logger {}
 
@@ -137,7 +142,7 @@ object WurstProjectConfig {
     }
 
 	private fun setConfigValues(vsCode: Path?, gamePath: Path?) {
-		val json = replacePlaceholders(vsCode, gamePath?.toAbsolutePath().toString())
+		val json = modifySettingsJson(vsCode, gamePath?.toAbsolutePath().toString())
 
 		Files.write(vsCode, json.toByteArray(), StandardOpenOption.TRUNCATE_EXISTING)
 	}
@@ -149,15 +154,20 @@ object WurstProjectConfig {
 		}
 	}
 
-	private fun replacePlaceholders(vsCode: Path?, gamePath: String): String {
+	private fun modifySettingsJson(vsCode: Path?, gamePath: String): String {
 		var json = String(Files.readAllBytes(vsCode))
 		val absolutePath = InstallationManager.getCompilerPath()
-		json = json.replace("%wurstjar%", absolutePath.replace(BACKSLASH_REGEX, BACKSLASH_QUERY))
+        val jsonNode = MAPPER.readTree(json) as ObjectNode
+
+        jsonNode.put("wurst.wurstJar", absolutePath)
 
 		if (!gamePath.isBlank()) {
-			json = json.replace("%gamepath%", gamePath.replace(BACKSLASH_REGEX, BACKSLASH_QUERY))
+            jsonNode.put("wurst.wc3path", gamePath)
 		}
-		return json
+        val schemaNode = MAPPER.createObjectNode()
+        schemaNode.put("./.vscode/wbschema.json", "/wurst.build")
+        jsonNode.replace("yaml.schemas", schemaNode)
+		return MAPPER.writerWithDefaultPrettyPrinter().writeValueAsString(jsonNode)
 	}
 
 	fun handleUpdate(projectRoot: Path, gamePath: Path?, config: WurstProjectConfigData) {
@@ -177,12 +187,10 @@ object WurstProjectConfig {
     }
 
     private const val VSCODE_MIN_CONFIG =
-            "{\n" +
-                    "   \"wurst.wurstJar\": \"%wurstjar%\",\n" +
-                    "   \"wurst.wc3path\": \"%gamepath%\",\n" +
-                    "   \"files.associations\": {\n" +
-                    "       \"$CONFIG_FILE_NAME\": \"yaml\"\n" +
-                    "   }\n" +
-                    "}"
+            "  \"wurst.javaOpts\": [\"-XX:+UseG1GC\", \"-XX:+UseStringDeduplication\", \"-XX:+AggressiveOpts\", \"-Xmx1G\"],\n" +
+                "\t\"files.associations\": {\n" +
+                "        \"$CONFIG_FILE_NAME\": \"yaml\"\n" +
+                "    },\n" +
+                "\t\"search.useIgnoreFiles\": false,"
 }
 

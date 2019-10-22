@@ -128,6 +128,7 @@ task dist(type: Jar) {
                 'Main-Class': 'file.SetupMain'
     }
     with jar
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
 }
 dist.dependsOn classes
 dist.dependsOn versionInfoFile

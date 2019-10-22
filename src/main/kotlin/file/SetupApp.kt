@@ -104,7 +104,7 @@ object SetupApp {
                 if (setup.commandArg.isBlank()) {
                     log.error("\t❌ No input map specified.")
                 } else if (!Files.exists(setup.projectRoot.resolve(setup.commandArg))) {
-                    log.error("\t❌ Input map cannot be found ar project root.")
+                    log.error("\t❌ Input map cannot be found at project root.")
                 } else {
                     if (InstallationManager.status != InstallationManager.InstallationStatus.NOT_INSTALLED && configData != null) {
                         buildProject(configData)
