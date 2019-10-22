@@ -4,22 +4,22 @@ jobs:
     build:
 
         docker:
-            - image: openjdk:8
+            - image: circleci/openjdk:8-jdk
 
         steps:
             - checkout
 
             - run:
                   name: Build
-                  command: ./gradlew clean versionInfoFile dist
+                  command: gradle clean versionInfoFile dist
 
             - run:
                   name: Test
-                  command: ./gradlew test --info --stacktrace
+                  command: gradle test --info --stacktrace
 
             - run:
                   name: Jacoco
-                  command: ./gradlew jacocoTestReport
+                  command: gradle jacocoTestReport
 
             - run:
                   name: Codecov
