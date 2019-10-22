@@ -1,0 +1,26 @@
+version: 2
+
+jobs:
+    build:
+
+        docker:
+            - image: openjdk:8
+
+        steps:
+            - checkout
+
+            - run:
+                  name: Build
+                  command: ./gradlew clean versionInfoFile dist
+
+            - run:
+                  name: Test
+                  command: ./gradlew test --info --stacktrace
+
+            - run:
+                  name: Jacoco
+                  command: ./gradlew jacocoTestReport
+
+            - run:
+                  name: Codecov
+                  command: bash <(curl -s https://codecov.io/bash)
