@@ -52,6 +52,7 @@ data class WurstProjectBuildLoadingScreenData(val model: String = "Generic.mdx",
 /** Map build flags */
 @JsonInclude(JsonInclude.Include.NON_DEFAULT)
 data class WurstProjectBuildOptionFlagsData(val hideMinimapPreview: Boolean = false,
+                                            val forcesFixed: Boolean = false,
                                             val maskedAreasPartiallyVisible: Boolean = true,
                                             val showWavesOnCliffShores: Boolean = true,
                                             val showWavesOnRollingShores: Boolean = true,

@@ -77,6 +77,10 @@
               "description": "Whether or not to hide the minimap preview",
               "type": "boolean"
             },
+            "forcesFixed": {
+              "description": "Whether or not the force assignments are fixed",
+              "type": "boolean"
+            },
             "maskedAreasPartiallyVisible": {
               "description": "Whether or not to makes areas with black mask partially visible",
               "type": "boolean"
