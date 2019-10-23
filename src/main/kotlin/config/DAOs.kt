@@ -53,10 +53,10 @@ data class WurstProjectBuildLoadingScreenData(val model: String = "Generic.mdx",
 @JsonInclude(JsonInclude.Include.NON_DEFAULT)
 data class WurstProjectBuildOptionFlagsData(val hideMinimapPreview: Boolean = false,
                                             val forcesFixed: Boolean = false,
-                                            val maskedAreasPartiallyVisible: Boolean = true,
-                                            val showWavesOnCliffShores: Boolean = true,
-                                            val showWavesOnRollingShores: Boolean = true,
-                                            val useItemClassificationSystem: Boolean = true)
+                                            val maskedAreasPartiallyVisible: Boolean = false,
+                                            val showWavesOnCliffShores: Boolean = false,
+                                            val showWavesOnRollingShores: Boolean = false,
+                                            val useItemClassificationSystem: Boolean = false)
 
 /** Data for one force (team) in the map */
 @JsonInclude(JsonInclude.Include.NON_DEFAULT)
