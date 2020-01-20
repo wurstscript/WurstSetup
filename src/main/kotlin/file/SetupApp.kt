@@ -17,6 +17,7 @@ import java.nio.file.Path
 import java.nio.file.Paths
 import java.nio.file.StandardCopyOption
 import java.util.*
+import java.util.regex.Pattern
 import kotlin.system.exitProcess
 
 
@@ -223,7 +224,13 @@ object SetupApp {
 		WurstProjectConfig.handleUpdate(setup.projectRoot, null, configData)
 	}
 
+    val REPO_REGEX = Regex("((git@|http(s)?://)([\\w.@]+)([/:]))([\\w,\\-,_]+)/([\\w,\\-,_]+)(.git)?((/)?)")
+
 	private fun handleInstallDep(configData: WurstProjectConfigData) {
+        if (!REPO_REGEX.matches(setup.commandArg)) {
+            log.info("<${setup.commandArg}> does not appear to be a valid git repo link (e.g. https://github.com/user/repo)")
+            throw IllegalArgumentException("Git repo invalid ${setup.commandArg}")
+        }
 		log.info("\uD83D\uDD39 Installing ${setup.commandArg}")
 		if (configData.dependencies.contains(setup.commandArg)) {
 			log.info("Dependency is already installed.")
