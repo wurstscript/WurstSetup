@@ -34,8 +34,9 @@ object YamlHelper {
             try {
 				return mapper.readValue(it, WurstProjectConfigData::class.java)
             } catch (e: Exception) {
-                log.error("The config file could not be read", e)
-				throw YamlException("wurst.build file could not be read. Input malformed or corrupt.")
+                log.error("The project's wurst.build file could not be read. Input malformed or corrupt.")
+                log.trace("Exception: ", e)
+				throw YamlException("The project's wurst.build file could not be read. Input malformed or corrupt.")
             }
         }
     }
