@@ -9,6 +9,7 @@ import javax.imageio.ImageIO
 import javax.swing.JDialog
 import javax.swing.JLabel
 import javax.swing.JPanel
+import kotlin.system.exitProcess
 
 class UpdateFoundDialog(message: String) : JDialog() {
 
@@ -38,11 +39,11 @@ class UpdateFoundDialog(message: String) : JDialog() {
         getRootPane().defaultButton = buttonUpdate
 
         buttonDeny.addActionListener { e ->
-            System.exit(0)
+            exitProcess(0)
         }
 
         buttonSnooze.addActionListener { e ->
-            System.exit(0)
+            exitProcess(0)
         }
 
         buttonUpdate.addActionListener { e ->

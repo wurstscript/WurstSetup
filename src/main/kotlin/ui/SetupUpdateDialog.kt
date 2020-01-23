@@ -15,6 +15,7 @@ import javax.imageio.ImageIO
 import javax.swing.JDialog
 import javax.swing.JLabel
 import javax.swing.JPanel
+import kotlin.system.exitProcess
 
 
 class SetupUpdateDialog(message: String) : JDialog() {
@@ -53,14 +54,14 @@ class SetupUpdateDialog(message: String) : JDialog() {
             MainWindow.ui.disableButtons()
             Download.downloadSetup {
                 Runtime.getRuntime().exec(arrayOf("java",  "-jar", it.fileName.toAbsolutePath().toString()))
-                System.exit(0)
+                exitProcess(0)
             }
             dispose()
         }
 
         buttonVisit.addActionListener {
             openWebpage(URL("https://wurstlang.org/"))
-            System.exit(0)
+            exitProcess(0)
         }
 
         setLocationRelativeTo(null)

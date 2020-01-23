@@ -36,6 +36,7 @@ import javax.swing.event.DocumentListener
 import javax.swing.filechooser.FileNameExtensionFilter
 import javax.swing.text.DefaultCaret
 import kotlin.collections.ArrayList
+import kotlin.system.exitProcess
 
 object MainWindow : JFrame() {
     private val log = KotlinLogging.logger {}
@@ -229,7 +230,7 @@ object MainWindow : JFrame() {
             minimize.addActionListener { e -> state = Frame.ICONIFIED }
             exit.addActionListener { e ->
                 dispose()
-                System.exit(0)
+                exitProcess(0)
             }
         }
 

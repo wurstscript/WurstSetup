@@ -7,6 +7,7 @@ import global.InstallationManager
 import global.Log
 import mu.KotlinLogging
 import net.ConnectionManager
+import net.NetStatus
 import org.eclipse.jgit.api.Git
 import ui.UiManager
 import ui.UpdateFoundDialog
@@ -17,7 +18,6 @@ import java.nio.file.Path
 import java.nio.file.Paths
 import java.nio.file.StandardCopyOption
 import java.util.*
-import java.util.regex.Pattern
 import kotlin.system.exitProcess
 
 
@@ -28,7 +28,6 @@ object SetupApp {
 
     fun handleArgs(setup: SetupMain) {
         this.setup = setup
-        copyJar()
         if (setup.isGUILaunch) {
             log.info("\uD83D\uDDBC No arguments found. Launching Wurst Setup GUI..")
             if (GraphicsEnvironment.isHeadless()) {
@@ -46,6 +45,14 @@ object SetupApp {
 		ConnectionManager.checkConnectivity("http://google.com")
 		ConnectionManager.checkWurstBuild()
 		InstallationManager.verifyInstallation()
+        if (ConnectionManager.netStatus == NetStatus.ONLINE) {
+            val latestSetupBuild = ConnectionManager.getLatestSetupBuild()
+            val jenkinsBuildVer = InstallationManager.getJenkinsBuildVer(CompileTimeInfo.version)
+            log.debug("current setup ver: $jenkinsBuildVer latest Setup: $latestSetupBuild")
+            if (latestSetupBuild > jenkinsBuildVer) {
+                log.info("\uD83D\uDD04 Grill update available: $jenkinsBuildVer -> $latestSetupBuild. Run `grill install grill` to update.")
+            }
+        }
         log.info("\uD83D\uDD25 Ready. Version: <{}>", CompileTimeInfo.version)
 		handleRunArgs()
     }
@@ -71,7 +78,9 @@ object SetupApp {
                     }
                 } else if (setup.commandArg.toLowerCase() == "wurstscript") {
 					handleInstallWurst()
-				} else {
+				} else if (setup.commandArg.toLowerCase() == "grill") {
+                    handleUpdateGrill()
+                } else {
 					if (configData != null) {
 						handleInstallDep(configData)
 						WurstProjectConfig.saveProjectConfig(setup.projectRoot, configData)
@@ -112,9 +121,30 @@ object SetupApp {
                     }
                 }
             }
+            setup.command == CLICommand.SELF_UPDATE -> {
+                log.info("\uD83D\uDD04 Updating..")
+                try {
+                    updateGrill()
+                    log.info("✔ Updated succeeded.")
+                    if (setup.isGUILaunch) {
+                        Runtime.getRuntime().exec(arrayOf("java",  "-jar", InstallationManager.installDir.toString()))
+                    }
+                    exitProcess(0)
+                } catch(e: Exception) {
+                    log.error("Grill update failed. Original files might still be in use.")
+                }
+            }
 		}
 
 	}
+
+    private fun handleUpdateGrill() {
+        Download.downloadSetup {
+            log.info("\uD83D\uDCC1 Copying files..")
+            Runtime.getRuntime().exec(arrayOf("java",  "-jar", it.fileName.toAbsolutePath().toString(), "self_update"))
+            exitProcess(0)
+        }
+    }
 
     private fun buildProject(configData: WurstProjectConfigData) {
         val args = commonArgs(configData)
@@ -275,7 +305,7 @@ object SetupApp {
 		}
 	}
 
-    private fun copyJar() {
+    private fun updateGrill() {
         val url = InstallationManager::class.java.protectionDomain.codeSource.location
         val ownFile = Paths.get(url.toURI())
         if (ownFile.endsWith(".2.jar")) {
@@ -284,8 +314,7 @@ object SetupApp {
         }
         log.debug("path: $url")
         log.debug("file: " + ownFile.toAbsolutePath())
-        if (ownFile != null && Files.exists(ownFile) && ownFile.toString().endsWith(".jar") &&
-                (ownFile.parent == null || ownFile.parent?.fileName?.toString() != ".wurst")) {
+        if (Files.exists(ownFile) && ownFile.toString().endsWith(".jar") && (ownFile.parent == null || ownFile.parent?.fileName?.toString() != ".wurst")) {
             log.debug("copy jar")
             Files.copy(ownFile, Paths.get(InstallationManager.installDir.toString(), "WurstSetup.jar"), StandardCopyOption.REPLACE_EXISTING)
         }
