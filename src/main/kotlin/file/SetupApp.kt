@@ -141,7 +141,7 @@ object SetupApp {
     private fun handleUpdateGrill() {
         Download.downloadSetup {
             log.info("\uD83D\uDCC1 Copying files..")
-            Runtime.getRuntime().exec(arrayOf("java",  "-jar", it.fileName.toAbsolutePath().toString(), "self_update"))
+            Runtime.getRuntime().exec(arrayOf("java",  "-jar", it.toAbsolutePath().toString(), "self_update"))
             exitProcess(0)
         }
     }
@@ -314,7 +314,7 @@ object SetupApp {
         }
         log.debug("path: $url")
         log.debug("file: " + ownFile.toAbsolutePath())
-        if (Files.exists(ownFile) && ownFile.toString().endsWith(".jar") && (ownFile.parent == null || ownFile.parent?.fileName?.toString() != ".wurst")) {
+        if (Files.exists(ownFile) && (ownFile.parent == null || ownFile.parent?.fileName?.toString() != ".wurst")) {
             log.debug("copy jar")
             Files.copy(ownFile, Paths.get(InstallationManager.installDir.toString(), "WurstSetup.jar"), StandardCopyOption.REPLACE_EXISTING)
         }

@@ -116,7 +116,7 @@ object WurstProjectConfig {
 
 		Log.print("---\n\n")
 		if (gameRoot == null || !Files.exists(gameRoot)) {
-			Log.print("Warning: Your game path has not been set.\nThis means you will be able to develop, but not run maps.\n")
+			Log.print("Warning: Your game path has not been set.\n")
 		}
 		Log.print("Your project has been successfully created!\n" + "You can now open your project folder in VSCode.\nOpen the wurst/Hello.wurst package to continue.\n")
 	}
