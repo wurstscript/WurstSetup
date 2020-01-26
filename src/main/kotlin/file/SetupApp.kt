@@ -28,6 +28,7 @@ object SetupApp {
 
     fun handleArgs(setup: SetupMain) {
         this.setup = setup
+        updateGrillJar()
         if (setup.isGUILaunch) {
             log.info("\uD83D\uDDBC No arguments found. Launching Wurst Setup GUI..")
             if (GraphicsEnvironment.isHeadless()) {
@@ -124,7 +125,6 @@ object SetupApp {
             setup.command == CLICommand.SELF_UPDATE -> {
                 log.info("\uD83D\uDD04 Updating..")
                 try {
-                    updateGrill()
                     log.info("✔ Updated succeeded.")
                     if (setup.isGUILaunch) {
                         Runtime.getRuntime().exec(arrayOf("java",  "-jar", InstallationManager.installDir.toString()))
@@ -305,7 +305,7 @@ object SetupApp {
 		}
 	}
 
-    private fun updateGrill() {
+    private fun updateGrillJar() {
         val url = InstallationManager::class.java.protectionDomain.codeSource.location
         val ownFile = Paths.get(url.toURI())
         if (ownFile.endsWith(".2.jar")) {
