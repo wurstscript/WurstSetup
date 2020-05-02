@@ -227,14 +227,52 @@ object MainWindow : JFrame() {
         }
 
         private fun titleEvents(minimize: JButton, exit: JButton) {
-            minimize.addActionListener { e -> state = Frame.ICONIFIED }
-            exit.addActionListener { e ->
+            minimize.addActionListener { _ -> state = Frame.ICONIFIED }
+            exit.addActionListener { _ ->
                 dispose()
                 exitProcess(0)
             }
         }
 
         private var projectRootFile: File = File(".")
+
+        private fun discoverWc3PathRegistry(): Optional<String> {
+            return Optional.ofNullable(
+                Registry.getKey(Registry.HKEY_CURRENT_USER + "\\SOFTWARE\\Blizzard Entertainment\\Warcraft III")
+            ).flatMap({ key -> Optional.ofNullable(key.getValueByName("InstallPath")).map({value -> value.rawValue }) })
+            .or(java.util.function.Supplier {
+                -> Optional.ofNullable(
+                    Registry.getKey(
+                        "HKEY_LOCAL_MACHINE\\SOFTWARE\\WOW6432Node\\Blizzard Entertainment\\Warcraft III\\Capabilities"
+                    )
+                ).flatMap(
+                    { key -> Optional.ofNullable(
+                        key.getValueByName("ApplicationIcon")
+                    ).map({ value -> value.rawValue }) }
+                )
+            })
+        }
+
+        private fun discoverWc3Path(): Optional<String> {
+            if (System.getProperty("os.name").startsWith("Windows")) {
+                try {
+                    return discoverWc3PathRegistry().flatMap({pathVal ->
+                        val wc3Path = if (pathVal.endsWith(File.separator)) pathVal else pathVal + File.separator
+                        val gameFolder = Paths.get(wc3Path)
+
+                        if (Files.exists(gameFolder)) {
+                            return@flatMap Optional.of(wc3Path)
+                        }
+
+                        return@flatMap Optional.empty<String>()
+                    }).or({ -> checkDefaultWinLocation()})
+                } catch (e: Exception) {
+                    return checkDefaultWinLocation()
+                }
+            }
+
+            return Optional.empty()
+        }
 
         private fun createConfigTable() {
             val that = this
@@ -266,7 +304,7 @@ object MainWindow : JFrame() {
                         if (projectNameTF.text.isEmpty()) {
                             btnCreate.isEnabled = false
                         } else {
-                            projectRootTF.text = projectRootFile?.absolutePath + File.separator + projectNameTF.text
+                            projectRootTF.text = projectRootFile.absolutePath + File.separator + projectNameTF.text
                             if (!disabled) {
                               btnCreate.isEnabled = true
                             }
@@ -317,23 +355,7 @@ object MainWindow : JFrame() {
                     }
                 }
             })
-            if (System.getProperty("os.name").startsWith("Windows")) {
-                try {
-                    val key = Registry.getKey(Registry.HKEY_CURRENT_USER + "\\SOFTWARE\\Blizzard Entertainment\\Warcraft III")
-                    var wc3Path = key?.getValueByName("InstallPath")?.rawValue
-                    if (wc3Path != null) {
-                        if (!wc3Path.endsWith(File.separator)) wc3Path += File.separator
-                        val gameFolder = Paths.get(wc3Path)
-                        if (Files.exists(gameFolder)) {
-                            gamePathTF.text = wc3Path
-                        }
-                    } else {
-                        checkDefaultWinLocation()
-                    }
-                } catch (e: Exception) {
-                    checkDefaultWinLocation()
-                }
-            }
+            discoverWc3Path().map({ path -> gamePathTF.text = path })
             gameTF.addCell(selectGamePath).height(24f).pad(0f, 2f, 0f, 2f)
 
             configTable.addCell(gameTF).growX()
@@ -358,16 +380,17 @@ object MainWindow : JFrame() {
             contentTable.addCell(configTable).growX().pad(2f)
         }
 
-        private fun checkDefaultWinLocation() {
+        private fun checkDefaultWinLocation(): Optional<String> {
             var gameFolder = Paths.get(System.getenv("ProgramFiles"))?.resolve("Warcraft III")
             if (gameFolder != null && Files.exists(gameFolder)) {
-                gamePathTF.text = gameFolder.toAbsolutePath().toString()
+                return Optional.of(gameFolder.toAbsolutePath().toString())
             } else {
                 gameFolder = Paths.get(System.getenv("ProgramFiles") + " (x86)")?.resolve("Warcraft III")
                 if (gameFolder != null && Files.exists(gameFolder)) {
-                    gamePathTF.text = gameFolder.toAbsolutePath().toString()
+                    return Optional.of(gameFolder.toAbsolutePath().toString())
                 } else {
                     log.warn("Didn't find warcraft installation.")
+                    return Optional.empty()
                 }
             }
         }
