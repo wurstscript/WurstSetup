@@ -32,6 +32,7 @@ dependencies {
     compile 'com.fasterxml.jackson.core:jackson-databind:2.9.9.3'
     compile 'com.fasterxml.jackson.module:jackson-module-kotlin:2.9.9'
     compile 'com.fasterxml.jackson.dataformat:jackson-dataformat-yaml:2.9.9'
+    compile 'com.github.inwc3:wc3libs:fd4b2fd5aa'
     compile 'com.github.Frotty:SwingDarkFlatTable:a033300526'
     compile "org.jetbrains.kotlin:kotlin-stdlib-jdk8:$kotlin_version"
     compile 'io.github.microutils:kotlin-logging:1.6.26'
@@ -39,6 +40,12 @@ dependencies {
     compile group: 'org.slf4j', name: 'slf4j-api', version: '1.7.26'
     compile group: 'ch.qos.logback', name: 'logback-classic', version: '1.2.3'
     testCompile 'org.testng:testng:6.14.3'
+}
+
+allprojects {
+    dependencies {
+        implementation 'com.github.inwc3:wc3libs:fd4b2fd5aa'
+    }
 }
 
 test {

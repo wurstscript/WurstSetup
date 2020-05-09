@@ -4,12 +4,12 @@ import config.CONFIG_FILE_NAME
 import config.WurstProjectBuildMapData
 import config.WurstProjectConfig
 import config.WurstProjectConfigData
-import de.ralleytn.simple.registry.Registry
 import file.CompileTimeInfo
 import file.SetupApp
 import global.InstallationManager
 import global.Log
 import mu.KotlinLogging
+import net.moonlightflower.wc3libs.port.StdGameExeFinder
 import net.ConnectionManager
 import net.NetStatus
 import tablelayout.Table
@@ -236,42 +236,13 @@ object MainWindow : JFrame() {
 
         private var projectRootFile: File = File(".")
 
-        private fun discoverWc3PathRegistry(): Optional<String> {
-            return Optional.ofNullable(
-                Registry.getKey(Registry.HKEY_CURRENT_USER + "\\SOFTWARE\\Blizzard Entertainment\\Warcraft III")
-            ).flatMap({ key -> Optional.ofNullable(key.getValueByName("InstallPath")).map({value -> value.rawValue }) })
-            .or(java.util.function.Supplier {
-                -> Optional.ofNullable(
-                    Registry.getKey(
-                        "HKEY_LOCAL_MACHINE\\SOFTWARE\\WOW6432Node\\Blizzard Entertainment\\Warcraft III\\Capabilities"
-                    )
-                ).flatMap(
-                    { key -> Optional.ofNullable(
-                        key.getValueByName("ApplicationIcon")
-                    ).map({ value -> value.rawValue }) }
-                )
-            })
-        }
-
         private fun discoverWc3Path(): Optional<String> {
-            if (System.getProperty("os.name").startsWith("Windows")) {
-                try {
-                    return discoverWc3PathRegistry().flatMap({pathVal ->
-                        val wc3Path = if (pathVal.endsWith(File.separator)) pathVal else pathVal + File.separator
-                        val gameFolder = Paths.get(wc3Path)
-
-                        if (Files.exists(gameFolder)) {
-                            return@flatMap Optional.of(wc3Path)
-                        }
-
-                        return@flatMap Optional.empty<String>()
-                    }).or({ -> checkDefaultWinLocation()})
-                } catch (e: Exception) {
-                    return checkDefaultWinLocation()
-                }
+            try {
+                return Optional.of(StdGameExeFinder().find().path)
+            } catch (e: Exception) {
+                log.info("Failed to discover wc3path with exception %s".format(e.toString()))
+                return Optional.empty()
             }
-
-            return Optional.empty()
         }
 
         private fun createConfigTable() {
@@ -378,21 +349,6 @@ object MainWindow : JFrame() {
             configTable.addCell(dependencyTable).growX()
 
             contentTable.addCell(configTable).growX().pad(2f)
-        }
-
-        private fun checkDefaultWinLocation(): Optional<String> {
-            var gameFolder = Paths.get(System.getenv("ProgramFiles"))?.resolve("Warcraft III")
-            if (gameFolder != null && Files.exists(gameFolder)) {
-                return Optional.of(gameFolder.toAbsolutePath().toString())
-            } else {
-                gameFolder = Paths.get(System.getenv("ProgramFiles") + " (x86)")?.resolve("Warcraft III")
-                if (gameFolder != null && Files.exists(gameFolder)) {
-                    return Optional.of(gameFolder.toAbsolutePath().toString())
-                } else {
-                    log.warn("Didn't find warcraft installation.")
-                    return Optional.empty()
-                }
-            }
         }
 
         private fun handleImport() {

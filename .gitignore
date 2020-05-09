@@ -21,3 +21,6 @@ myname/
 ptrtestproject/
 temp/
 testproject/
+.classpath
+.project
+.settings/
