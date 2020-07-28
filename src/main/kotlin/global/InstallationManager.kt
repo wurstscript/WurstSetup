@@ -139,14 +139,10 @@ object InstallationManager {
 		}
 	}
 
-	private val jenkinsVerPattern = Pattern.compile("\\d\\.\\d\\.\\d\\.\\d(?:-\\w+)+-(\\d+)")
+	private val jenkinsVerPattern = Pattern.compile("""(?:\d\.){3}\d(?:-\w+)+-(\d+)""")
 
     fun isJenkinsBuilt(version: String): Boolean {
-        val matcher = jenkinsVerPattern.matcher(version)
-        if (matcher.matches()) {
-            return true
-        }
-        return false
+        return jenkinsVerPattern.matcher(version).matches()
     }
 
     fun getJenkinsBuildVer(version: String): Int {

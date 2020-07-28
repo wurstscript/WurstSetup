@@ -23,8 +23,10 @@ object CLIParser {
 			// If the err output contains this exception, the .jar is currently running
 			err.contains("AccessDeniedException", true) -> showWurstInUse()
 			// Other exceptions or failures require update to fix
-			err.contains("Exception") -> InstallationManager.status = InstallationManager.InstallationStatus.INSTALLED_OUTDATED
-			err.contains("Failed") -> InstallationManager.status = InstallationManager.InstallationStatus.INSTALLED_OUTDATED
+			err.contains("Exception") || err.contains("Failed") -> {
+				log.error("Classifying installation as outdated due to $err")
+				InstallationManager.status = InstallationManager.InstallationStatus.INSTALLED_OUTDATED
+			}
 			else -> {
 				parseCMDLine(input)
 			}
@@ -32,7 +34,7 @@ object CLIParser {
 	}
 
 	private fun parseCMDLine(input: String) {
-		log.debug("parsing CMD output")
+		log.debug("parsing CMD output: $input")
 		val lines = input.split(System.getProperty("line.separator"))
 		lines.forEach { line ->
 			if (InstallationManager.isJenkinsBuilt(line)) {
@@ -42,6 +44,7 @@ object CLIParser {
 			}
 		}
 		if (InstallationManager.status != InstallationManager.InstallationStatus.INSTALLED_OUTDATED) {
+			log.debug("Failed to extract jenkins version from $input")
 			throw Error("Installation failed!")
 		}
 	}
