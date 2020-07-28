@@ -227,8 +227,8 @@ object MainWindow : JFrame() {
         }
 
         private fun titleEvents(minimize: JButton, exit: JButton) {
-            minimize.addActionListener { e -> state = Frame.ICONIFIED }
-            exit.addActionListener { e ->
+            minimize.addActionListener { _ -> state = Frame.ICONIFIED }
+            exit.addActionListener { _ ->
                 dispose()
                 exitProcess(0)
             }
@@ -266,7 +266,7 @@ object MainWindow : JFrame() {
                         if (projectNameTF.text.isEmpty()) {
                             btnCreate.isEnabled = false
                         } else {
-                            projectRootTF.text = projectRootFile?.absolutePath + File.separator + projectNameTF.text
+                            projectRootTF.text = projectRootFile.absolutePath + File.separator + projectNameTF.text
                             if (!disabled) {
                               btnCreate.isEnabled = true
                             }
