@@ -260,7 +260,7 @@ object SetupApp {
 	private fun handleInstallDep(configData: WurstProjectConfigData) {
         if (!REPO_REGEX.matches(setup.commandArg)) {
             log.info("<${setup.commandArg}> does not appear to be a valid git repo link (e.g. https://github.com/user/repo)")
-            throw IllegalArgumentException("Git repo invalid ${setup.commandArg}")
+            exitProcess(1)
         }
 		log.info("\uD83D\uDD39 Installing ${setup.commandArg}")
 		if (configData.dependencies.contains(setup.commandArg)) {

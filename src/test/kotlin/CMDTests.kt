@@ -126,7 +126,11 @@ class CMDTests {
         DependencyManager.cloneRepo("https://github.com/Frotty/ConflagrationSpell.git", invalid)
         Assert.assertTrue(Files.exists(invalid.resolve("wurst.build")))
 
-        Assert.expectThrows(IllegalArgumentException::class.java) { SetupMain.main(listOf(INSTALL, "someInvalid", "-projectDir", "./invalidbuild/").toTypedArray()) }
+        val status = SystemLambda.catchSystemExit {
+            SetupMain.main(listOf(INSTALL, "someInvalid", "-projectDir", "./invalidbuild/").toTypedArray())
+        }
+        Assert.assertEquals(status, 1)
+
     }
 
 }
