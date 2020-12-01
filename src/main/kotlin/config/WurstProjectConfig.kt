@@ -1,8 +1,12 @@
 package config
 
 
+import com.fasterxml.jackson.core.JsonFactory
 import com.fasterxml.jackson.core.JsonParser
+import com.fasterxml.jackson.core.json.JsonReadFeature
 import com.fasterxml.jackson.databind.ObjectMapper
+import com.fasterxml.jackson.databind.cfg.MapperBuilder
+import com.fasterxml.jackson.databind.json.JsonMapper
 import com.fasterxml.jackson.databind.node.ObjectNode
 import file.*
 import global.InstallationManager
@@ -19,10 +23,7 @@ import javax.swing.JOptionPane
  */
 
 object WurstProjectConfig {
-    private val MAPPER = ObjectMapper()
-    init {
-        MAPPER.enable(JsonParser.Feature.ALLOW_TRAILING_COMMA)
-    }
+    private val MAPPER = JsonMapper.builder().enable(JsonReadFeature.ALLOW_TRAILING_COMMA).build()
 
     private val schema by lazy { javaClass.classLoader.getResource("wbschema.json") }
     private val log = KotlinLogging.logger {}
@@ -132,33 +133,36 @@ object WurstProjectConfig {
     @Throws(IOException::class)
     private fun setupVSCode(projectRoot: Path?, gamePath: Path?) {
         Log.print("Updating vsconfig..")
-        if (!Files.exists(projectRoot)) {
+        if (projectRoot == null || !Files.exists(projectRoot)) {
             throw IOException("Project root does not exist!")
         }
-        val vsCode = projectRoot?.resolve(".vscode/settings.json")
-		createConfigFile(vsCode)
-        val wbschema = projectRoot?.resolve(".vscode/wbschema.json")
+        val vsCode = projectRoot.resolve(".vscode/settings.json")
+        createConfigFile(vsCode)
+        val wbschema = projectRoot.resolve(".vscode/wbschema.json")
 
-        Files.write(wbschema, schema!!.readBytes())
-		setConfigValues(vsCode, gamePath)
+        wbschema.let {
+            Files.write(it, schema!!.readBytes())
+        }
+
+        setConfigValues(vsCode, gamePath?.toAbsolutePath()?.toString() ?: "")
 		Log.print("done.\n")
     }
 
-	private fun setConfigValues(vsCode: Path?, gamePath: Path?) {
-		val json = modifySettingsJson(vsCode, gamePath?.toAbsolutePath().toString())
+	private fun setConfigValues(vsCode: Path, gamePath: String) {
+		val json = modifySettingsJson(vsCode, gamePath)
 
 		Files.write(vsCode, json.toByteArray(), StandardOpenOption.TRUNCATE_EXISTING)
 	}
 
-	private fun createConfigFile(vsCode: Path?) {
+	private fun createConfigFile(vsCode: Path) {
 		if (!Files.exists(vsCode)) {
-			Files.createDirectories(vsCode?.parent)
+			Files.createDirectories(vsCode.parent)
 			Files.write(vsCode, VSCODE_MIN_CONFIG.toByteArray(), StandardOpenOption.CREATE_NEW)
 		}
 	}
 
-	private fun modifySettingsJson(vsCode: Path?, gamePath: String): String {
-		var json = String(Files.readAllBytes(vsCode))
+	private fun modifySettingsJson(vsCode: Path, gamePath: String): String {
+		val json = String(Files.readAllBytes(vsCode))
 		val absolutePath = InstallationManager.getCompilerPath()
         val jsonNode = MAPPER.readTree(json) as ObjectNode
 
