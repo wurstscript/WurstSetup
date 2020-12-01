@@ -85,6 +85,7 @@ object SetupApp {
 					if (configData != null) {
 						handleInstallDep(configData)
 						WurstProjectConfig.saveProjectConfig(setup.projectRoot, configData)
+                        handleUpdateProject(configData)
 					}
 				}
 			}
