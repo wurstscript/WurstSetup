@@ -1,3 +1,4 @@
+import com.github.stefanbirkner.systemlambda.SystemLambda
 import file.CLICommand
 import file.DependencyManager
 import file.SetupApp
@@ -113,7 +114,10 @@ class CMDTests {
 
     @Test(priority = 4)
     fun testInvalid() {
-        Assert.expectThrows(IllegalArgumentException::class.java) { SetupMain.main(listOf("-someInvalidCommand").toTypedArray()) }
+        val status = SystemLambda.catchSystemExit {
+            SetupMain.main(listOf("-someInvalidCommand").toTypedArray())
+        }
+        Assert.assertEquals(status, 1)
     }
 
     @Test(priority = 5)

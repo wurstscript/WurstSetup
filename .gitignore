@@ -15,3 +15,9 @@ src-gen/
 setup.log
 local.properties
 wurstpack_compiler.zip
+buildproject/
+compiled.j.txt
+myname/
+testproject/
+ptrtestproject/
+temp/
