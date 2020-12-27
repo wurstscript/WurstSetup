@@ -44,27 +44,27 @@
             "suggestedPlayers": {
               "description": "The map's suggested player amount",
               "type": "string"
-            }
-          },
-          "loadingScreen": {
-            "description": "The loading screen options",
-            "type": "object",
-            "properties": {
-              "model": {
-                "description": "The loading screen model, e.g. Generic.mdx",
-                "type": "string"
-              },
-              "title": {
-                "description": "The loading screen title",
-                "type": "string"
-              },
-              "subTitle": {
-                "description": "The loading screen subtitle",
-                "type": "string"
-              },
-              "text": {
-                "description": "The loading screen text",
-                "type": "string"
+            },
+            "loadingScreen": {
+              "description": "The loading screen options",
+              "type": "object",
+              "properties": {
+                "model": {
+                  "description": "The loading screen model, e.g. Generic.mdx",
+                  "type": "string"
+                },
+                "title": {
+                  "description": "The loading screen title",
+                  "type": "string"
+                },
+                "subTitle": {
+                  "description": "The loading screen subtitle",
+                  "type": "string"
+                },
+                "text": {
+                  "description": "The loading screen text",
+                  "type": "string"
+                }
               }
             }
           }
