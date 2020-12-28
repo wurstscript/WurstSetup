@@ -137,11 +137,13 @@
                 },
                 "race": {
                     "type": "string",
-                    "description": "The race of this player"
+                    "description": "The race of this player",
+                    "enum": ["NIGHT_ELF", "HUMAN", "ORC", "SELECTABLE", "UNDEAD"]
                 },
                 "controller": {
                     "type": "string",
-                    "description": "The controller of this player"
+                    "description": "The controller of this player",
+                    "enum": ["USER", "RESCUABLE", "NEUTRAL", "COMPUTER"]
                 },
                 "fixedStartLoc": {
                     "type": "boolean",
