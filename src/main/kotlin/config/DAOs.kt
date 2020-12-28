@@ -44,10 +44,11 @@ data class WurstProjectBuildScenarioData(val description: String = "",
 
 /** Load screen information. */
 @JsonInclude(JsonInclude.Include.NON_DEFAULT)
-data class WurstProjectBuildLoadingScreenData(val model: String = "Generic.mdx",
-                                              val title: String = "DefaultTitle",
-                                              val subTitle: String = "DefaultSubTitle",
-                                              val text: String = "DefaultText")
+data class WurstProjectBuildLoadingScreenData(val model: String = "",
+                                              val background: String = "",
+                                              val title: String = "",
+                                              val subTitle: String = "",
+                                              val text: String = "")
 
 /** Map build flags */
 @JsonInclude(JsonInclude.Include.NON_DEFAULT)
