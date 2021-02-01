@@ -70,6 +70,16 @@ class CMDTests {
         Assert.assertTrue(buildfile.contains("https://github.com/Frotty/Frentity"))
     }
 
+    @Test(priority = 3)
+    fun testAddDependencyBranched() {
+        Assert.assertTrue(Files.exists(SetupApp.DEFAULT_DIR.resolve("myname/wurst.build")))
+
+        SetupMain.main(listOf(INSTALL, "https://github.com/Frotty/wurst-item-recipes:main", "-projectDir", "./myname/").toTypedArray())
+
+        val buildfile = String(Files.readAllBytes(SetupApp.DEFAULT_DIR.resolve("./myname/wurst.build")))
+        Assert.assertTrue(buildfile.contains("https://github.com/Frotty/wurst-item-recipes:main"))
+    }
+
 
     @Test(priority = 3)
     fun testProjectTest() {
