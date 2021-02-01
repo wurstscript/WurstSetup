@@ -258,18 +258,19 @@ object SetupApp {
     val REPO_REGEX = Regex("((git@|http(s)?://)([\\w.@]+)([/:]))([\\w,\\-,_]+)/([\\w,\\-,_]+)(.git)?((/)?)")
 
 	private fun handleInstallDep(configData: WurstProjectConfigData) {
-        if (!REPO_REGEX.matches(setup.commandArg)) {
+        val resolvedName = DependencyManager.resolveName(setup.commandArg)
+        if (!REPO_REGEX.matches(resolvedName.first)) {
             log.info("<${setup.commandArg}> does not appear to be a valid git repo link (e.g. https://github.com/user/repo)")
             exitProcess(1)
         }
-		log.info("\uD83D\uDD39 Installing ${setup.commandArg}")
+		log.info("\uD83D\uDD39 Installing ${resolvedName.second}")
 		if (configData.dependencies.contains(setup.commandArg)) {
 			log.info("Dependency is already installed.")
 			return
 		}
 		try {
 			val result = Git.lsRemoteRepository()
-				.setRemote(setup.commandArg)
+				.setRemote(resolvedName.first)
 				.call()
 			if (!result.isEmpty()) {
 				Log.print("valid!\n")

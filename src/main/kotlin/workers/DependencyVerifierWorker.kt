@@ -1,10 +1,12 @@
 package workers
 
+import file.DependencyManager
 import global.Log
 import org.eclipse.jgit.api.Git
 import ui.MainWindow
 import ui.UiManager
 import java.util.stream.Collectors
+import javax.swing.DesktopManager
 import javax.swing.SwingUtilities
 import javax.swing.SwingWorker
 
@@ -14,8 +16,9 @@ class DependencyVerifierWorker(val dependencyUrl: String) : SwingWorker<Boolean,
     override fun doInBackground(): Boolean? {
         Log.print("Checking git repo..")
         try {
+            val resolved = DependencyManager.resolveName(dependencyUrl)
             val result = Git.lsRemoteRepository()
-                    .setRemote(dependencyUrl)
+                    .setRemote(resolved.first)
                     .call()
             if (!result.isEmpty()) {
                 Log.print("valid!\n")
