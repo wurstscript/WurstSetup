@@ -194,7 +194,7 @@ object WurstProjectConfig {
     }
 
     private const val VSCODE_MIN_CONFIG =
-            "{\"wurst.javaOpts\": [\"-XX:+UseG1GC\", \"-XX:+UseStringDeduplication\", \"-XX:+AggressiveOpts\", \"-Xmx1G\"],\n" +
+            "{\"wurst.javaOpts\": [\"-XX:+UseStringDeduplication\", \"-Xmx1G\"],\n" +
                 "\t\"files.associations\": {\n" +
                 "        \"$CONFIG_FILE_NAME\": \"yaml\"\n" +
                 "    },\n" +

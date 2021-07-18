@@ -12,8 +12,8 @@ const val CONFIG_FILE_NAME = "wurst.build"
  * Represents a complete wurst.build file.
  */
 @JsonInclude(JsonInclude.Include.NON_DEFAULT)
-data class WurstProjectConfigData(var projectName: String = "DefaultName",
-                                  val dependencies: ArrayList<String> = ArrayList(Arrays.asList("https://github.com/wurstscript/wurstStdlib2")),
+data class WurstProjectConfigData(var projectName: String,
+                                  val dependencies: ArrayList<String>,
 //                                  val jobs: ArrayList<WurstProjectBuildJob> =
 //                                      ArrayList(Arrays.asList(WurstProjectBuildJob("run",
 //                                          ArrayList(Arrays.asList("runcompiletimefunctions", "injectobjects", "stacktraces"))),
@@ -106,7 +106,7 @@ enum class Controller {
 
 /** Data for one player */
 @JsonInclude(JsonInclude.Include.NON_DEFAULT)
-data class WurstProjectBuildPlayer(val id: Int = -1,
+data class WurstProjectBuildPlayer(val id: Int,
                                    val name: String?,
                                    val race: Race?,
                                    val controller: Controller?,
