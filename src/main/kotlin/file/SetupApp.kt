@@ -102,7 +102,8 @@ object SetupApp {
 			setup.command == CLICommand.GENERATE -> {
                 log.info("✈ Generating project..")
 				if (configData == null) {
-					WurstProjectConfig.handleCreate(DEFAULT_DIR.resolve(setup.commandArg), null, WurstProjectConfigData())
+					WurstProjectConfig.handleCreate(DEFAULT_DIR.resolve(setup.commandArg), null,
+                        WurstProjectConfigData(setup.commandArg, ArrayList(mutableListOf("https://github.com/wurstscript/wurstStdlib2"))))
 				}
 			}
             setup.command == CLICommand.TEST -> {
