@@ -11,15 +11,15 @@ jobs:
 
             - run:
                   name: Build
-                  command: gradlew clean versionInfoFile dist
+                  command: ./gradlew clean versionInfoFile dist
 
             - run:
                   name: Test
-                  command: gradlew test --info --stacktrace
+                  command: ./gradlew test --info --stacktrace
 
             - run:
                   name: Jacoco
-                  command: gradlew jacocoTestReport
+                  command: ./gradlew jacocoTestReport
 
             - run:
                   name: Codecov
