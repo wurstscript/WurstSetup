@@ -11,7 +11,7 @@ const val CONFIG_FILE_NAME = "wurst.build"
  * The root DAO that contains the child DAOs.
  * Represents a complete wurst.build file.
  */
-@JsonInclude(JsonInclude.Include.NON_DEFAULT)
+@JsonInclude(JsonInclude.Include.NON_ABSENT)
 data class WurstProjectConfigData(var projectName: String,
                                   val dependencies: ArrayList<String> = ArrayList(emptyList()),
 //                                  val jobs: ArrayList<WurstProjectBuildJob> =
@@ -105,7 +105,7 @@ enum class Controller {
 }
 
 /** Data for one player */
-@JsonInclude(JsonInclude.Include.NON_DEFAULT)
+@JsonInclude(JsonInclude.Include.NON_ABSENT)
 data class WurstProjectBuildPlayer(val id: Int,
                                    val name: String?,
                                    val race: Race?,
