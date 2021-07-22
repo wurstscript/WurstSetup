@@ -13,7 +13,7 @@ const val CONFIG_FILE_NAME = "wurst.build"
  */
 @JsonInclude(JsonInclude.Include.NON_DEFAULT)
 data class WurstProjectConfigData(var projectName: String,
-                                  val dependencies: ArrayList<String>,
+                                  val dependencies: ArrayList<String> = ArrayList(emptyList()),
 //                                  val jobs: ArrayList<WurstProjectBuildJob> =
 //                                      ArrayList(Arrays.asList(WurstProjectBuildJob("run",
 //                                          ArrayList(Arrays.asList("runcompiletimefunctions", "injectobjects", "stacktraces"))),
