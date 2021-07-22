@@ -70,10 +70,6 @@ buildscript {
     }
 }
 
-task processPackageResources(type: Copy) {
-    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
-}
-
 version '1.3.4.1'
 
 task versionInfoFile {
