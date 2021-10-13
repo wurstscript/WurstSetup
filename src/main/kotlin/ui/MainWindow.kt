@@ -236,6 +236,19 @@ object MainWindow : JFrame() {
 
         private var projectRootFile: File = File(".")
 
+        private fun warnProjectName(): Boolean {
+            if (projectNameTF.text.isNotEmpty() && !projNamePattern.matcher(projectNameTF.text).matches()) {
+                JOptionPane.showMessageDialog(
+                    null,
+                    "Error: Please enter valid project name",
+                    "Error Massage",
+                    JOptionPane.ERROR_MESSAGE)
+                return true
+            }
+
+            return false
+        }
+
         private fun createConfigTable() {
             val that = this
             val configTable = Table()
@@ -258,18 +271,12 @@ object MainWindow : JFrame() {
                 }
 
                 fun warn() {
-                    if (projectNameTF.text.isNotEmpty() && !projNamePattern.matcher(projectNameTF.text).matches()) {
-                        JOptionPane.showMessageDialog(null,
-                                "Error: Please enter valid project name", "Error Massage",
-                                JOptionPane.ERROR_MESSAGE)
+                    if (projectNameTF.text.isEmpty()) {
+                        btnCreate.isEnabled = false
                     } else {
-                        if (projectNameTF.text.isEmpty()) {
-                            btnCreate.isEnabled = false
-                        } else {
-                            projectRootTF.text = projectRootFile.absolutePath + File.separator + projectNameTF.text
-                            if (!disabled) {
-                              btnCreate.isEnabled = true
-                            }
+                        projectRootTF.text = projectRootFile.absolutePath + File.separator + projectNameTF.text
+                        if (!disabled) {
+                            btnCreate.isEnabled = true
                         }
                     }
                 }
@@ -497,7 +504,11 @@ object MainWindow : JFrame() {
                         if (selectedConfig != null) {
                             handleUpdateProject()
                         } else {
-                            handleCreateProject()
+                            if (warnProjectName()) {
+                                UiManager.refreshComponents()
+                            } else {
+                                handleCreateProject()
+                            }
                         }
                     }
                 }
