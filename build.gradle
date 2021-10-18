@@ -33,7 +33,7 @@ dependencies {
     compile 'com.fasterxml.jackson.core:jackson-databind:2.12.4'
     compile 'com.fasterxml.jackson.module:jackson-module-kotlin:2.12.4'
     compile 'com.fasterxml.jackson.dataformat:jackson-dataformat-yaml:2.12.4'
-    compile 'com.github.Frotty:SwingDarkFlatTable:a033300526'
+    compile 'com.github.frotty:SwingDarkFlatTable:1d9ae26e69'
     compile "org.jetbrains.kotlin:kotlin-stdlib-jdk8:$kotlin_version"
     compile 'io.github.microutils:kotlin-logging:1.6.26'
     compile 'com.github.Frotty:SimpleRegistry:f96dda96bd'
