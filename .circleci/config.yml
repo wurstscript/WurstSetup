@@ -4,7 +4,7 @@ jobs:
     build:
 
         docker:
-            - image: circleci/openjdk:8-jdk
+            - image: cimg/openjdk:11.0
 
         steps:
             - checkout
