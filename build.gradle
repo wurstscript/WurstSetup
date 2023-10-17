@@ -133,7 +133,7 @@ object CompileTimeInfo {
 compileKotlin.dependsOn versionInfoFile
 
 task dist(type: Jar) {
-    from { configurations.runtimeOnly.collect { it.isDirectory() ? it : zipTree(it) } }
+    from { configurations.runtimeClasspath.collect { it.isDirectory() ? it : zipTree(it) } }
     exclude 'META-INF/*.RSA', 'META-INF/*.SF','META-INF/*.DSA','proguard.jar'
     manifest {
         attributes 'Implementation-Title': 'Wurst Setup',
