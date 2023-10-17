@@ -19,7 +19,9 @@ data class WurstProjectConfigData(var projectName: String,
 //                                          ArrayList(Arrays.asList("runcompiletimefunctions", "injectobjects", "stacktraces"))),
 //                                      WurstProjectBuildJob("build",
 //                                        ArrayList(Arrays.asList("runcompiletimefunctions", "injectobjects", "stacktraces", "opt", "inline", "localOptimizations"))))),
-                                  val buildMapData: WurstProjectBuildMapData = WurstProjectBuildMapData())
+                                  val buildMapData: WurstProjectBuildMapData = WurstProjectBuildMapData()) {
+    constructor() : this("unnamed")
+}
 
 /** All data needed to generate the output map */
 @JsonInclude(JsonInclude.Include.NON_DEFAULT)
