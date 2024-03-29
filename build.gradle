@@ -30,24 +30,23 @@ kotlin {
     }
 }
 repositories {
-    jcenter()
     mavenCentral()
     maven { url 'https://jitpack.io' }
 }
 
 dependencies {
     implementation group: 'us.monoid.web', name: 'resty', version: '0.3.2'
-    implementation group: 'org.eclipse.jgit', name: 'org.eclipse.jgit', version: '6.7.0.202309050840-r'
-    implementation group: 'org.eclipse.jgit', name: 'org.eclipse.jgit.ssh.apache', version: '6.7.0.202309050840-r'
-    implementation 'com.fasterxml.jackson.core:jackson-databind:2.15.3'
-    implementation 'com.fasterxml.jackson.module:jackson-module-kotlin:2.15.3'
-    implementation 'com.fasterxml.jackson.dataformat:jackson-dataformat-yaml:2.15.3'
+    implementation group: 'org.eclipse.jgit', name: 'org.eclipse.jgit', version: '6.9.0.202403050737-r'
+    implementation group: 'org.eclipse.jgit', name: 'org.eclipse.jgit.ssh.apache', version: '6.9.0.202403050737-r'
+    implementation 'com.fasterxml.jackson.core:jackson-databind:2.17.0'
+    implementation 'com.fasterxml.jackson.module:jackson-module-kotlin:2.17.0'
+    implementation 'com.fasterxml.jackson.dataformat:jackson-dataformat-yaml:2.17.0'
     implementation 'com.github.frotty:SwingDarkFlatTable:1d9ae26e69'
-    implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk8:$kotlin_version"
+    implementation "org.jetbrains.kotlin:kotlin-stdlib:$kotlin_version"
     implementation 'io.github.microutils:kotlin-logging:3.0.5'
     implementation 'com.github.Frotty:SimpleRegistry:f96dda96bd'
     implementation group: 'org.slf4j', name: 'slf4j-api', version: '1.7.32'
-    implementation group: 'ch.qos.logback', name: 'logback-classic', version: '1.4.11'
+    implementation group: 'ch.qos.logback', name: 'logback-classic', version: '1.4.14'
     testImplementation 'org.testng:testng:7.8.0'
     testImplementation group: 'com.github.stefanbirkner', name: 'system-lambda', version: '1.2.1'
 }
@@ -68,7 +67,7 @@ configurations.all {
 }
 
 buildscript {
-    ext.kotlin_version = '1.9.10'
+    ext.kotlin_version = '1.9.23'
     repositories {
         flatDir dirs: 'src/main/resources/'
         mavenCentral()

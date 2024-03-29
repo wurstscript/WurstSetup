@@ -1,5 +1,6 @@
 package file
 
+import com.fasterxml.jackson.annotation.JsonInclude
 import com.fasterxml.jackson.core.JsonParser
 import com.fasterxml.jackson.databind.DeserializationFeature
 import com.fasterxml.jackson.databind.ObjectMapper
@@ -22,7 +23,7 @@ object YamlHelper {
         yamlFactory.enable(JsonParser.Feature.ALLOW_MISSING_VALUES)
 
         mapper = ObjectMapper(yamlFactory)
-        mapper.registerModule(KotlinModule())
+        mapper.registerModule(KotlinModule.Builder().build())
         mapper.disable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES)
         mapper.enable(DeserializationFeature.ACCEPT_SINGLE_VALUE_AS_ARRAY)
         mapper.enable(SerializationFeature.INDENT_OUTPUT)
@@ -34,8 +35,7 @@ object YamlHelper {
             try {
 				return mapper.readValue(it, WurstProjectConfigData::class.java)
             } catch (e: Exception) {
-                log.error("The project's wurst.build file could not be read. Input malformed or corrupt.")
-                log.trace("Exception: ", e)
+                log.error("The project's wurst.build file could not be read. Input malformed or corrupt.", e)
 				throw YamlException("The project's wurst.build file could not be read. Input malformed or corrupt.")
             }
         }
