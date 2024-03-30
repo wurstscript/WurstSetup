@@ -19,7 +19,7 @@ object Download {
     private val log = KotlinLogging.logger {}
 
 	private const val baseUrl = "grill.wurstlang.org/hudson/job/Wurst/lastSuccessfulBuild/artifact/downloads/"
-	private const val bareboneUrl = "github.com/wurstscript/WurstBareboneTemplate/archive/master.zip"
+	private const val bareboneUrl = "github.com/wurstscript/wurst-project-template/archive/master.zip"
     private const val compileName = "wurstpack_compiler.zip"
 
     @Throws(IOException::class)

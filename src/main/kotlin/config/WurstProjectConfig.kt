@@ -96,7 +96,7 @@ object WurstProjectConfig {
 
 	private fun cleanupDownload(projectRoot: Path) {
 		Log.print("Clean up..")
-		val folder = projectRoot.resolve("WurstBareboneTemplate-master")
+		val folder = projectRoot.resolve("wurst-project-template-master")
 		copyFolder(folder, projectRoot)
 		Files.walk(folder).sorted { a, b -> b.compareTo(a) }.forEach { p ->
 			try {

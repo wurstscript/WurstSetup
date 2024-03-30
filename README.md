@@ -68,5 +68,5 @@ The wurst compiler gets downloaded into the users home directory into a wurst fo
 
 ### Project Generation
 
-The setup app downloads this repo https://github.com/Frotty/WurstBareboneTemplate as a wurst project template and then inserts the necessary local parths as well as generating the wurst.dependencies file.
+The setup app downloads this repo https://github.com/wurstscript/wurst-project-template as a wurst project template and then inserts the necessary local parths as well as generating the wurst.dependencies file.
 Dependencies are stored in `_build/dependencies/`.
