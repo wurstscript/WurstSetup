@@ -1,4 +1,4 @@
-[![CircleCI](https://circleci.com/gh/wurstscript/WurstSetup.svg?style=svg)](https://circleci.com/gh/wurstscript/WurstSetup) [![codebeat badge](https://codebeat.co/badges/279cc0f7-8ff6-400a-a763-8861690962dc)](https://codebeat.co/projects/github-com-wurstscript-wurstsetup-master) [![codecov](https://codecov.io/gh/wurstscript/WurstSetup/branch/master/graph/badge.svg)](https://codecov.io/gh/wurstscript/WurstSetup)
+[![codecov](https://codecov.io/gh/wurstscript/WurstSetup/branch/master/graph/badge.svg)](https://codecov.io/gh/wurstscript/WurstSetup)
 
 
 # WurstScript Setup App
