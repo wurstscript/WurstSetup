@@ -5,14 +5,16 @@ import global.Log
 import mu.KotlinLogging
 import org.eclipse.jgit.api.CreateBranchCommand
 import org.eclipse.jgit.api.Git
+import org.eclipse.jgit.api.ResetCommand
 import org.eclipse.jgit.internal.storage.file.FileRepository
+import org.eclipse.jgit.lib.Constants
+import org.eclipse.jgit.lib.Ref
+import org.eclipse.jgit.transport.URIish
 import java.io.File
 import java.io.IOException
-import java.nio.charset.Charset
 import java.nio.file.Files
 import java.nio.file.Path
-import java.util.*
-
+import java.util.Comparator
 
 /**
  * Created by Frotty on 17.07.2017.
@@ -21,45 +23,44 @@ object DependencyManager {
     private val log = KotlinLogging.logger {}
 
     fun updateDependencies(projectRoot: Path, projectConfig: WurstProjectConfigData) {
-        val depFolders = ArrayList<String>()
-        // Iterate through git dependencies
+        cleanupLegacyDependencyFile(projectRoot)
         log.info("\uD83D\uDD37 Installing dependencies..")
         Log.print("Updating dependencies...\n")
         for (dependency in projectConfig.dependencies) {
-            val (_, dependencyName, branch) = resolveName(dependency)
+            val (depUri, dependencyName, requestedBranch) = resolveName(dependency)
+            val branch = resolveBranch(depUri, requestedBranch)
             log.info("\t\uD83D\uDD39 Pulling <$dependencyName:$branch>")
             Log.print("Updating dependency - $dependencyName ..")
+
             val depFolder = projectRoot.resolve("_build/dependencies/$dependencyName")
             if (Files.exists(depFolder)) {
-                log.debug("depencency exists locally")
-                depFolders.add(depFolder.toAbsolutePath().toString())
-                // clean
-                if(!cleanRepo(depFolder, branch)) {
+                log.debug("dependency exists locally")
+                if (!refreshRepo(depFolder, depUri, branch)) {
                     deleteDirectoryStream(depFolder)
-                    cloneRepo(dependency, depFolder)
-                } else {
-                    // update
-                    updateRepo(depFolder, branch)
+                    cloneRepo(depUri, branch, depFolder)
                 }
             } else {
-                // clone
-                cloneRepo(dependency, depFolder)
-                depFolders.add(depFolder.toAbsolutePath().toString())
-            }
-        }
-        if (!depFolders.isEmpty()) {
-            try {
-                Files.write(projectRoot.resolve("wurst.dependencies"), depFolders, Charset.defaultCharset())
-            } catch (e: IOException) {
-                e.printStackTrace()
+                cloneRepo(depUri, branch, depFolder)
             }
         }
         log.info("✔ Installed dependencies!")
     }
 
+    private fun cleanupLegacyDependencyFile(projectRoot: Path) {
+        val legacyFile = projectRoot.resolve("wurst.dependencies")
+        if (Files.exists(legacyFile)) {
+            try {
+                Files.delete(legacyFile)
+                log.info("Removed legacy wurst.dependencies file.")
+            } catch (e: IOException) {
+                log.warn("Could not remove legacy wurst.dependencies file.", e)
+            }
+        }
+    }
+
     fun resolveName(dependency: String): Triple<String, String, String> {
         var dependencyName = dependency.substring(dependency.lastIndexOf("/") + 1)
-        var branch = "master"
+        var branch = ""
         var depURI = dependency
 
         if (dependencyName.contains(":")) {
@@ -73,21 +74,25 @@ object DependencyManager {
     fun isUpdateAvailable(projectRoot: Path, projectConfig: WurstProjectConfigData): Boolean {
         Log.print("Checking dependencies...\n")
         for (dependency in projectConfig.dependencies) {
-            val dependencyName = dependency.substring(dependency.lastIndexOf("/") + 1)
+            val (_, dependencyName, _) = resolveName(dependency)
             Log.print("Checking dependency - $dependencyName ..")
-            val depFolder = projectRoot.resolve("_build/dependencies/" + dependencyName)
+            val depFolder = projectRoot.resolve("_build/dependencies/$dependencyName")
             if (Files.exists(depFolder)) {
                 isGitRepoUpToDate(depFolder)
             } else {
                 return true
             }
-
         }
         return false
     }
 
     fun cloneRepo(dependency: String, depFolder: Path) {
-        val (depURI, _, branch) = resolveName(dependency)
+        val (depURI, _, requestedBranch) = resolveName(dependency)
+        val branch = resolveBranch(depURI, requestedBranch)
+        cloneRepo(depURI, branch, depFolder)
+    }
+
+    private fun cloneRepo(depURI: String, branch: String, depFolder: Path) {
         try {
             Files.createDirectories(depFolder)
         } catch (e: IOException) {
@@ -95,31 +100,14 @@ object DependencyManager {
             throw RuntimeException("Could not create dependency folder", e)
         }
         try {
-            Git.cloneRepository().setURI(depURI).setBranch(branch)
-                    .setDirectory(depFolder.toFile())
-                    .call().use { result -> Log.print("done\n") }
+            Git.cloneRepository()
+                .setURI(depURI)
+                .setBranch(branch)
+                .setDirectory(depFolder.toFile())
+                .call()
+                .use { Log.print("done\n") }
         } catch (e: Exception) {
             Log.print("error!\n")
-            e.printStackTrace()
-        }
-    }
-
-    private fun updateRepo(depFolder: Path, branch: String) {
-        try {
-            FileRepository(depFolder.resolve(".git").toFile()).use { repository ->
-                try {
-                    Git(repository).use { git ->
-                        val pullResult = git.pull().call()
-                        Log.print("done (success=" + pullResult.isSuccessful + ")\n")
-                        log.debug("Was pull successful?: " + pullResult.isSuccessful)
-                    }
-                } catch (e: Exception) {
-                    Log.print("error when trying to fetch remote\n")
-                    e.printStackTrace()
-                }
-            }
-        } catch (e: Exception) {
-            Log.print("error when trying open repository")
             e.printStackTrace()
         }
     }
@@ -132,20 +120,39 @@ object DependencyManager {
             .forEach { it.delete() }
     }
 
-
-    private fun cleanRepo(depFolder: Path, branch: String): Boolean {
+    private fun refreshRepo(depFolder: Path, depUri: String, branch: String): Boolean {
         try {
             FileRepository(depFolder.resolve(".git").toFile()).use { repository ->
                 try {
                     Git(repository).use { git ->
-                        git.clean().setCleanDirectories(true).setForce(true).call()
-                        git.checkout().setAllPaths(true).call()
-                        git.reset().call()
-                        log.debug("cleaned repo")
-                        return prepareRepo(git, branch)
+                        git.remoteSetUrl()
+                            .setName("origin")
+                            .setUri(URIish(depUri))
+                            .call()
+                        git.fetch()
+                            .setRemote("origin")
+                            .setRemoveDeletedRefs(true)
+                            .call()
+                        if (!prepareRepo(git, branch)) {
+                            return false
+                        }
+                        // Keep dependency folder exactly aligned with origin/<branch>.
+                        git.reset()
+                            .setMode(ResetCommand.ResetType.HARD)
+                            .setRef("origin/$branch")
+                            .call()
+                        git.clean()
+                            .setCleanDirectories(true)
+                            .setForce(true)
+                            .setIgnore(false)
+                            .call()
+
+                        Log.print("done\n")
+                        log.debug("Refreshed repo to origin/$branch")
+                        return true
                     }
                 } catch (e: Exception) {
-                    Log.print("error when trying to clean repository\n")
+                    Log.print("error when trying to refresh repository\n")
                     e.printStackTrace()
                 }
             }
@@ -158,26 +165,70 @@ object DependencyManager {
 
     private fun prepareRepo(git: Git, branch: String): Boolean {
         return try {
-            git.checkout().setCreateBranch(true).setName(branch)
+            git.checkout()
+                .setCreateBranch(true)
+                .setName(branch)
                 .setUpstreamMode(CreateBranchCommand.SetupUpstreamMode.SET_UPSTREAM)
-                .setStartPoint("origin/$branch").call()
+                .setStartPoint("origin/$branch")
+                .call()
             true
-        } catch (e: java.lang.Exception) {
+        } catch (e: Exception) {
             try {
-                git.checkout().setName(branch)
-                    .setUpstreamMode(CreateBranchCommand.SetupUpstreamMode.SET_UPSTREAM)
-                    .setStartPoint("origin/$branch").call()
+                git.checkout()
+                    .setName(branch)
+                    .call()
                 true
-            } catch (e: java.lang.Exception) {
+            } catch (e: Exception) {
                 false
             }
         }
     }
 
+    private fun resolveBranch(depUri: String, requestedBranch: String): String {
+        if (requestedBranch.isNotBlank()) {
+            return requestedBranch
+        }
+        return getDefaultBranch(depUri) ?: "master"
+    }
+
+    private fun getDefaultBranch(depUri: String): String? {
+        return try {
+            val refs = Git.lsRemoteRepository()
+                .setRemote(depUri)
+                .setHeads(true)
+                .setTags(false)
+                .setSymrefs(true)
+                .call()
+
+            val symbolicHead = refs.firstOrNull { it.name == Constants.HEAD && it.isSymbolic }
+                ?.target
+                ?.name
+            if (symbolicHead != null && symbolicHead.startsWith(Constants.R_HEADS)) {
+                return symbolicHead.removePrefix(Constants.R_HEADS)
+            }
+
+            val branchNames = refs.mapNotNull { refToBranchName(it) }.toSet()
+            when {
+                branchNames.contains("main") -> "main"
+                branchNames.contains("master") -> "master"
+                branchNames.isNotEmpty() -> branchNames.first()
+                else -> null
+            }
+        } catch (e: Exception) {
+            log.warn("Could not determine default branch for <$depUri>, falling back.", e)
+            null
+        }
+    }
+
+    private fun refToBranchName(ref: Ref): String? {
+        val name = ref.name
+        return if (name.startsWith(Constants.R_HEADS)) name.removePrefix(Constants.R_HEADS) else null
+    }
+
     private fun isGitRepoUpToDate(depFolder: Path): Boolean {
         try {
             try {
-                FileRepository(depFolder.toFile()).use { repository ->
+                FileRepository(depFolder.resolve(".git").toFile()).use { repository ->
                     try {
                         Git(repository).use { git ->
                             git.lsRemote().setHeads(true).call()
@@ -197,7 +248,6 @@ object DependencyManager {
                 Log.print("error when trying open repository")
                 e.printStackTrace()
             }
-
         } catch (ignored: Exception) {
         }
         return false

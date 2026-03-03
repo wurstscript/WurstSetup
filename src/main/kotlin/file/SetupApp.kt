@@ -112,6 +112,12 @@ object SetupApp {
                     testProject(configData)
                 }
             }
+            setup.command == CLICommand.TYPECHECK -> {
+                log.info("Typechecking project..")
+                if (InstallationManager.status != InstallationManager.InstallationStatus.NOT_INSTALLED && configData != null) {
+                    typecheckProject(configData)
+                }
+            }
             setup.command == CLICommand.BUILD -> {
                 log.info("\uD83D\uDD28 Building project..")
                 if (setup.commandArg.isBlank()) {
@@ -183,6 +189,23 @@ object SetupApp {
             0 -> log.info("✔ All tests succeeded.")
             else -> {
                 log.info("❌ Tests did not execute successfully.")
+                exitProcess(1)
+            }
+        }
+    }
+
+    private fun typecheckProject(configData: WurstProjectConfigData) {
+        val args = commonArgs(configData)
+
+        if (setup.measure) {
+            args.add("-measure")
+        }
+
+        val result = startWurstProcess(args)
+        when (result) {
+            0 -> log.info("Typecheck succeeded.")
+            else -> {
+                log.info("Typecheck failed.")
                 exitProcess(1)
             }
         }

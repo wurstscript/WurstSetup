@@ -6,6 +6,7 @@ enum class CLICommand {
 	REMOVE,
 	GENERATE,
 	TEST,
+    TYPECHECK,
     BUILD,
     SELF_UPDATE
 }

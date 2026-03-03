@@ -51,6 +51,15 @@ Use `test` to compile the project at the current location and run unit tests.
 > grill test
 ```
 
+### Typechecking a project
+
+Use `typecheck` to compile/typecheck the project without building an output map.
+The command exits with code `0` when compilation succeeds and `1` on compilation errors.
+
+```cmd
+> grill typecheck
+```
+
 
 ### Building the project
 
@@ -68,5 +77,5 @@ The wurst compiler gets downloaded into the users home directory into a wurst fo
 
 ### Project Generation
 
-The setup app downloads this repo https://github.com/wurstscript/wurst-project-template as a wurst project template and then inserts the necessary local parths as well as generating the wurst.dependencies file.
+The setup app downloads this repo https://github.com/wurstscript/wurst-project-template as a wurst project template and then inserts the necessary local paths.
 Dependencies are stored in `_build/dependencies/`.
