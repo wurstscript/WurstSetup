@@ -60,6 +60,16 @@ The command exits with code `0` when compilation succeeds and `1` on compilation
 > grill typecheck
 ```
 
+### Checking dependency updates
+
+Use `outdated` to check whether any dependency is not on the latest commit of its configured branch
+(or repository default branch when none is specified).
+The command exits with code `0` when dependencies are up to date and `1` when updates are available.
+
+```cmd
+> grill outdated
+```
+
 
 ### Building the project
 

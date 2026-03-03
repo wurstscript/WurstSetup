@@ -85,6 +85,28 @@ object DependencyManager {
         return false
     }
 
+    fun hasOutdatedDependencies(projectRoot: Path, projectConfig: WurstProjectConfigData): Boolean {
+        Log.print("Checking dependencies...\n")
+        for (dependency in projectConfig.dependencies) {
+            val (depUri, dependencyName, requestedBranch) = resolveName(dependency)
+            val branch = resolveBranch(depUri, requestedBranch)
+            Log.print("Checking dependency - $dependencyName ..")
+            val depFolder = projectRoot.resolve("_build/dependencies/$dependencyName")
+
+            if (!Files.exists(depFolder.resolve(".git"))) {
+                Log.print("missing\n")
+                return true
+            }
+
+            if (isDependencyOutdated(depFolder, depUri, branch)) {
+                Log.print("outdated\n")
+                return true
+            }
+            Log.print("ok\n")
+        }
+        return false
+    }
+
     fun cloneRepo(dependency: String, depFolder: Path) {
         val (depURI, _, requestedBranch) = resolveName(dependency)
         val branch = resolveBranch(depURI, requestedBranch)
@@ -263,5 +285,26 @@ object DependencyManager {
         } catch (ignored: Exception) {
         }
         return false
+    }
+
+    private fun isDependencyOutdated(depFolder: Path, depUri: String, branch: String): Boolean {
+        return try {
+            FileRepository(depFolder.resolve(".git").toFile()).use { repository ->
+                repository.config.setString("remote", "origin", "url", depUri)
+                repository.config.save()
+                Git(repository).use { git ->
+                    git.fetch()
+                        .setRemote("origin")
+                        .setRemoveDeletedRefs(true)
+                        .call()
+                }
+                val localHead = repository.resolve(Constants.HEAD)
+                val remoteHead = repository.resolve("refs/remotes/origin/$branch")
+                localHead == null || remoteHead == null || localHead != remoteHead
+            }
+        } catch (e: Exception) {
+            log.warn("Could not verify dependency at <$depFolder>.", e)
+            true
+        }
     }
 }

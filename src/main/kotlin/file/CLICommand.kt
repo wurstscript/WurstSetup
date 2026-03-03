@@ -7,6 +7,7 @@ enum class CLICommand {
 	GENERATE,
 	TEST,
     TYPECHECK,
+    OUTDATED,
     BUILD,
     SELF_UPDATE
 }

@@ -118,6 +118,13 @@ object SetupApp {
                     typecheckProject(configData)
                 }
             }
+            setup.command == CLICommand.OUTDATED -> {
+                if (configData == null) {
+                    log.error("No wurst.build configuration found.")
+                    exitProcess(1)
+                }
+                checkProjectOutdated(configData)
+            }
             setup.command == CLICommand.BUILD -> {
                 log.info("\uD83D\uDD28 Building project..")
                 if (setup.commandArg.isBlank()) {
@@ -209,6 +216,15 @@ object SetupApp {
                 exitProcess(1)
             }
         }
+    }
+
+    private fun checkProjectOutdated(configData: WurstProjectConfigData) {
+        val outdated = DependencyManager.hasOutdatedDependencies(setup.projectRoot, configData)
+        if (outdated) {
+            log.info("Project dependencies are outdated. Run `grill install`.")
+            exitProcess(1)
+        }
+        log.info("Project dependencies are up to date.")
     }
 
     private fun startWurstProcess(args: ArrayList<String>): Int {
