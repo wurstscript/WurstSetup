@@ -16,6 +16,7 @@ import ui.UiManager
 import java.io.IOException
 import java.nio.file.Files
 import java.nio.file.Path
+import java.nio.file.Paths
 import java.nio.file.StandardOpenOption
 import javax.swing.JOptionPane
 /**
@@ -168,7 +169,7 @@ object WurstProjectConfig {
 
         jsonNode.put("wurst.wurstJar", absolutePath)
 
-		if (!gamePath.isBlank()) {
+		if (isValidGamePath(gamePath)) {
             jsonNode.put("wurst.wc3path", gamePath)
 		}
         val schemaNode = MAPPER.createObjectNode()
@@ -176,6 +177,18 @@ object WurstProjectConfig {
         jsonNode.replace("yaml.schemas", schemaNode)
 		return MAPPER.writerWithDefaultPrettyPrinter().writeValueAsString(jsonNode)
 	}
+
+    private fun isValidGamePath(gamePath: String): Boolean {
+        if (gamePath.isBlank()) {
+            return false
+        }
+        return try {
+            val path = Paths.get(gamePath)
+            Files.exists(path) && Files.isDirectory(path)
+        } catch (_: Exception) {
+            false
+        }
+    }
 
 	fun handleUpdate(projectRoot: Path, gamePath: Path?, config: WurstProjectConfigData) {
         Log.print("Updating project...\n")

@@ -5,13 +5,9 @@ import config.WurstProjectBuildMapData
 import config.WurstProjectConfig
 import config.WurstProjectConfigData
 import de.ralleytn.simple.registry.Registry
-import file.CompileTimeInfo
 import file.SetupApp
-import global.InstallationManager
 import global.Log
 import mu.KotlinLogging
-import net.ConnectionManager
-import net.NetStatus
 import tablelayout.Table
 import workers.*
 import java.awt.*
@@ -40,6 +36,7 @@ import kotlin.system.exitProcess
 
 object MainWindow : JFrame() {
     private val log = KotlinLogging.logger {}
+    private const val GAME_PATH_PLACEHOLDER = "Select your wc3 installation folder (optional)"
     private val exitIcon by lazy { ImageIcon(ImageIO.read(javaClass.classLoader.getResource("exitup.png"))) }
     private val minIcon by lazy { ImageIcon(ImageIO.read(javaClass.classLoader.getResource("minimizeup.png"))) }
     private val exitIconDown by lazy { ImageIcon(ImageIO.read(javaClass.classLoader.getResource("exitdown.png"))) }
@@ -84,17 +81,7 @@ object MainWindow : JFrame() {
             }
         })
         isVisible = true
-        OnlineCheckWorker("http://google.com") {if (ConnectionManager.netStatus == NetStatus.SERVER_CONTACT) executeListener()}.execute()
-		OnlineCheckWorker("http://bing.com") {if (ConnectionManager.netStatus == NetStatus.SERVER_CONTACT) executeListener()}.execute()
-		OnlineCheckWorker("http://baidu.com") {if (ConnectionManager.netStatus == NetStatus.SERVER_CONTACT) executeListener()}.execute()
-    }
-
-    private var hasExecuted = false
-    private fun executeListener() {
-        if (!hasExecuted) {
-            hasExecuted = true
-            WurstBuildCheckWorker().execute()
-        }
+        log.warn("GUI mode is deprecated. Use the VSCode extension for compiler/update management.")
     }
 
     class UI : JPanel() {
@@ -104,22 +91,22 @@ object MainWindow : JFrame() {
         private val title = JPanel()
         private val windowLabel = JLabel("    Wurst Setup")
         var lblWelcome: JLabel = JLabel("Welcome to the Wurst Setup")
-        var lblCurrentVersion: JLabel = JLabel("Installed Compiler Build: ")
-        var lblCurVerNumber: JLabel = JLabel("(not installed)")
-        var lblLatestVer: JLabel = JLabel("Latest Build: ")
-        var lblLatestVerNumber: JLabel = JLabel("(unknown)")
+        var lblCurrentVersion: JLabel = JLabel("GUI Status:")
+        var lblCurVerNumber: JLabel = JLabel("Deprecated - use VSCode extension for updates.")
+        var lblLatestVer: JLabel = JLabel("")
+        var lblLatestVerNumber: JLabel = JLabel("")
         var progressBar: JProgressBar = JProgressBar()
         var btnCreate: SetupButton = SetupButton("Create Project")
         var btnUpdate: SetupButton = SetupButton("Install WurstScript")
         var importButton: SetupButton = SetupButton("Open Project")
         var btnAdvanced: SetupButton = SetupButton("Add")
-        var jTextArea = JTextArea("Ready version: " + CompileTimeInfo.version + "\n")
+        var jTextArea = JTextArea("GUI mode is deprecated.\nUse the VSCode extension for compiler and update management.\n")
         var projectNameTF: JTextField = JTextField("MyWurstProject")
         var projectRootTF: JTextField = JTextField("projectRoot")
         var dependencyTF: JTextField = JTextField("wurstStdlib2")
         private val exit = JButton(exitIcon)
         private val minimize = JButton(minIcon)
-        private val gamePathTF = JTextField("Select your wc3 installation folder (optional)")
+        private val gamePathTF = JTextField(GAME_PATH_PLACEHOLDER)
 
         private var selectedConfig: WurstProjectConfigData? = null
         var dependencies: MutableList<String> = ArrayList(Arrays.asList("https://github.com/wurstscript/wurstStdlib2"))
@@ -402,56 +389,18 @@ object MainWindow : JFrame() {
             SwingUtilities.invokeLater {
                 progressBar.isIndeterminate = false
                 if (!disabled) {
-                  importButton.isEnabled = true
+                    importButton.isEnabled = true
+                    btnCreate.isEnabled = projectNameTF.text.isNotBlank()
                 }
-                when (ConnectionManager.netStatus) {
-                    NetStatus.CLIENT_OFFLINE, NetStatus.SERVER_OFFLINE -> {
-                        lblLatestVerNumber.text = "(loading..)"
-                        lblLatestVerNumber.foreground = Color.DARK_GRAY
-                        btnCreate.isEnabled = false
-                        btnUpdate.isEnabled = false
-                    }
-                    NetStatus.ONLINE -> {
-                        lblLatestVerNumber.text = InstallationManager.latestCompilerVersion.toString()
-                        lblLatestVerNumber.foreground = Color.decode("#005719")
-                        if (!disabled) {
-                            btnUpdate.isEnabled = true
-                        }
-                    }
-                    NetStatus.SERVER_CONTACT -> {
-                        lblLatestVerNumber.text = "Loading.."
-                        btnUpdate.isEnabled = false
-                    }
-                }
-                when (InstallationManager.status) {
-                    InstallationManager.InstallationStatus.NOT_INSTALLED -> {
-                        btnUpdate.text = "Install WurstScript"
-                        btnCreate.isEnabled = false
-                        lblCurVerNumber.foreground = Color.DARK_GRAY
-                    }
-                    InstallationManager.InstallationStatus.INSTALLED_UPTODATE -> {
-                        lblCurVerNumber.text = getVersionString()
-                        lblCurVerNumber.foreground = Color.decode("#005719")
-                        if (!disabled) {
-                          btnCreate.isEnabled = true
-                        }
-                        btnUpdate.text = "Compiler up to date"
-                        btnUpdate.isEnabled = false
-                    }
-                    InstallationManager.InstallationStatus.INSTALLED_UNKNOWN, InstallationManager.InstallationStatus.INSTALLED_OUTDATED -> {
-                        lblCurVerNumber.text = getVersionString()
-                        lblCurVerNumber.foreground = Color.decode("#702D2D")
-                        if (!disabled) {
-                          btnCreate.isEnabled = true
-                        }
-                        btnUpdate.text = "Update WurstScript"
-                    }
-                }
+                lblCurrentVersion.text = "GUI Status:"
+                lblCurVerNumber.text = "Deprecated - use VSCode extension for updates."
+                lblCurVerNumber.foreground = Color.DARK_GRAY
+                lblLatestVer.text = ""
+                lblLatestVerNumber.text = ""
+                btnUpdate.text = "Compiler updates moved to VSCode extension"
+                btnUpdate.isEnabled = false
             }
         }
-
-        private fun getVersionString() =
-                if (InstallationManager.currentCompilerVersion > 0) InstallationManager.currentCompilerVersion.toString() else "(unofficial build)"
 
         private var disabled = false
 
@@ -531,9 +480,8 @@ object MainWindow : JFrame() {
         private fun handleCreateProject() {
             SwingUtilities.invokeLater { progressBar.isIndeterminate = true }
             disableButtons()
-            val gamePath = gamePathTF.text
             val projectRoot = Paths.get(projectRootTF.text)
-            val gameRoot = if (gamePath.isNotEmpty()) Paths.get(gamePath) else null
+            val gameRoot = resolveOptionalGameRoot()
             val config = WurstProjectConfigData("MyProjectName",
                 java.util.ArrayList(mutableListOf("https://github.com/wurstscript/wurstStdlib2")),
                 buildMapData = WurstProjectBuildMapData(name = "MyMapName", fileName = "MyMapFile", author = System.getProperty("user.name")))
@@ -553,7 +501,7 @@ object MainWindow : JFrame() {
         }
 
         private fun handleUpdateProject() {
-            val gameRoot = Paths.get(gamePathTF.text)
+            val gameRoot = resolveOptionalGameRoot()
             val projectRoot = Paths.get(projectRootTF.text)
             if (selectedConfig != null) {
                 dependencies.forEach { e -> if (selectedConfig?.dependencies?.contains(e) == false) selectedConfig?.dependencies?.add(e) }
@@ -562,11 +510,27 @@ object MainWindow : JFrame() {
             }
         }
 
+        private fun resolveOptionalGameRoot(): java.nio.file.Path? {
+            val rawPath = gamePathTF.text.trim()
+            if (rawPath.isBlank() || rawPath == GAME_PATH_PLACEHOLDER) {
+                return null
+            }
+            return try {
+                val path = Paths.get(rawPath)
+                if (Files.exists(path) && Files.isDirectory(path)) path else null
+            } catch (_: Exception) {
+                null
+            }
+        }
+
         private fun handleWurstUpdate() {
-            log.debug("handle wurst update")
-            SwingUtilities.invokeLater { progressBar.isIndeterminate = true }
-            disableButtons()
-            CompilerUpdateWorker().execute()
+            log.info("GUI compiler updates are deprecated. Use the VSCode extension.")
+            JOptionPane.showMessageDialog(
+                this,
+                "Compiler updates in WurstSetup GUI are deprecated.\nUse the VSCode extension for install/update management.",
+                "Deprecated",
+                JOptionPane.INFORMATION_MESSAGE
+            )
         }
 
     }
