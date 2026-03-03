@@ -8,9 +8,8 @@ import org.eclipse.jgit.api.Git
 import org.eclipse.jgit.api.ResetCommand
 import org.eclipse.jgit.internal.storage.file.FileRepository
 import org.eclipse.jgit.lib.Constants
-import org.eclipse.jgit.lib.Ref
-import org.eclipse.jgit.transport.URIish
 import java.io.File
+import java.io.ByteArrayOutputStream
 import java.io.IOException
 import java.nio.file.Files
 import java.nio.file.Path
@@ -125,10 +124,8 @@ object DependencyManager {
             FileRepository(depFolder.resolve(".git").toFile()).use { repository ->
                 try {
                     Git(repository).use { git ->
-                        git.remoteSetUrl()
-                            .setName("origin")
-                            .setUri(URIish(depUri))
-                            .call()
+                        repository.config.setString("remote", "origin", "url", depUri)
+                        repository.config.save()
                         git.fetch()
                             .setRemote("origin")
                             .setRemoveDeletedRefs(true)
@@ -193,21 +190,20 @@ object DependencyManager {
 
     private fun getDefaultBranch(depUri: String): String? {
         return try {
+            val fromGit = getDefaultBranchFromGit(depUri)
+            if (!fromGit.isNullOrBlank()) {
+                return fromGit
+            }
             val refs = Git.lsRemoteRepository()
                 .setRemote(depUri)
                 .setHeads(true)
                 .setTags(false)
-                .setSymrefs(true)
                 .call()
 
-            val symbolicHead = refs.firstOrNull { it.name == Constants.HEAD && it.isSymbolic }
-                ?.target
-                ?.name
-            if (symbolicHead != null && symbolicHead.startsWith(Constants.R_HEADS)) {
-                return symbolicHead.removePrefix(Constants.R_HEADS)
-            }
-
-            val branchNames = refs.mapNotNull { refToBranchName(it) }.toSet()
+            val branchNames = refs.mapNotNull { ref ->
+                val name = ref.name
+                if (name.startsWith(Constants.R_HEADS)) name.removePrefix(Constants.R_HEADS) else null
+            }.toSet()
             when {
                 branchNames.contains("main") -> "main"
                 branchNames.contains("master") -> "master"
@@ -220,9 +216,25 @@ object DependencyManager {
         }
     }
 
-    private fun refToBranchName(ref: Ref): String? {
-        val name = ref.name
-        return if (name.startsWith(Constants.R_HEADS)) name.removePrefix(Constants.R_HEADS) else null
+    private fun getDefaultBranchFromGit(depUri: String): String? {
+        return try {
+            val out = ByteArrayOutputStream()
+            val err = ByteArrayOutputStream()
+            val p = ProcessBuilder("git", "ls-remote", "--symref", depUri, "HEAD")
+                .redirectErrorStream(false)
+                .start()
+            p.inputStream.copyTo(out)
+            p.errorStream.copyTo(err)
+            if (p.waitFor() != 0) {
+                return null
+            }
+            val line = out.toString(Charsets.UTF_8.name())
+                .lineSequence()
+                .firstOrNull { it.startsWith("ref: refs/heads/") && it.endsWith("\tHEAD") }
+            line?.substringAfter("ref: refs/heads/")?.substringBefore("\tHEAD")
+        } catch (_: Exception) {
+            null
+        }
     }
 
     private fun isGitRepoUpToDate(depFolder: Path): Boolean {
