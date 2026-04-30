@@ -1,4 +1,5 @@
-import com.github.stefanbirkner.systemlambda.SystemLambda
+import file.ExitHandler
+import kotlin.system.exitProcess
 import file.CLICommand
 import file.DependencyManager
 import file.SetupApp
@@ -10,6 +11,22 @@ import org.testng.Assert
 import org.testng.annotations.Test
 import java.nio.file.Files
 
+
+private class ExitException(val code: Int) : RuntimeException("exit $code")
+
+private fun catchExit(block: () -> Unit): Int {
+    val prev = ExitHandler.handler
+    var code = -1
+    try {
+        ExitHandler.handler = { throw ExitException(it) }
+        block()
+    } catch (e: ExitException) {
+        code = e.code
+    } finally {
+        ExitHandler.handler = prev
+    }
+    return code
+}
 
 class CMDTests {
 
@@ -124,7 +141,7 @@ class CMDTests {
 
     @Test(priority = 4)
     fun testInvalid() {
-        val status = SystemLambda.catchSystemExit {
+        val status = catchExit {
             SetupMain.main(listOf("-someInvalidCommand").toTypedArray())
         }
         Assert.assertEquals(status, 1)
@@ -136,7 +153,7 @@ class CMDTests {
         DependencyManager.cloneRepo("https://github.com/Frotty/ConflagrationSpell.git", invalid)
         Assert.assertTrue(Files.exists(invalid.resolve("wurst.build")))
 
-        val status = SystemLambda.catchSystemExit {
+        val status = catchExit {
             SetupMain.main(listOf(INSTALL, "someInvalid", "-projectDir", "./invalidbuild/").toTypedArray())
         }
         Assert.assertEquals(status, 1)

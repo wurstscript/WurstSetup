@@ -17,7 +17,6 @@ import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.Paths
 import java.util.*
-import kotlin.system.exitProcess
 
 
 object SetupApp {
@@ -32,7 +31,7 @@ object SetupApp {
             log.info("\uD83D\uDDBC No arguments found. Launching Wurst Setup GUI..")
             if (GraphicsEnvironment.isHeadless()) {
                 log.error("\uD83D\uDD25 Error: Can't run GUI in headless environment!")
-                exitProcess(1)
+                ExitHandler.exit(1)
             }
             UiManager.initUI()
         } else {
@@ -75,9 +74,9 @@ object SetupApp {
                     if (configData != null) {
                         handleUpdateProject(configData)
                     }
-                } else if (setup.commandArg.toLowerCase() == "wurstscript") {
+                } else if (setup.commandArg.lowercase() == "wurstscript") {
 					handleInstallWurst()
-				} else if (setup.commandArg.toLowerCase() == "grill") {
+				} else if (setup.commandArg.lowercase() == "grill") {
                     handleUpdateGrill()
                 } else {
 					if (configData != null) {
@@ -88,7 +87,7 @@ object SetupApp {
 				}
 			}
 			setup.command == CLICommand.REMOVE -> {
-				if (setup.commandArg.toLowerCase() == "wurstscript") {
+				if (setup.commandArg.lowercase() == "wurstscript") {
 					handleRemoveWurst()
 				} else {
 					if (configData != null) {
@@ -119,7 +118,7 @@ object SetupApp {
             setup.command == CLICommand.OUTDATED -> {
                 if (configData == null) {
                     log.error("No wurst.build configuration found.")
-                    exitProcess(1)
+                    ExitHandler.exit(1)
                 }
                 checkProjectOutdated(configData)
             }
@@ -140,7 +139,7 @@ object SetupApp {
                 try {
                     log.info("✔ Updated succeeded.")
 	                    InstallationManager.ensureGrillJarInstalled()
-                    exitProcess(0)
+                    ExitHandler.exit(0)
                 } catch(e: Exception) {
                     log.error("Grill update failed. Original files might still be in use.")
                 }
@@ -174,7 +173,7 @@ object SetupApp {
             0 -> log.info("\uD83D\uDDFA️ Map has been built!")
             else -> {
                 log.info("❌ There was an issue with the wurst build process.")
-                exitProcess(1)
+                ExitHandler.exit(1)
             }
         }
     }
@@ -189,7 +188,7 @@ object SetupApp {
             0 -> log.info("✔ All tests succeeded.")
             else -> {
                 log.info("❌ Tests did not execute successfully.")
-                exitProcess(1)
+                ExitHandler.exit(1)
             }
         }
     }
@@ -206,7 +205,7 @@ object SetupApp {
             0 -> log.info("Typecheck succeeded.")
             else -> {
                 log.info("Typecheck failed.")
-                exitProcess(1)
+                ExitHandler.exit(1)
             }
         }
     }
@@ -215,7 +214,7 @@ object SetupApp {
         val outdated = DependencyManager.hasOutdatedDependencies(setup.projectRoot, configData)
         if (outdated) {
             log.info("Project dependencies are outdated. Run `grill install`.")
-            exitProcess(1)
+            ExitHandler.exit(1)
         }
         log.info("Project dependencies are up to date.")
     }
@@ -297,7 +296,7 @@ object SetupApp {
         val resolvedName = DependencyManager.resolveName(setup.commandArg)
         if (!REPO_REGEX.matches(resolvedName.first)) {
             log.info("<${setup.commandArg}> does not appear to be a valid git repo link (e.g. https://github.com/user/repo)")
-            exitProcess(1)
+            ExitHandler.exit(1)
         }
 		log.info("\uD83D\uDD39 Installing ${resolvedName.second}")
 		if (configData.dependencies.contains(setup.commandArg)) {

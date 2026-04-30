@@ -4,7 +4,6 @@ import mu.KotlinLogging
 import java.nio.file.Files
 import java.nio.file.Path
 import kotlin.jvm.Throws
-import kotlin.system.exitProcess
 
 
 class SetupMain {
@@ -44,7 +43,7 @@ class SetupMain {
 	private fun parseCLIArgs(argsList: List<String>) {
 		val first = argsList[0]
 		try {
-			command = CLICommand.valueOf(first.toUpperCase())
+			command = CLICommand.valueOf(first.uppercase())
 			log.debug("found $command")
 			if (argsList.size > 1) {
 				if (!argsList[1].startsWith("-")) {
@@ -57,7 +56,7 @@ class SetupMain {
 			}
 		} catch(e: IllegalArgumentException) {
 			log.error("\uD83D\uDD25 Invalid grill command <$first> ! Available commands: [generate|install|remove|test|typecheck|outdated|build] <command argument>")
-            exitProcess(1)
+            ExitHandler.exit(1)
 		}
 	}
 
