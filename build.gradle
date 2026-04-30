@@ -165,7 +165,9 @@ processResources {
 
 copy_jar.dependsOn(dist)
 
-mainClassName = "file.SetupMain"
+application {
+    mainClass = "file.SetupMain"
+}
 
 compileKotlin {
     kotlinOptions {
