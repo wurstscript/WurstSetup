@@ -13,7 +13,7 @@ class InstallationTests {
 	fun testInstall() {
 		CLIParser.getVersionFomJar()
 
-		assert(InstallationManager.currentCompilerVersion > 1000)
+		assert(InstallationManager.status != InstallationManager.InstallationStatus.NOT_INSTALLED)
 	}
 }
 
