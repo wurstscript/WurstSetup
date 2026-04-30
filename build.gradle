@@ -93,23 +93,13 @@ task versionInfoFile {
         String gitRevision = "unknown-version"
         String gitRevisionlong = "unknown-version"
 
-        new ByteArrayOutputStream().withStream { os ->
-            exec {
-                executable = 'git'
-                args = ['describe', '--tags', '--always']
-                standardOutput = os
-            }
-            gitRevision = os.toString().trim()
-        }
+        gitRevision = providers.exec {
+            commandLine 'git', 'describe', '--tags', '--always'
+        }.standardOutput.asText.get().trim()
 
-        new ByteArrayOutputStream().withStream { os ->
-            exec {
-                executable = 'git'
-                args = ['describe', '--tags', '--always', '--abbrev=0']
-                standardOutput = os
-            }
-            gitRevisionlong = os.toString().trim()
-        }
+        gitRevisionlong = providers.exec {
+            commandLine 'git', 'describe', '--tags', '--always', '--abbrev=0'
+        }.standardOutput.asText.get().trim()
 
         String setupVersion = "${version}-${gitRevision}"
 
