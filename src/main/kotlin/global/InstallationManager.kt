@@ -25,9 +25,20 @@ object InstallationManager {
     private val log = KotlinLogging.logger {}
     private const val FOLDER_PATH = ".wurst"
     private const val COMPILER_FILE_NAME = "wurstscript.jar"
+    private const val GRILL_JAR_NAME = "grill.jar"
+    private const val LEGACY_GRILL_JAR_NAME = "WurstSetup.jar"
 
     val installDir: Path = Paths.get(System.getProperty("user.home"), FOLDER_PATH)
-    val compilerJar: Path = installDir.resolve(COMPILER_FILE_NAME)
+    val compilerDir: Path = installDir.resolve("wurst-compiler")
+    val runtimeDir: Path = installDir.resolve("wurst-runtime")
+    val grillDir: Path = installDir.resolve("grill-cli")
+    val compilerJar: Path = compilerDir.resolve(COMPILER_FILE_NAME)
+    val legacyCompilerJar: Path = installDir.resolve(COMPILER_FILE_NAME)
+    val grillJar: Path = grillDir.resolve(GRILL_JAR_NAME)
+    val legacyGrillJar: Path = installDir.resolve(LEGACY_GRILL_JAR_NAME)
+    val wurstscriptLauncher: Path = installDir.resolve(if (isWindows()) "wurstscript.cmd" else "wurstscript")
+    val grillLauncher: Path = installDir.resolve(if (isWindows()) "grill.cmd" else "grill")
+    val bundledJava: Path = runtimeDir.resolve("bin").resolve(if (isWindows()) "java.exe" else "java")
 
     var wurstConfig: WurstConfigData? = null
 
@@ -40,14 +51,15 @@ object InstallationManager {
         status = InstallationStatus.NOT_INSTALLED
         currentCompilerVersion = -1
         latestCompilerVersion = 0
-        if (Files.exists(installDir) && Files.exists(compilerJar)) {
-			log.debug("Found installation")
+        val detectedCompilerJar = detectCompilerJar()
+        if (Files.exists(installDir) && detectedCompilerJar != null && hasRecognizedInstallationLayout()) {
+				log.debug("Found installation")
             status = InstallationStatus.INSTALLED_UNKNOWN
             try {
-                if (!Files.isWritable(compilerJar)) {
+                if (!Files.isWritable(detectedCompilerJar)) {
                     CLIParser.showWurstInUse()
                 } else {
-					CLIParser.getVersionFomJar()
+						CLIParser.getVersionFomJar()
                 }
             } catch (_: Error) {
                 log.warn("Custom WurstScript installation detected.")
@@ -56,10 +68,10 @@ object InstallationManager {
 			log.info("WurstScript is not currently installed.")
 		}
         if (ConnectionManager.netStatus == NetStatus.ONLINE) {
-			log.debug("Client online, check for update")
+				log.debug("Client online, check for update")
             latestCompilerVersion = ConnectionManager.getLatestCompilerBuild()
-			log.debug("latest compiler: $latestCompilerVersion")
-            if (currentCompilerVersion >= latestCompilerVersion) {
+				log.debug("latest compiler: $latestCompilerVersion")
+            if (currentCompilerVersion >= 0 && latestCompilerVersion > 0 && currentCompilerVersion >= latestCompilerVersion) {
                 status = InstallationStatus.INSTALLED_UPTODATE
             }
         } else {
@@ -95,16 +107,30 @@ object InstallationManager {
                 log.info("\t\uD83D\uDCE6 Extracting..")
 				ZipArchiveExtractor.extractArchive(it, installDir)
 				Files.delete(it)
-                setGrillExectuable()
+	                ensureGrillJarInstalled()
+	                setLaunchersExecutable()
                 log.info("✔ Installed WurstScript")
 			}
 
 		}
 	}
 
-    private fun setGrillExectuable() {
+    private fun setLaunchersExecutable() {
         try {
             installDir.resolve("grill").toFile().setExecutable(true)
+            installDir.resolve("wurstscript").toFile().setExecutable(true)
+        } catch (_: Exception) {
+        }
+    }
+
+    fun ensureGrillJarInstalled() {
+        val ownJar = resolveOwnJar() ?: return
+        Files.createDirectories(grillDir)
+        if (ownJar != grillJar) {
+            Files.copy(ownJar, grillJar, java.nio.file.StandardCopyOption.REPLACE_EXISTING)
+        }
+        try {
+            Files.deleteIfExists(legacyGrillJar)
         } catch (_: Exception) {
         }
     }
@@ -127,11 +153,13 @@ object InstallationManager {
 		if (status == InstallationStatus.NOT_INSTALLED) {
 			wurstConfig = WurstConfigData()
 		}
-		if (!Files.exists(compilerJar)) {
-			Log.print("ERROR")
-		} else {
-			Log.print(if (isFreshInstall) "Installation complete\n" else "Update complete\n")
-            log.debug("Installed WurstScript")
+			if (detectCompilerJar() == null) {
+				Log.print("ERROR")
+			} else {
+                ensureGrillJarInstalled()
+                setLaunchersExecutable()
+				Log.print(if (isFreshInstall) "Installation complete\n" else "Update complete\n")
+	            log.debug("Installed WurstScript")
 			if (SetupApp.setup.isGUILaunch) {
 				SwingUtilities.invokeLater { MainWindow.ui.progressBar.value = 0 }
 			}
@@ -160,11 +188,55 @@ object InstallationManager {
     }
 
 
-	fun getCompilerPath(): String {
-		return compilerJar.toAbsolutePath().toString()
-	}
+		fun getCompilerPath(): String {
+			return (detectCompilerJar() ?: compilerJar).toAbsolutePath().toString()
+		}
 
-	enum class InstallationStatus {
+    fun compilerLaunchCommand(vararg extraArgs: String): Array<String> {
+        if (Files.exists(wurstscriptLauncher) && Files.exists(bundledJava)) {
+            return if (isWindows()) {
+                arrayOf("cmd", "/c", wurstscriptLauncher.toAbsolutePath().toString(), *extraArgs)
+            } else {
+                arrayOf(wurstscriptLauncher.toAbsolutePath().toString(), *extraArgs)
+            }
+        }
+        val compiler = detectCompilerJar() ?: compilerJar
+        return arrayOf("java", "-jar", compiler.toAbsolutePath().toString(), *extraArgs)
+    }
+
+    private fun hasRecognizedInstallationLayout(): Boolean {
+        if (Files.exists(compilerJar) &&
+            Files.exists(grillJar) &&
+            Files.exists(runtimeDir) &&
+            Files.exists(wurstscriptLauncher) &&
+            Files.exists(grillLauncher)
+        ) {
+            return true
+        }
+        return Files.exists(legacyCompilerJar)
+    }
+
+    private fun detectCompilerJar(): Path? {
+        return when {
+            Files.exists(compilerJar) -> compilerJar
+            Files.exists(legacyCompilerJar) -> legacyCompilerJar
+            else -> null
+        }
+    }
+
+    private fun resolveOwnJar(): Path? {
+        return try {
+            val url = InstallationManager::class.java.protectionDomain.codeSource.location
+            val ownFile = Paths.get(url.toURI())
+            if (Files.exists(ownFile) && ownFile.toString().endsWith(".jar")) ownFile else null
+        } catch (_: Exception) {
+            null
+        }
+    }
+
+    private fun isWindows(): Boolean = System.getProperty("os.name").contains("windows", true)
+
+		enum class InstallationStatus {
         NOT_INSTALLED,
         INSTALLED_UNKNOWN,
         INSTALLED_OUTDATED,

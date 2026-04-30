@@ -1,10 +1,10 @@
 package net
 
 import mu.KotlinLogging
-import us.monoid.json.JSONArray
-import us.monoid.json.JSONObject
-import us.monoid.web.Resty
 import java.io.IOException
+import java.net.HttpURLConnection
+import java.net.URL
+import java.util.regex.Pattern
 
 enum class NetStatus {
     CLIENT_OFFLINE,
@@ -14,89 +14,60 @@ enum class NetStatus {
 }
 
 object ConnectionManager {
-    private const val WURST_SETUP_URL = "peeeq.de/hudson/job/WurstSetup/lastSuccessfulBuild/api/json"
-    private const val WURST_COMPILER_URL = "peeeq.de/hudson/job/Wurst/lastSuccessfulBuild/api/json"
-    private const val MASTER_BRANCH = "refs/remotes/origin/master"
+    private const val COMPILER_RELEASE_URL = "https://api.github.com/repos/wurstscript/WurstScript/releases/tags/nightly"
+    private val UPDATED_AT_PATTERN = Pattern.compile("\"updated_at\"\\s*:\\s*\"(\\d{4})-(\\d{2})-(\\d{2})T")
 
     private val log = KotlinLogging.logger {}
-    private val resty = Resty()
     var netStatus = NetStatus.CLIENT_OFFLINE
 
-    private fun findJsonTag(url: String, path: String, name: String): JSONObject {
-        val actions = JSONArray(resty.json(url).get(Resty.path(path)).toString())
-
-        return (0 until actions.length())
-                .map { JSONObject(actions[it].toString()) }
-                .firstOrNull { it.has(name) }
-                ?.getJSONObject(name)
-                ?: JSONObject()
-    }
-
     fun checkConnectivity(url: String): NetStatus {
-        // If google can be reached, the client is not offline
         netStatus = NetStatus.SERVER_CONTACT
         try {
-            val json = resty.json(url)
-            if (netStatus == NetStatus.SERVER_CONTACT && (json == null || json.toString().isBlank())) {
-                netStatus = NetStatus.CLIENT_OFFLINE
-                return netStatus
-            }
+            val connection = URL(url).openConnection() as HttpURLConnection
+            connection.connectTimeout = 14_000
+            connection.readTimeout = 20_000
+            connection.requestMethod = "GET"
+            connection.inputStream.use { }
         } catch (e: IOException) {
             log.debug("couldn't contact: " + e.localizedMessage)
+            netStatus = NetStatus.CLIENT_OFFLINE
         }
 
         return netStatus
-    }
-
-    private fun contactWurstServer(url: String) {
-        netStatus = try {
-            val wurstResponse = resty.json(url)
-            if (wurstResponse == null || wurstResponse.toString().isBlank()) {
-                NetStatus.SERVER_OFFLINE
-            } else {
-                NetStatus.ONLINE
-            }
-        } catch (e: IOException) {
-            log.debug("couldn't contact wurst jenkins: " + e.localizedMessage)
-            NetStatus.SERVER_OFFLINE
-        }
-    }
-
-    private fun getBuildNumber(url: String, branch: String): Int {
-        if (netStatus != NetStatus.ONLINE) return 0
-        val response = findJsonTag(url, "actions", "buildsByBranchName")
-        if (response.has(branch)) {
-            val innerObject = JSONObject(response.get(branch).toString())
-            return innerObject.get("buildNumber").toString().toInt()
-        }
-        return -1
     }
 
     fun getLatestSetupBuild(): Int {
-		log.debug("getting latest setup build")
-        return try {
-            getBuildNumber("https://" + WURST_SETUP_URL, MASTER_BRANCH)
-        } catch (e: IOException) {
-            getBuildNumber("http://" + WURST_SETUP_URL, MASTER_BRANCH)
-        }
+        // Grill no longer has a dedicated update channel here.
+        return 0
     }
 
     fun getLatestCompilerBuild(): Int {
-		log.debug("getting latest compiler build")
-        return try {
-            getBuildNumber("https://" + WURST_COMPILER_URL, MASTER_BRANCH)
-        } catch (e: IOException) {
-            getBuildNumber("http://" + WURST_COMPILER_URL, MASTER_BRANCH)
+        log.debug("getting latest compiler build")
+        val payload = fetchReleaseJson() ?: return 0
+        val matcher = UPDATED_AT_PATTERN.matcher(payload)
+        if (!matcher.find()) {
+            return 0
         }
+        return matcher.group(1).toInt() * 10000 + matcher.group(2).toInt() * 100 + matcher.group(3).toInt()
     }
 
     fun checkWurstBuild(): NetStatus {
-		log.debug("checking wurst build")
-        contactWurstServer("https://" + WURST_COMPILER_URL)
-        if (netStatus == NetStatus.SERVER_OFFLINE) {
-            contactWurstServer("http://" + WURST_COMPILER_URL)
-        }
+        log.debug("checking wurst build")
+        netStatus = if (fetchReleaseJson() != null) NetStatus.ONLINE else NetStatus.SERVER_OFFLINE
         return netStatus
     }
 
+    private fun fetchReleaseJson(): String? {
+        return try {
+            val connection = URL(COMPILER_RELEASE_URL).openConnection() as HttpURLConnection
+            connection.connectTimeout = 14_000
+            connection.readTimeout = 20_000
+            connection.setRequestProperty("Accept", "application/vnd.github+json")
+            connection.setRequestProperty("User-Agent", "WurstSetup")
+            connection.inputStream.bufferedReader().use { it.readText() }.takeIf { it.isNotBlank() }
+        } catch (e: IOException) {
+            log.debug("couldn't contact wurst release api: " + e.localizedMessage)
+            null
+        }
+    }
 }

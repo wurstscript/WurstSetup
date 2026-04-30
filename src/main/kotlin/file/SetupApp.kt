@@ -16,7 +16,6 @@ import java.lang.ProcessBuilder.Redirect
 import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.Paths
-import java.nio.file.StandardCopyOption
 import java.util.*
 import kotlin.system.exitProcess
 
@@ -42,18 +41,17 @@ object SetupApp {
         }
     }
 
-    private fun handleCMD() {
-		ConnectionManager.checkConnectivity("http://google.com")
-		ConnectionManager.checkWurstBuild()
-		InstallationManager.verifyInstallation()
-        if (ConnectionManager.netStatus == NetStatus.ONLINE) {
-            val latestSetupBuild = ConnectionManager.getLatestSetupBuild()
-            val jenkinsBuildVer = InstallationManager.getJenkinsBuildVer(CompileTimeInfo.version)
-            log.debug("current setup ver: $jenkinsBuildVer latest Setup: $latestSetupBuild")
-            if (latestSetupBuild > jenkinsBuildVer) {
-                log.info("\uD83D\uDD04 Grill update available: $jenkinsBuildVer -> $latestSetupBuild. Run `grill install grill` to update.")
-            }
-        }
+	    private fun handleCMD() {
+			ConnectionManager.checkConnectivity("http://google.com")
+			ConnectionManager.checkWurstBuild()
+			InstallationManager.verifyInstallation()
+	        if (ConnectionManager.netStatus == NetStatus.ONLINE) {
+	            val latestSetupBuild = ConnectionManager.getLatestSetupBuild()
+	            val jenkinsBuildVer = InstallationManager.getJenkinsBuildVer(CompileTimeInfo.version)
+	            if (latestSetupBuild > 0) {
+	                log.debug("current setup ver: $jenkinsBuildVer latest Setup: $latestSetupBuild")
+	            }
+	        }
         log.info("\uD83D\uDD25 Ready. Version: <{}>", CompileTimeInfo.version)
 		handleRunArgs()
     }
@@ -141,9 +139,7 @@ object SetupApp {
                 log.info("\uD83D\uDD04 Updating..")
                 try {
                     log.info("✔ Updated succeeded.")
-                    if (setup.isGUILaunch) {
-                        Runtime.getRuntime().exec(arrayOf("java",  "-jar", InstallationManager.installDir.toString()))
-                    }
+	                    InstallationManager.ensureGrillJarInstalled()
                     exitProcess(0)
                 } catch(e: Exception) {
                     log.error("Grill update failed. Original files might still be in use.")
@@ -153,13 +149,10 @@ object SetupApp {
 
 	}
 
-    private fun handleUpdateGrill() {
-        Download.downloadSetup {
-            log.info("\uD83D\uDCC1 Copying files..")
-            Runtime.getRuntime().exec(arrayOf("java",  "-jar", it.toAbsolutePath().toString(), "self_update"))
-            exitProcess(0)
-        }
-    }
+	    private fun handleUpdateGrill() {
+	        InstallationManager.ensureGrillJarInstalled()
+	        log.info("Grill was refreshed from the running binary.")
+	    }
 
     private fun buildProject(configData: WurstProjectConfigData) {
         val args = commonArgs(configData)
@@ -235,9 +228,8 @@ object SetupApp {
         return p.waitFor()
     }
 
-    private fun commonArgs(configData: WurstProjectConfigData): ArrayList<String> {
-        val args = arrayListOf("java", "-jar",
-            InstallationManager.installDir.resolve("wurstscript.jar").toAbsolutePath().toString())
+	    private fun commonArgs(configData: WurstProjectConfigData): ArrayList<String> {
+	        val args = ArrayList(InstallationManager.compilerLaunchCommand().toList())
 
         val buildFolder = setup.projectRoot.resolve("_build")
         val jassdoc = buildFolder.resolve("dependencies").resolve("jassdoc")
@@ -247,20 +239,24 @@ object SetupApp {
                     args.add(f.absolutePath.toString())
                 }
             }
-        } else {
-            val common = if (Files.exists(buildFolder.resolve("common.j"))) {
-                buildFolder.resolve("common.j")
-            } else {
-                InstallationManager.installDir.resolve("common.j")
+	        } else {
+	            val common = if (Files.exists(buildFolder.resolve("common.j"))) {
+	                buildFolder.resolve("common.j")
+	            } else {
+	                InstallationManager.installDir.resolve("common.j")
             }
-            val blizzard = if (Files.exists(buildFolder.resolve("blizzard.j"))) {
-                buildFolder.resolve("blizzard.j")
-            } else {
-                InstallationManager.installDir.resolve("blizzard.j")
-            }
-            args.add(common.toAbsolutePath().toString())
-            args.add(blizzard.toAbsolutePath().toString())
-        }
+	            val blizzard = if (Files.exists(buildFolder.resolve("blizzard.j"))) {
+	                buildFolder.resolve("blizzard.j")
+	            } else {
+	                InstallationManager.installDir.resolve("blizzard.j")
+	            }
+	            if (Files.exists(common)) {
+	                args.add(common.toAbsolutePath().toString())
+	            }
+	            if (Files.exists(blizzard)) {
+	                args.add(blizzard.toAbsolutePath().toString())
+	            }
+	        }
 
         args.add(setup.projectRoot.resolve("wurst").toAbsolutePath().toString())
         args.add("-runcompiletimefunctions")
@@ -347,18 +343,13 @@ object SetupApp {
 		}
 	}
 
-    private fun updateGrillJar() {
-        val url = InstallationManager::class.java.protectionDomain.codeSource.location
-        val ownFile = Paths.get(url.toURI())
-        if (ownFile.endsWith(".2.jar")) {
-            log.debug("copy jar from own")
-            Files.copy(ownFile, ownFile.resolveSibling("WurstSetup.jar"), StandardCopyOption.REPLACE_EXISTING)
-        }
-        log.debug("path: $url")
-        log.debug("file: " + ownFile.toAbsolutePath())
-        if (Files.exists(ownFile) && (ownFile.parent == null || ownFile.parent?.fileName?.toString() != ".wurst")) {
-            log.debug("copy jar")
-            Files.copy(ownFile, Paths.get(InstallationManager.installDir.toString(), "WurstSetup.jar"), StandardCopyOption.REPLACE_EXISTING)
-        }
-    }
+	    private fun updateGrillJar() {
+	        val url = InstallationManager::class.java.protectionDomain.codeSource.location
+	        val ownFile = Paths.get(url.toURI())
+	        log.debug("path: $url")
+	        log.debug("file: " + ownFile.toAbsolutePath())
+	        if (Files.exists(ownFile) && ownFile.toString().endsWith(".jar")) {
+	            InstallationManager.ensureGrillJarInstalled()
+	        }
+	    }
 }

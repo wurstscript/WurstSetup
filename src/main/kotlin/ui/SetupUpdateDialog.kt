@@ -1,6 +1,5 @@
 package ui
 
-import file.Download
 import global.Log
 import tablelayout.Table
 import java.awt.Color
@@ -49,15 +48,11 @@ class SetupUpdateDialog(message: String) : JDialog() {
             dispose()
         }
 
-        buttonNow.addActionListener {
-            Log.print("Updating setup..")
-            MainWindow.ui.disableButtons()
-            Download.downloadSetup {
-                Runtime.getRuntime().exec(arrayOf("java",  "-jar", it.fileName.toAbsolutePath().toString()))
-                exitProcess(0)
-            }
-            dispose()
-        }
+	        buttonNow.addActionListener {
+	            Log.print("Standalone grill updates are currently unavailable.\n")
+	            openWebpage(URL("https://github.com/wurstscript/WurstSetup"))
+	            dispose()
+	        }
 
         buttonVisit.addActionListener {
             openWebpage(URL("https://wurstlang.org/"))

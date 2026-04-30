@@ -11,7 +11,7 @@ object CLIParser {
 	/** Gets the version of the wurstscript.jar via cli */
 	fun getVersionFomJar() {
 		log.debug("running wurst to extract the version")
-		val proc = Runtime.getRuntime().exec(arrayOf("java", "-jar", InstallationManager.compilerJar.toAbsolutePath().toString(), "--version"))
+		val proc = Runtime.getRuntime().exec(InstallationManager.compilerLaunchCommand("--version"))
 		proc.waitFor(100, TimeUnit.MILLISECONDS)
 		val input = proc.inputStream.bufferedReader().use { it.readText() }.trim()
 		val err = proc.errorStream.bufferedReader().use { it.readText() }
@@ -41,9 +41,12 @@ object CLIParser {
 				log.debug("Found jenkins build string $line")
 				InstallationManager.currentCompilerVersion = InstallationManager.getJenkinsBuildVer(line)
 				InstallationManager.status = InstallationManager.InstallationStatus.INSTALLED_OUTDATED
+			} else if (line.matches(Regex("""\d+\.\d+\.\d+\.\d+(?:-[\w.]+)*"""))) {
+				log.debug("Found compiler version string $line")
+				InstallationManager.status = InstallationManager.InstallationStatus.INSTALLED_UNKNOWN
 			}
 		}
-		if (InstallationManager.status != InstallationManager.InstallationStatus.INSTALLED_OUTDATED) {
+		if (InstallationManager.status == InstallationManager.InstallationStatus.NOT_INSTALLED) {
 			log.debug("Failed to extract jenkins version from $input")
 			throw Error("Installation failed!")
 		}

@@ -25,25 +25,25 @@ class CMDTests {
 
 
     @Test(priority = 1)
-    fun testUnInstallCmd() {
-        SetupMain.main(listOf(INSTALL, WURSTSCRIPT).toTypedArray())
-        ConnectionManager.checkConnectivity("http://google.com")
-        ConnectionManager.checkWurstBuild()
-        InstallationManager.verifyInstallation()
-        Assert.assertEquals(InstallationManager.status, InstallationManager.InstallationStatus.INSTALLED_UPTODATE)
+	    fun testUnInstallCmd() {
+	        SetupMain.main(listOf(INSTALL, WURSTSCRIPT).toTypedArray())
+	        ConnectionManager.checkConnectivity("http://google.com")
+	        ConnectionManager.checkWurstBuild()
+	        InstallationManager.verifyInstallation()
+	        Assert.assertNotEquals(InstallationManager.status, InstallationManager.InstallationStatus.NOT_INSTALLED)
 
         SetupMain.main(listOf(REMOVE, WURSTSCRIPT).toTypedArray())
         InstallationManager.verifyInstallation()
         Assert.assertEquals(InstallationManager.status, InstallationManager.InstallationStatus.NOT_INSTALLED)
 
-        SetupMain.main(listOf(INSTALL, WURSTSCRIPT).toTypedArray())
-        InstallationManager.verifyInstallation()
-        Assert.assertEquals(InstallationManager.status, InstallationManager.InstallationStatus.INSTALLED_UPTODATE)
-    }
+	        SetupMain.main(listOf(INSTALL, WURSTSCRIPT).toTypedArray())
+	        InstallationManager.verifyInstallation()
+	        Assert.assertNotEquals(InstallationManager.status, InstallationManager.InstallationStatus.NOT_INSTALLED)
+	    }
 
     @Test(priority = 2)
-    fun testCreateHelpCmd() {
-        Assert.assertEquals(InstallationManager.status, InstallationManager.InstallationStatus.INSTALLED_UPTODATE)
+	    fun testCreateHelpCmd() {
+	        Assert.assertNotEquals(InstallationManager.status, InstallationManager.InstallationStatus.NOT_INSTALLED)
         val setupMain = SetupMain()
         setupMain.doMain(listOf(HELP).toTypedArray())
 
@@ -51,8 +51,8 @@ class CMDTests {
     }
 
     @Test(priority = 2)
-    fun testCreateProjectCmd() {
-        Assert.assertEquals(InstallationManager.status, InstallationManager.InstallationStatus.INSTALLED_UPTODATE)
+	    fun testCreateProjectCmd() {
+	        Assert.assertNotEquals(InstallationManager.status, InstallationManager.InstallationStatus.NOT_INSTALLED)
         SetupMain.main(listOf(GENERATE, "myname").toTypedArray())
 
         Assert.assertTrue(Files.exists(SetupApp.DEFAULT_DIR.resolve("myname")))
