@@ -109,7 +109,7 @@ class CMDTests {
 
         val setupMain = SetupMain()
         setupMain.projectRoot = testproject
-        setupMain.doMain(arrayOf(TEST))
+        catchExit { setupMain.doMain(arrayOf(TEST)) }
     }
 
     @Test(priority = 3)
@@ -135,7 +135,7 @@ class CMDTests {
 
         val setupMain = SetupMain()
         setupMain.projectRoot = testproject
-        setupMain.doMain(arrayOf(BUILD, "ExampleMap.w3x"))
+        catchExit { setupMain.doMain(arrayOf(BUILD, "ExampleMap.w3x")) }
     }
 
 
