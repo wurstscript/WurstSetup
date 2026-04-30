@@ -52,21 +52,22 @@ object InstallationManager {
         currentCompilerVersion = -1
         latestCompilerVersion = 0
         val detectedCompilerJar = detectCompilerJar()
-        if (Files.exists(installDir) && detectedCompilerJar != null && hasRecognizedInstallationLayout()) {
-				log.debug("Found installation")
+        log.info("verifyInstallation: detectedCompilerJar=$detectedCompilerJar exists=${detectedCompilerJar?.let { Files.exists(it) }}")
+        if (detectedCompilerJar != null) {
+            log.info("Found installation at $detectedCompilerJar")
             status = InstallationStatus.INSTALLED_UNKNOWN
             try {
                 if (!Files.isWritable(detectedCompilerJar)) {
                     CLIParser.showWurstInUse()
                 } else {
-						CLIParser.getVersionFomJar()
+                    CLIParser.getVersionFomJar()
                 }
             } catch (_: Error) {
                 log.warn("Custom WurstScript installation detected.")
             }
         } else {
-			log.info("WurstScript is not currently installed.")
-		}
+            log.info("WurstScript is not currently installed (no compiler jar found at $compilerJar or $legacyCompilerJar).")
+        }
         if (ConnectionManager.netStatus == NetStatus.ONLINE) {
 				log.debug("Client online, check for update")
             latestCompilerVersion = ConnectionManager.getLatestCompilerBuild()
@@ -108,8 +109,11 @@ object InstallationManager {
 				ZipArchiveExtractor.extractArchive(it, installDir)
 				Files.delete(it)
 	                ensureGrillJarInstalled()
-	                setLaunchersExecutable()
-                log.info("✔ Installed WurstScript")
+                setLaunchersExecutable()
+                log.info("✔ Installed WurstScript to $installDir")
+                log.debug("compilerJar exists: ${Files.exists(compilerJar)}")
+                log.debug("grillJar exists: ${Files.exists(grillJar)}")
+                log.debug("runtimeDir exists: ${Files.exists(runtimeDir)}")
 			}
 
 		}
@@ -201,7 +205,8 @@ object InstallationManager {
             }
         }
         val compiler = detectCompilerJar() ?: compilerJar
-        return arrayOf("java", "-jar", compiler.toAbsolutePath().toString(), *extraArgs)
+        val java = if (Files.exists(bundledJava)) bundledJava.toAbsolutePath().toString() else "java"
+        return arrayOf(java, "-jar", compiler.toAbsolutePath().toString(), *extraArgs)
     }
 
     private fun hasRecognizedInstallationLayout(): Boolean {

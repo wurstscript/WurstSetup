@@ -12,9 +12,9 @@ object CLIParser {
 	fun getVersionFomJar() {
 		log.debug("running wurst to extract the version")
 		val proc = Runtime.getRuntime().exec(InstallationManager.compilerLaunchCommand("--version"))
-		proc.waitFor(100, TimeUnit.MILLISECONDS)
 		val input = proc.inputStream.bufferedReader().use { it.readText() }.trim()
 		val err = proc.errorStream.bufferedReader().use { it.readText() }
+		proc.waitFor()
 
 		if (err.isNotEmpty()) {
 			log.error(err)
