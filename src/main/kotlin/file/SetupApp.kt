@@ -28,14 +28,14 @@ object SetupApp {
         this.setup = setup
         updateGrillJar()
         if (setup.isGUILaunch) {
-            log.info("\uD83D\uDDBC No arguments found. Launching Wurst Setup GUI..")
+            log.info("🖼 No arguments found. Launching Wurst Setup GUI..")
             if (GraphicsEnvironment.isHeadless()) {
-                log.error("\uD83D\uDD25 Error: Can't run GUI in headless environment!")
+                log.error("🔥 Error: Can't run GUI in headless environment!")
                 ExitHandler.exit(1)
             }
             UiManager.initUI()
         } else {
-            log.info("\uD83D\uDD25 Grill warming up..")
+            log.info("🔥 Grill warming up..")
             handleCMD()
         }
     }
@@ -51,7 +51,7 @@ object SetupApp {
 	                log.debug("current setup ver: $jenkinsBuildVer latest Setup: $latestSetupBuild")
 	            }
 	        }
-        log.info("\uD83D\uDD25 Ready. Version: <{}>", CompileTimeInfo.version)
+        log.info("🔥 Ready. Version: <{}>", CompileTimeInfo.version)
 		handleRunArgs()
     }
 
@@ -123,19 +123,28 @@ object SetupApp {
                 checkProjectOutdated(configData)
             }
             setup.command == CLICommand.BUILD -> {
-                log.info("\uD83D\uDD28 Building project..")
-                if (setup.commandArg.isBlank()) {
-                    log.error("\t❌ No input map specified.")
-                } else if (!Files.exists(setup.projectRoot.resolve(setup.commandArg))) {
-                    log.error("\t❌ Input map cannot be found at project root.")
-                } else {
-                    if (InstallationManager.status != InstallationManager.InstallationStatus.NOT_INSTALLED && configData != null) {
+                log.info("🔨 Building project..")
+                val mapArg = if (setup.commandArg.isBlank()) {
+                    val maps = Files.list(setup.projectRoot).use { stream ->
+                        stream.filter { p -> p.fileName.toString().let { it.endsWith(".w3x") || it.endsWith(".w3m") } }.toList()
+                    }
+                    when (maps.size) {
+                        0 -> { log.error("\t❌ No input map specified and no .w3x/.w3m found in project root."); null }
+                        1 -> { log.info("\t📦 Auto-detected map: ${maps[0].fileName}"); maps[0].fileName.toString() }
+                        else -> { log.error("\t❌ Multiple maps found (${maps.joinToString { it.fileName.toString() }}), please specify one."); null }
+                    }
+                } else setup.commandArg
+                if (mapArg != null) {
+                    if (!Files.exists(setup.projectRoot.resolve(mapArg))) {
+                        log.error("\t❌ Input map cannot be found at project root.")
+                    } else if (InstallationManager.status != InstallationManager.InstallationStatus.NOT_INSTALLED && configData != null) {
+                        setup.commandArg = mapArg
                         buildProject(configData)
                     }
                 }
             }
             setup.command == CLICommand.SELF_UPDATE -> {
-                log.info("\uD83D\uDD04 Updating..")
+                log.info("🔄 Updating..")
                 try {
                     log.info("✔ Updated succeeded.")
 	                    InstallationManager.ensureGrillJarInstalled()
@@ -170,7 +179,7 @@ object SetupApp {
 
         val result = startWurstProcess(args)
         when (result) {
-            0 -> log.info("\uD83D\uDDFA️ Map has been built!")
+            0 -> log.info("🗺️ Map has been built!")
             else -> {
                 log.info("❌ There was an issue with the wurst build process.")
                 ExitHandler.exit(1)
@@ -271,7 +280,7 @@ object SetupApp {
         return args
     }
 
-    private fun handleRemoveDep(configData: WurstProjectConfigData) {
+	private fun handleRemoveDep(configData: WurstProjectConfigData) {
 		log.error("removing ${setup.commandArg}")
 		if (configData.dependencies.contains(setup.commandArg)) {
 			configData.dependencies.remove(setup.commandArg)
@@ -298,7 +307,7 @@ object SetupApp {
             log.info("<${setup.commandArg}> does not appear to be a valid git repo link (e.g. https://github.com/user/repo)")
             ExitHandler.exit(1)
         }
-		log.info("\uD83D\uDD39 Installing ${resolvedName.second}")
+		log.info("🔹 Installing ${resolvedName.second}")
 		if (configData.dependencies.contains(setup.commandArg)) {
 			log.info("Dependency is already installed.")
 			return
@@ -320,7 +329,7 @@ object SetupApp {
 	}
 
 	private fun handleInstallWurst() {
-		log.info("\uD83C\uDF2D Installing WurstScript..")
+		log.info("🌭 Installing WurstScript..")
 		if (InstallationManager.status != InstallationManager.InstallationStatus.INSTALLED_UPTODATE) {
 			log.info("\tUpdate available!")
 			if (setup.requireConfirmation) {
