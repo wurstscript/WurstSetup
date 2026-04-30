@@ -123,6 +123,7 @@ object InstallationManager {
         try {
             installDir.resolve("grill").toFile().setExecutable(true)
             installDir.resolve("wurstscript").toFile().setExecutable(true)
+            bundledJava.toFile().setExecutable(true)
         } catch (_: Exception) {
         }
     }
@@ -197,15 +198,8 @@ object InstallationManager {
 		}
 
     fun compilerLaunchCommand(vararg extraArgs: String): Array<String> {
-        if (Files.exists(wurstscriptLauncher) && Files.exists(bundledJava)) {
-            return if (isWindows()) {
-                arrayOf("cmd", "/c", wurstscriptLauncher.toAbsolutePath().toString(), *extraArgs)
-            } else {
-                arrayOf(wurstscriptLauncher.toAbsolutePath().toString(), *extraArgs)
-            }
-        }
         val compiler = detectCompilerJar() ?: compilerJar
-        val java = if (Files.exists(bundledJava)) bundledJava.toAbsolutePath().toString() else "java"
+        val java = if (Files.isExecutable(bundledJava)) bundledJava.toAbsolutePath().toString() else "java"
         return arrayOf(java, "-jar", compiler.toAbsolutePath().toString(), *extraArgs)
     }
 
