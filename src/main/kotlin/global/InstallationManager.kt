@@ -158,8 +158,16 @@ object InstallationManager {
 
     fun compilerLaunchCommand(vararg extraArgs: String): Array<String> {
         val compiler = detectCompilerJar() ?: compilerJar
-        val java = if (Files.exists(bundledJava)) bundledJava.toAbsolutePath().toString() else "java"
+        val java = bundledJavaCommand()
         return arrayOf(java, "-jar", compiler.toAbsolutePath().toString(), *extraArgs)
+    }
+
+    private fun bundledJavaCommand(): String {
+        return if (Files.exists(bundledJava) && Files.isExecutable(bundledJava)) {
+            bundledJava.toAbsolutePath().toString()
+        } else {
+            "java"
+        }
     }
 
     private fun detectCompilerJar(): Path? {

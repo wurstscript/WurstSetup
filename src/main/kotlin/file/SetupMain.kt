@@ -75,7 +75,12 @@ class SetupMain {
 		while (i < argsList.size) {
 			val opt = GlobalOptions.values().firstOrNull { it.optionName == argsList[i] }
 			if (opt != null) {
-				val argEnd = minOf(i + 1 + opt.argCount, argsList.size)
+				val argEnd = i + 1 + opt.argCount
+				if (argEnd > argsList.size) {
+					log.error("🔥 Option ${opt.optionName} requires ${opt.argCount} argument(s).")
+					ExitHandler.exit(1)
+					return
+				}
 				opt.runOption(this, argsList.subList(i + 1, argEnd))
 				i += 1 + opt.argCount
 			} else {

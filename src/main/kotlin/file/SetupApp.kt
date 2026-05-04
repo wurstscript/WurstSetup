@@ -209,16 +209,20 @@ object SetupApp {
             val input = console.readLine()?.trim() ?: ""
             return input.ifEmpty { default }
         }
-        val scriptModeInput = prompt("Script mode (lua/jass)", "lua")
+        val scriptModeDefault = setup.scriptMode.name.lowercase()
+        val scriptModeInput = prompt("Script mode (lua/jass)", scriptModeDefault)
         setup.scriptMode = if (scriptModeInput.lowercase() == "jass") ScriptMode.JASS else ScriptMode.LUA
 
-        val patchInput = prompt("WC3 patch target (reforged/pre1.29)", "reforged")
+        val patchDefault = if (setup.wc3Patch == Wc3Patch.PRE_129) "pre1.29" else "reforged"
+        val patchInput = prompt("WC3 patch target (reforged/pre1.29)", patchDefault)
         setup.wc3Patch = if (patchInput.lowercase() == "pre1.29") Wc3Patch.PRE_129 else Wc3Patch.REFORGED
 
-        val agentsInput = prompt("Add AGENTS.md? (y/N)", "N")
+        val agentsDefault = if (setup.addAgents) "Y" else "N"
+        val agentsInput = prompt("Add AGENTS.md?", agentsDefault)
         setup.addAgents = agentsInput.lowercase() == "y"
 
-        val ciInput = prompt("Add GitHub Actions CI? (y/N)", "N")
+        val ciDefault = if (setup.addGithubWorkflow) "Y" else "N"
+        val ciInput = prompt("Add GitHub Actions CI?", ciDefault)
         setup.addGithubWorkflow = ciInput.lowercase() == "y"
     }
 

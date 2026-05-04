@@ -74,6 +74,22 @@ class GenerateTests {
     }
 
     @Test(priority = 10)
+    fun testMissingScriptModeValueExitsCleanly() {
+        val code = catchExit2 {
+            SetupMain().parseArgs(listOf("generate", "myproject", "--script-mode"))
+        }
+        Assert.assertEquals(code, 1, "Missing option values should be reported as CLI errors")
+    }
+
+    @Test(priority = 10)
+    fun testMissingProjectDirValueExitsCleanly() {
+        val code = catchExit2 {
+            SetupMain().parseArgs(listOf("install", "-projectDir"))
+        }
+        Assert.assertEquals(code, 1, "Missing option values should be reported as CLI errors")
+    }
+
+    @Test(priority = 10)
     fun testWithAndNoAgentsFlagOrder() {
         val setup = SetupMain()
         setup.parseArgs(listOf("generate", "myproject", "--with-agents"))
