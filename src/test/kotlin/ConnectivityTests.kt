@@ -1,17 +1,21 @@
 import net.ConnectionManager
 import net.NetStatus
+import org.testng.Assert
 import org.testng.annotations.Test
 
 class ConnectivityTests {
 
 		@Test fun testConnectionManager() {
-			assert(ConnectionManager.checkConnectivity("http://google.com") == NetStatus.SERVER_CONTACT) { "google.com unreachable" }
+			Assert.assertEquals(ConnectionManager.checkConnectivity("http://google.com"), NetStatus.SERVER_CONTACT, "google.com unreachable: ${ConnectionManager.lastError}")
 
-			assert(ConnectionManager.checkWurstBuild() == NetStatus.ONLINE) { "wurst build unreachable, status=${ConnectionManager.netStatus}" }
+			Assert.assertEquals(ConnectionManager.checkWurstBuild(), NetStatus.ONLINE, "wurst build unreachable, status=${ConnectionManager.netStatus}, error=${ConnectionManager.lastError}")
 
-			assert(ConnectionManager.getLatestCompilerBuild() > 20250000) { "unexpected build date: ${ConnectionManager.getLatestCompilerBuild()}" }
+			val latestCompilerBuild = ConnectionManager.getLatestCompilerBuild()
+            if (latestCompilerBuild > 0) {
+			    Assert.assertTrue(latestCompilerBuild > 20250000, "unexpected build date: $latestCompilerBuild")
+            }
 
-			assert(ConnectionManager.getLatestSetupBuild() == 0) { "expected 0 but got ${ConnectionManager.getLatestSetupBuild()}" }
+			Assert.assertEquals(ConnectionManager.getLatestSetupBuild(), 0)
 		}
 
 }

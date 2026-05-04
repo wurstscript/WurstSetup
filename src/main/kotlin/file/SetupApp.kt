@@ -1,6 +1,8 @@
 package file
 
 import config.CONFIG_FILE_NAME
+import config.ScriptMode
+import config.Wc3Patch
 import config.WurstProjectConfig
 import config.WurstProjectConfigData
 import global.InstallationManager
@@ -9,14 +11,15 @@ import logging.KotlinLogging
 import net.ConnectionManager
 import net.NetStatus
 import org.eclipse.jgit.api.Git
-import ui.UiManager
-import ui.UpdateFoundDialog
 import java.awt.GraphicsEnvironment
 import java.lang.ProcessBuilder.Redirect
+import java.net.URL
 import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.Paths
 import java.util.*
+import java.util.jar.JarFile
+import javax.swing.JOptionPane
 
 
 object SetupApp {
@@ -28,12 +31,25 @@ object SetupApp {
         this.setup = setup
         updateGrillJar()
         if (setup.isGUILaunch) {
-            log.info("🖼 No arguments found. Launching Wurst Setup GUI..")
+            val helpText = """
+                Grill is now CLI-first. Use the command line to interact with Grill.
+
+                Example commands:
+                  grill generate MyProject              Generate a new Wurst project
+                  grill generate MyProject --with-ci    Include GitHub Actions workflow
+                  grill generate MyProject --script-mode jass --wc3-patch pre1.29
+                  grill install                         Install/update project dependencies
+                  grill install wurstscript             Install the WurstScript compiler
+                  grill build ExampleMap.w3x            Build your project map
+                  grill test                            Run project unit tests
+                  grill help                            Show all available commands
+            """.trimIndent()
             if (GraphicsEnvironment.isHeadless()) {
-                log.error("🔥 Error: Can't run GUI in headless environment!")
-                ExitHandler.exit(1)
+                log.info(helpText)
+            } else {
+                JOptionPane.showMessageDialog(null, helpText, "Grill — CLI First", JOptionPane.INFORMATION_MESSAGE)
             }
-            UiManager.initUI()
+            ExitHandler.exit(0)
         } else {
             log.info("🔥 Grill warming up..")
             handleCMD()
@@ -72,6 +88,10 @@ object SetupApp {
                     |  install [dep|wurstscript|grill]  Install/update dependencies, WurstScript compiler, or grill itself
                     |  remove  [dep|wurstscript]        Remove a dependency or uninstall WurstScript
                     |  generate <name>                  Generate a new Wurst project in a subfolder
+                    |    --script-mode lua|jass         Script mode (default: lua)
+                    |    --wc3-patch reforged|pre1.29   WC3 patch target (default: reforged)
+                    |    --with-agents / --no-agents    Include AGENTS.md (default: no)
+                    |    --with-ci / --no-ci            Include GitHub Actions workflow (default: no)
                     |  test [filter]                    Run unit tests, optionally filtered by package/function name
                     |  typecheck                        Typecheck the project without building a map
                     |  outdated                         Check whether project dependencies are up to date
@@ -108,8 +128,23 @@ object SetupApp {
 			setup.command == CLICommand.GENERATE -> {
                 log.info("✈ Generating project..")
 				if (configData == null) {
-					WurstProjectConfig.handleCreate(DEFAULT_DIR.resolve(setup.commandArg), null,
-                        WurstProjectConfigData(setup.commandArg, ArrayList(mutableListOf("https://github.com/wurstscript/wurstStdlib2"))))
+                    runWizard(setup)
+                    val projectDir = DEFAULT_DIR.resolve(setup.commandArg)
+                    val stdlibUrl = if (setup.wc3Patch == Wc3Patch.PRE_129)
+                        "https://github.com/wurstscript/wurstStdlib2:pre1.29"
+                    else
+                        "https://github.com/wurstscript/wurstStdlib2"
+                    val projectConfig = WurstProjectConfigData(
+                        projectName = setup.commandArg,
+                        dependencies = ArrayList(mutableListOf(stdlibUrl)),
+                        scriptMode = setup.scriptMode,
+                        wc3Patch = setup.wc3Patch
+                    )
+                    WurstProjectConfig.handleCreate(projectDir, null, projectConfig)
+                    if (Files.exists(projectDir)) {
+                        if (setup.addAgents) downloadAgentsMd(projectDir)
+                        if (setup.addGithubWorkflow) writeCiWorkflow(projectDir)
+                    }
 				}
 			}
             setup.command == CLICommand.TEST -> {
@@ -166,6 +201,44 @@ object SetupApp {
 
 	}
 
+    private fun runWizard(setup: SetupMain) {
+        val console = System.console() ?: return  // non-interactive: use flags/defaults as-is
+        fun prompt(message: String, default: String): String {
+            console.writer().print("$message [$default]: ")
+            console.writer().flush()
+            val input = console.readLine()?.trim() ?: ""
+            return input.ifEmpty { default }
+        }
+        val scriptModeInput = prompt("Script mode (lua/jass)", "lua")
+        setup.scriptMode = if (scriptModeInput.lowercase() == "jass") ScriptMode.JASS else ScriptMode.LUA
+
+        val patchInput = prompt("WC3 patch target (reforged/pre1.29)", "reforged")
+        setup.wc3Patch = if (patchInput.lowercase() == "pre1.29") Wc3Patch.PRE_129 else Wc3Patch.REFORGED
+
+        val agentsInput = prompt("Add AGENTS.md? (y/N)", "N")
+        setup.addAgents = agentsInput.lowercase() == "y"
+
+        val ciInput = prompt("Add GitHub Actions CI? (y/N)", "N")
+        setup.addGithubWorkflow = ciInput.lowercase() == "y"
+    }
+
+    private fun downloadAgentsMd(projectDir: Path) {
+        try {
+            val content = URL("https://raw.githubusercontent.com/wurstscript/WurstSetup/master/templates/AGENTS.md").readText()
+            Files.write(projectDir.resolve("AGENTS.md"), content.toByteArray())
+            log.info("✔ AGENTS.md written.")
+        } catch (e: Exception) {
+            log.warn("⚠️ Could not download AGENTS.md: ${e.message}. Continuing without it.")
+        }
+    }
+
+    fun writeCiWorkflow(projectDir: Path) {
+        val workflowDir = projectDir.resolve(".github/workflows")
+        Files.createDirectories(workflowDir)
+        Files.write(workflowDir.resolve("grill.yml"), CI_WORKFLOW.toByteArray())
+        log.info("✔ GitHub Actions workflow written.")
+    }
+
 	    private fun handleUpdateGrill() {
 	        InstallationManager.ensureGrillJarInstalled()
 	        log.info("Grill was refreshed from the running binary.")
@@ -188,7 +261,7 @@ object SetupApp {
 
         val result = startWurstProcess(args)
         when (result) {
-            0 -> log.info("🗺️ Map has been built!")
+            0 -> { log.info("🗺️ Map has been built!"); ExitHandler.exit(0) }
             else -> {
                 log.info("❌ There was an issue with the wurst build process.")
                 ExitHandler.exit(1)
@@ -207,7 +280,7 @@ object SetupApp {
 
         val result = startWurstProcess(args)
         when (result) {
-            0 -> log.info("✔ All tests succeeded.")
+            0 -> { log.info("✔ All tests succeeded."); ExitHandler.exit(0) }
             else -> {
                 log.info("❌ Tests did not execute successfully.")
                 ExitHandler.exit(1)
@@ -224,7 +297,7 @@ object SetupApp {
 
         val result = startWurstProcess(args)
         when (result) {
-            0 -> log.info("✔ Typecheck succeeded.")
+            0 -> { log.info("✔ Typecheck succeeded."); ExitHandler.exit(0) }
             else -> {
                 log.info("❌ Typecheck failed.")
                 ExitHandler.exit(1)
@@ -252,6 +325,10 @@ object SetupApp {
 	    private fun commonArgs(configData: WurstProjectConfigData): ArrayList<String> {
 	        val args = ArrayList(InstallationManager.compilerLaunchCommand().toList())
 
+        if (configData.scriptMode == ScriptMode.LUA) {
+            args.add("-lua")
+        }
+
         val buildFolder = setup.projectRoot.resolve("_build")
         val jassdoc = buildFolder.resolve("dependencies").resolve("jassdoc")
         if (Files.exists(jassdoc)) {
@@ -261,16 +338,8 @@ object SetupApp {
                 }
             }
 	        } else {
-	            val common = if (Files.exists(buildFolder.resolve("common.j"))) {
-	                buildFolder.resolve("common.j")
-	            } else {
-	                InstallationManager.installDir.resolve("common.j")
-            }
-	            val blizzard = if (Files.exists(buildFolder.resolve("blizzard.j"))) {
-	                buildFolder.resolve("blizzard.j")
-	            } else {
-	                InstallationManager.installDir.resolve("blizzard.j")
-	            }
+	            val common = resolveCoreJassFile(buildFolder, "common.j")
+	            val blizzard = resolveCoreJassFile(buildFolder, "blizzard.j")
 	            if (Files.exists(common)) {
 	                args.add(common.toAbsolutePath().toString())
 	            }
@@ -291,6 +360,35 @@ object SetupApp {
             args.add(buildFolder.resolve("dependencies").resolve(dependencyName).toAbsolutePath().toString())
         }
         return args
+    }
+
+    private fun resolveCoreJassFile(buildFolder: Path, fileName: String): Path {
+        val projectCopy = buildFolder.resolve(fileName)
+        if (Files.exists(projectCopy)) {
+            return projectCopy
+        }
+
+        return extractCoreJassFile(buildFolder, fileName)
+    }
+
+    private fun extractCoreJassFile(buildFolder: Path, fileName: String): Path {
+        val target = buildFolder.resolve("grill").resolve(fileName)
+        if (Files.exists(target)) {
+            return target
+        }
+
+        try {
+            Files.createDirectories(target.parent)
+            JarFile(InstallationManager.getCompilerPath()).use { jar ->
+                val entry = jar.getEntry(fileName) ?: return target
+                jar.getInputStream(entry).use { input ->
+                    Files.copy(input, target)
+                }
+            }
+        } catch (e: Exception) {
+            log.warn("Could not extract $fileName from compiler jar: ${e.message}")
+        }
+        return target
     }
 
 	private fun handleRemoveDep(configData: WurstProjectConfigData) {
@@ -346,16 +444,12 @@ object SetupApp {
 		if (InstallationManager.status != InstallationManager.InstallationStatus.INSTALLED_UPTODATE) {
 			log.info("\tUpdate available!")
 			if (setup.requireConfirmation) {
-				if (setup.isGUILaunch) {
-					UpdateFoundDialog("A Wurst compiler update has been found!")
-				} else {
-					log.info("Do you want to update your wurst installation? (y/n)")
-					val sc = Scanner(System.`in`)
-					val line = sc.nextLine()
-					if (line == "y") {
-						InstallationManager.handleUpdate()
-					}
-				}
+                log.info("Do you want to update your wurst installation? (y/n)")
+                val sc = Scanner(System.`in`)
+                val line = sc.nextLine()
+                if (line == "y") {
+                    InstallationManager.handleUpdate()
+                }
 			} else {
 				InstallationManager.handleUpdate()
 			}
@@ -373,4 +467,31 @@ object SetupApp {
 	            InstallationManager.ensureGrillJarInstalled()
 	        }
 	    }
+
+    private val CI_WORKFLOW = """
+        name: Grill CI
+
+        on:
+          push:
+            branches:
+              - master
+              - main
+          pull_request:
+
+        jobs:
+          grill:
+            runs-on: ubuntu-latest
+            container:
+              image: frotty/wurstscript
+
+            steps:
+              - name: Check out repository
+                uses: actions/checkout@v4
+
+              - name: Install project dependencies
+                run: grill install
+
+              - name: Build map
+                run: grill build ExampleMap.w3x
+    """.trimIndent()
 }

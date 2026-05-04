@@ -1,21 +1,15 @@
 package global
 
 import file.Download
-import file.SetupApp
 import file.ZipArchiveExtractor
 import file.clearFolder
 import logging.KotlinLogging
 import net.ConnectionManager
 import net.NetStatus
-import ui.ErrorDialog
-import ui.MainWindow
-import ui.UiManager
-import workers.ExtractWorker
 import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.Paths
 import java.util.regex.Pattern
-import javax.swing.SwingUtilities
 
 
 /**
@@ -86,8 +80,6 @@ object InstallationManager {
         val isFreshInstall = status == InstallationStatus.NOT_INSTALLED
         try {
             log.debug(if (isFreshInstall) "isInstall" else "isUpdate")
-            Log.print(if (isFreshInstall) "Installing WurstScript..\n" else "Updating WursScript..\n")
-            Log.print("Downloading compiler..")
             log.info("⏬ Downloading WurstScript..")
 
 			downloadCompiler(isFreshInstall)
@@ -95,27 +87,21 @@ object InstallationManager {
             log.error("Exception: ", e)
             Log.print("\n===ERROR COMPILER UPDATE===\n" + e.message + "\nPlease report here: github.com/wurstscript/WurstScript/issues\n")
         }
-
     }
 
 	private fun downloadCompiler(isFreshInstall: Boolean) {
 		Download.downloadCompiler {
-			Log.print(" done.\n")
-
-			if (SetupApp.setup.isGUILaunch) {
-				startExtractWorker(it, isFreshInstall)
-			} else {
-                log.info("\t\uD83D\uDCE6 Extracting..")
-				ZipArchiveExtractor.extractArchive(it, installDir)
-				Files.delete(it)
-	                ensureGrillJarInstalled()
+            log.info("\t📦 Extracting..")
+			ZipArchiveExtractor.extractArchive(it, installDir)
+			Files.delete(it)
+            if (detectCompilerJar() == null) {
+                log.error("❌ Compiler not found after extraction.")
+            } else {
+                if (isFreshInstall) { wurstConfig = WurstConfigData() }
+                ensureGrillJarInstalled()
                 setLaunchersExecutable()
                 log.info("✔ Installed WurstScript to $installDir")
-                log.debug("compilerJar exists: ${Files.exists(compilerJar)}")
-                log.debug("grillJar exists: ${Files.exists(grillJar)}")
-                log.debug("runtimeDir exists: ${Files.exists(runtimeDir)}")
-			}
-
+            }
 		}
 	}
 
@@ -140,38 +126,6 @@ object InstallationManager {
         }
     }
 
-    private fun startExtractWorker(it: Path, isFreshInstall: Boolean) {
-		ExtractWorker(it, if (SetupApp.setup.isGUILaunch) MainWindow.ui.progressBar else null) {
-			if (it) {
-				checkExtraction(isFreshInstall)
-			} else {
-				Log.print("error\n")
-				log.error("error")
-				ErrorDialog("Could not extract patch files.\nWurst might still be in use.\nMake sure to close VSCode before updating.", false)
-			}
-			UiManager.refreshComponents()
-		}.execute()
-	}
-
-	private fun checkExtraction(isFreshInstall: Boolean) {
-		Log.print("done\n")
-		if (status == InstallationStatus.NOT_INSTALLED) {
-			wurstConfig = WurstConfigData()
-		}
-			if (detectCompilerJar() == null) {
-				Log.print("ERROR")
-			} else {
-                ensureGrillJarInstalled()
-                setLaunchersExecutable()
-				Log.print(if (isFreshInstall) "Installation complete\n" else "Update complete\n")
-	            log.debug("Installed WurstScript")
-			if (SetupApp.setup.isGUILaunch) {
-				SwingUtilities.invokeLater { MainWindow.ui.progressBar.value = 0 }
-			}
-			verifyInstallation()
-		}
-	}
-
 	private val jenkinsVerPattern = Pattern.compile("""(?:\d\.){3}\d(?:-\w+)+-(\d+)""")
 
     fun isJenkinsBuilt(version: String): Boolean {
@@ -187,6 +141,11 @@ object InstallationManager {
     }
 
     fun handleRemove() {
+        val jarInUse = detectCompilerJar()?.let { !Files.isWritable(it) } ?: false
+        if (jarInUse) {
+            log.error("❌ Cannot remove WurstScript: compiler jar is in use. Close VSCode and any running Wurst instances first.")
+            return
+        }
         clearFolder(installDir)
         verifyInstallation()
         log.info("WurstScript has been removed.")
@@ -199,20 +158,8 @@ object InstallationManager {
 
     fun compilerLaunchCommand(vararg extraArgs: String): Array<String> {
         val compiler = detectCompilerJar() ?: compilerJar
-        val java = if (Files.isExecutable(bundledJava)) bundledJava.toAbsolutePath().toString() else "java"
+        val java = if (Files.exists(bundledJava)) bundledJava.toAbsolutePath().toString() else "java"
         return arrayOf(java, "-jar", compiler.toAbsolutePath().toString(), *extraArgs)
-    }
-
-    private fun hasRecognizedInstallationLayout(): Boolean {
-        if (Files.exists(compilerJar) &&
-            Files.exists(grillJar) &&
-            Files.exists(runtimeDir) &&
-            Files.exists(wurstscriptLauncher) &&
-            Files.exists(grillLauncher)
-        ) {
-            return true
-        }
-        return Files.exists(legacyCompilerJar)
     }
 
     private fun detectCompilerJar(): Path? {

@@ -1,9 +1,6 @@
 package global
 
-import file.SetupApp
 import logging.KotlinLogging
-import ui.ErrorDialog
-import java.util.concurrent.TimeUnit
 
 object CLIParser {
 	private val log = KotlinLogging.logger {}
@@ -22,6 +19,11 @@ object CLIParser {
 		when {
 			// If the err output contains this exception, the .jar is currently running
 			err.contains("AccessDeniedException", true) -> showWurstInUse()
+			// JVM startup errors (e.g. slim JRE missing lib/jvm.cfg) — treat as outdated so an update is offered
+			err.contains("Error:") && input.isBlank() -> {
+				log.warn("JVM startup error from bundled runtime: ${err.trim()}")
+				InstallationManager.status = InstallationManager.InstallationStatus.INSTALLED_OUTDATED
+			}
 			// Other exceptions or failures require update to fix
 			err.contains("Exception") || err.contains("Failed") -> {
 				log.error("Classifying installation as outdated due to $err")
@@ -53,11 +55,6 @@ object CLIParser {
 	}
 
 	fun showWurstInUse() {
-		if (SetupApp.setup.isGUILaunch) {
-			ErrorDialog("The Wurst compiler is currently in use.\n" +
-				"Please close all running instances and vscode, then retry.", true)
-		}
-		log.error("The Wurst compiler is currently in use.\n" +
-			"Please close all running instances and vscode, then retry.")
+		log.error("The Wurst compiler is currently in use. Please close all running instances and vscode, then retry.")
 	}
 }
