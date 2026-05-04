@@ -5,7 +5,7 @@ import config.WurstProjectConfig
 import config.WurstProjectConfigData
 import global.InstallationManager
 import global.Log
-import mu.KotlinLogging
+import logging.KotlinLogging
 import net.ConnectionManager
 import net.NetStatus
 import org.eclipse.jgit.api.Git
@@ -67,7 +67,16 @@ object SetupApp {
 
 		when {
             setup.command == CLICommand.HELP -> {
-                log.info("Use one of the following commands: ${CLICommand.values().joinToString(", ")}")
+                log.info("""
+                    |Available commands:
+                    |  install [dep|wurstscript|grill]  Install/update dependencies, WurstScript compiler, or grill itself
+                    |  remove  [dep|wurstscript]        Remove a dependency or uninstall WurstScript
+                    |  generate <name>                  Generate a new Wurst project in a subfolder
+                    |  test [filter]                    Run unit tests, optionally filtered by package/function name
+                    |  typecheck                        Typecheck the project without building a map
+                    |  outdated                         Check whether project dependencies are up to date
+                    |  build <mapfile>                  Build the project using the given input map
+                """.trimMargin())
             }
 			setup.command == CLICommand.INSTALL -> {
                 if (setup.commandArg.isBlank()) {
@@ -110,7 +119,7 @@ object SetupApp {
                 }
             }
             setup.command == CLICommand.TYPECHECK -> {
-                log.info("Typechecking project..")
+                log.info("🔍 Typechecking project..")
                 if (InstallationManager.status != InstallationManager.InstallationStatus.NOT_INSTALLED && configData != null) {
                     typecheckProject(configData)
                 }
@@ -191,6 +200,10 @@ object SetupApp {
         val args = commonArgs(configData)
 
         args.add("-runtests")
+        if (setup.commandArg.isNotBlank()) {
+            args.add("-testFilter")
+            args.add(setup.commandArg.removeSuffix(".wurst"))
+        }
 
         val result = startWurstProcess(args)
         when (result) {
@@ -211,9 +224,9 @@ object SetupApp {
 
         val result = startWurstProcess(args)
         when (result) {
-            0 -> log.info("Typecheck succeeded.")
+            0 -> log.info("✔ Typecheck succeeded.")
             else -> {
-                log.info("Typecheck failed.")
+                log.info("❌ Typecheck failed.")
                 ExitHandler.exit(1)
             }
         }
@@ -299,12 +312,12 @@ object SetupApp {
 		WurstProjectConfig.handleUpdate(setup.projectRoot, null, configData)
 	}
 
-    val REPO_REGEX = Regex("((git@|http(s)?://)([\\w.@]+)([/:]))([\\w,\\-,_]+)/([\\w,\\-,_]+)(.git)?((/)?)")
+    val REPO_REGEX = Regex("(https?://)([\\w.@-]+)(/)([\\w,-_]+)/([\\w,-_]+)(.git)?((/)?)")
 
 	private fun handleInstallDep(configData: WurstProjectConfigData) {
         val resolvedName = DependencyManager.resolveName(setup.commandArg)
         if (!REPO_REGEX.matches(resolvedName.first)) {
-            log.info("<${setup.commandArg}> does not appear to be a valid git repo link (e.g. https://github.com/user/repo)")
+            log.info("<${setup.commandArg}> does not appear to be a supported git repo link (e.g. https://github.com/user/repo). SSH repo URLs are not bundled in the slim CLI.")
             ExitHandler.exit(1)
         }
 		log.info("🔹 Installing ${resolvedName.second}")

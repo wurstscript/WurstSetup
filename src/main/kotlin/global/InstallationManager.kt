@@ -4,7 +4,7 @@ import file.Download
 import file.SetupApp
 import file.ZipArchiveExtractor
 import file.clearFolder
-import mu.KotlinLogging
+import logging.KotlinLogging
 import net.ConnectionManager
 import net.NetStatus
 import ui.ErrorDialog

@@ -3,7 +3,7 @@ package workers
 import file.CompileTimeInfo
 import file.SetupApp
 import global.InstallationManager
-import mu.KotlinLogging
+import logging.KotlinLogging
 import net.ConnectionManager
 import net.NetStatus
 import ui.SetupUpdateDialog

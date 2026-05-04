@@ -2,7 +2,7 @@ package workers
 
 import file.Download
 import global.Log
-import mu.KotlinLogging
+import logging.KotlinLogging
 import ui.MainWindow
 import java.io.BufferedOutputStream
 import java.nio.file.Files

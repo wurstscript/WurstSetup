@@ -2,7 +2,7 @@ package file
 
 import config.WurstProjectConfigData
 import global.Log
-import mu.KotlinLogging
+import logging.KotlinLogging
 import org.eclipse.jgit.api.CreateBranchCommand
 import org.eclipse.jgit.api.Git
 import org.eclipse.jgit.api.ResetCommand

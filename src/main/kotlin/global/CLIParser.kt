@@ -1,7 +1,7 @@
 package global
 
 import file.SetupApp
-import mu.KotlinLogging
+import logging.KotlinLogging
 import ui.ErrorDialog
 import java.util.concurrent.TimeUnit
 

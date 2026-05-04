@@ -2,7 +2,7 @@ package workers
 
 import global.InstallationManager
 import global.Log
-import mu.KotlinLogging
+import logging.KotlinLogging
 import java.nio.file.Files
 import java.nio.file.Path
 import javax.swing.JProgressBar

@@ -3,7 +3,7 @@ package file
 import global.Log
 
 
-import mu.KotlinLogging
+import logging.KotlinLogging
 import ui.MainWindow
 import workers.DownloadWithProgressWorker
 import java.io.BufferedInputStream

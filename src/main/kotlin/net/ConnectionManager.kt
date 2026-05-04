@@ -1,6 +1,6 @@
 package net
 
-import mu.KotlinLogging
+import logging.KotlinLogging
 import java.io.IOException
 import java.net.HttpURLConnection
 import java.net.URL

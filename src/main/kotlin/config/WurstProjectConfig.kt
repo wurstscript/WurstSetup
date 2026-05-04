@@ -11,7 +11,7 @@ import com.fasterxml.jackson.databind.node.ObjectNode
 import file.*
 import global.InstallationManager
 import global.Log
-import mu.KotlinLogging
+import logging.KotlinLogging
 import ui.UiManager
 import java.io.IOException
 import java.nio.file.Files

@@ -1,6 +1,6 @@
 package workers
 
-import mu.KotlinLogging
+import logging.KotlinLogging
 import net.ConnectionManager
 import ui.UiManager
 import javax.swing.SwingWorker

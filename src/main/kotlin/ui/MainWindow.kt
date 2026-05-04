@@ -7,7 +7,7 @@ import config.WurstProjectConfigData
 import de.ralleytn.simple.registry.Registry
 import file.SetupApp
 import global.Log
-import mu.KotlinLogging
+import logging.KotlinLogging
 import tablelayout.Table
 import workers.*
 import java.awt.*

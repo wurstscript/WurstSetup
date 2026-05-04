@@ -9,7 +9,7 @@ import com.fasterxml.jackson.dataformat.yaml.YAMLFactory
 import com.fasterxml.jackson.dataformat.yaml.YAMLGenerator
 import com.fasterxml.jackson.module.kotlin.KotlinModule
 import config.WurstProjectConfigData
-import mu.KotlinLogging
+import logging.KotlinLogging
 import java.io.IOException
 import java.nio.file.Files
 import java.nio.file.Path
