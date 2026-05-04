@@ -22,3 +22,5 @@ testproject/
 ptrtestproject/
 temp/
 invalidbuild/
+/gen_test_ci
+/gen_test_jass

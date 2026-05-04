@@ -1,9 +1,10 @@
 package file
 
+import config.ScriptMode
+import config.Wc3Patch
 import logging.KotlinLogging
 import java.nio.file.Files
 import java.nio.file.Path
-import kotlin.jvm.Throws
 
 
 class SetupMain {
@@ -21,6 +22,12 @@ class SetupMain {
 
     var noPJass = false
 
+    // Generate wizard options (defaults: non-interactive, Lua, Reforged, no extras)
+    var addAgents: Boolean = false
+    var addGithubWorkflow: Boolean = false
+    var scriptMode: ScriptMode = ScriptMode.LUA
+    var wc3Patch: Wc3Patch = Wc3Patch.REFORGED
+
 	fun setProjectDir(dir: Path) {
 		Files.createDirectories(dir)
 		if (Files.exists(dir)) {
@@ -30,13 +37,17 @@ class SetupMain {
 
     fun doMain(args: Array<String>) {
         ExceptionHandler.setupExceptionHandler()
-		val argsList = args.asList()
-		if (argsList.isEmpty()) {
-			isGUILaunch = true
-		} else {
-			parseCLIArgs(argsList)
-		}
+        parseArgs(args.asList())
         SetupApp.handleArgs(this)
+    }
+
+    /** Parse args without executing — use in unit tests to inspect field values. */
+    fun parseArgs(argsList: List<String>) {
+        if (argsList.isEmpty()) {
+            isGUILaunch = true
+        } else {
+            parseCLIArgs(argsList)
+        }
     }
 
 	@Throws(IllegalArgumentException::class)
@@ -52,29 +63,30 @@ class SetupMain {
 				} else {
 					parseGlobalArgs(argsList, 1)
 				}
-
 			}
 		} catch(e: IllegalArgumentException) {
-			log.error("\uD83D\uDD25 Invalid grill command <$first> ! Available commands: [generate|install|remove|test|typecheck|outdated|build] <command argument>")
+			log.error("🔥 Invalid grill command <$first> ! Available commands: [generate|install|remove|test|typecheck|outdated|build] <command argument>")
             ExitHandler.exit(1)
 		}
 	}
 
 	private fun parseGlobalArgs(argsList: List<String>, start: Int) {
-		var skip = 0
-		for (i in start until argsList.size) {
-			if (skip > 0) {
-				skip -= 1
-				continue
-			} else {
-				GlobalOptions.values().forEach {
-					if(it.optionName == argsList[start]) {
-						it.runOption(this, argsList.subList(i, i + it.argCount))
-					}
+		var i = start
+		while (i < argsList.size) {
+			val opt = GlobalOptions.values().firstOrNull { it.optionName == argsList[i] }
+			if (opt != null) {
+				val argEnd = i + 1 + opt.argCount
+				if (argEnd > argsList.size) {
+					log.error("🔥 Option ${opt.optionName} requires ${opt.argCount} argument(s).")
+					ExitHandler.exit(1)
+					return
 				}
+				opt.runOption(this, argsList.subList(i + 1, argEnd))
+				i += 1 + opt.argCount
+			} else {
+				i++
 			}
 		}
-
 	}
 
 	companion object {
@@ -84,7 +96,3 @@ class SetupMain {
         }
     }
 }
-
-
-
-

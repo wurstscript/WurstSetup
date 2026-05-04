@@ -9,6 +9,16 @@
             "description": "The name of this wurst project",
             "type": "string"
         },
+        "scriptMode": {
+            "description": "The script mode for this project (LUA or JASS). Default: LUA.",
+            "type": "string",
+            "enum": ["LUA", "JASS"]
+        },
+        "wc3Patch": {
+            "description": "The WC3 patch target for this project. Affects which stdlib branch is used. Default: REFORGED.",
+            "type": "string",
+            "enum": ["REFORGED", "PRE_129"]
+        },
         "dependencies": {
             "description": "Git repository urls of this project's dependencies",
             "type": "array",

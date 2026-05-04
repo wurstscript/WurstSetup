@@ -1,11 +1,7 @@
 package file
 
 import global.Log
-
-
 import logging.KotlinLogging
-import ui.MainWindow
-import workers.DownloadWithProgressWorker
 import java.io.BufferedInputStream
 import java.io.BufferedOutputStream
 import java.io.FileOutputStream
@@ -14,6 +10,7 @@ import java.net.HttpURLConnection
 import java.net.URL
 import java.nio.file.Files
 import java.nio.file.Path
+
 object Download {
     private val log = KotlinLogging.logger {}
 
@@ -21,11 +18,23 @@ object Download {
 	private const val bareboneUrl = "github.com/wurstscript/wurst-project-template/archive/master.zip"
 
     @Throws(IOException::class)
-    private fun downloadFile(filePath: String, callback: (Path) -> Unit) {
-        if (SetupApp.setup.isGUILaunch) {
-			DownloadWithProgressWorker(filePath, MainWindow.ui.progressBar, callback).execute()
-		} else {
-			downloadDirect(filePath, callback)
+    fun downloadSetup(callback: (Path) -> Unit) {
+        throw UnsupportedOperationException("Standalone grill updates are not currently published via GitHub releases.")
+    }
+
+    @Throws(IOException::class)
+    fun downloadCompiler(callback: (Path) -> Unit) {
+        downloadDirect(compilerReleaseBaseUrl + getCompilerArchiveName(), callback)
+    }
+
+    @Throws(IOException::class)
+    fun downloadBareboneProject(callback: (Path) -> Unit) {
+        try {
+            downloadDirect("https://$bareboneUrl", callback)
+        } catch (e: Exception) {
+            log.warn("downloadBareboneProject Exception caught", e)
+            Log.println("Https error, falling back to unsafe http.")
+            downloadDirect("http://$bareboneUrl", callback)
         }
     }
 
@@ -38,40 +47,19 @@ object Download {
 		return httpConnection
 	}
 
-    @Throws(IOException::class)
-    fun downloadSetup(callback: (Path) -> Unit) {
-        throw UnsupportedOperationException("Standalone grill updates are not currently published via GitHub releases.")
-    }
-
-    @Throws(IOException::class)
-    fun downloadCompiler(callback: (Path) -> Unit) {
-        downloadFile(compilerReleaseBaseUrl + getCompilerArchiveName(), callback)
-    }
-
-    @Throws(IOException::class)
-    fun downloadBareboneProject(callback: (Path) -> Unit) {
-        try {
-            downloadFile("https://$bareboneUrl", callback)
-        } catch (e: Exception) {
-            log.warn( "downloadBareboneProject Exception caught", e)
-            Log.println("Https error, falling back to unsafe http.")
-            downloadFile("http://$bareboneUrl", callback)
-        }
-    }
-
 	private fun downloadDirect(filePath: String, callback: (Path) -> Unit) {
-			val httpConnection = getHttpURLConnection(filePath)
-			val completeFileSize = httpConnection.contentLength
-			val size = completeFileSize / 1024 / 1024
-			log.info("\t\uD83D\uDCE5 (" + (if (size == 0) "<1" else size) + "MB)")
-			val input = java.io.BufferedInputStream(httpConnection.inputStream)
-			val downloadedFile = createDownloadTempFile(filePath)
+		val httpConnection = getHttpURLConnection(filePath)
+		val completeFileSize = httpConnection.contentLength
+		val size = completeFileSize / 1024 / 1024
+		log.info("\t📥 (" + (if (size == 0) "<1" else size) + "MB)")
+		val input = BufferedInputStream(httpConnection.inputStream)
+		val downloadedFile = createDownloadTempFile(filePath)
 
-			readStream(downloadedFile, input)
+		readStream(downloadedFile, input)
 
-			input.close()
-	        callback.invoke(downloadedFile)
-	    }
+		input.close()
+        callback.invoke(downloadedFile)
+    }
 
 		private fun readStream(destination: Path, input: BufferedInputStream) {
 			FileOutputStream(destination.toFile()).use { fos ->

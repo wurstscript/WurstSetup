@@ -12,13 +12,11 @@ import file.*
 import global.InstallationManager
 import global.Log
 import logging.KotlinLogging
-import ui.UiManager
 import java.io.IOException
 import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.Paths
 import java.nio.file.StandardOpenOption
-import javax.swing.JOptionPane
 /**
  * Created by Frotty on 10.07.2017.
  */
@@ -32,11 +30,9 @@ object WurstProjectConfig {
     fun handleCreate(projectRoot: Path, gameRoot: Path?, projectConfig: WurstProjectConfigData) {
         try {
             createProject(projectRoot, gameRoot, projectConfig)
-            UiManager.refreshComponents()
         } catch (e: Exception) {
             Log.print("\n===ERROR PROJECT CREATE===\n" + e.message + "\nPlease report here: github.com/wurstscript/WurstScript/issues\n")
         }
-
     }
 
     @Throws(IOException::class)
@@ -82,17 +78,15 @@ object WurstProjectConfig {
 		if (extractSuccess) {
 			Log.print("done\n")
 			cleanupDownload(projectRoot)
+            normalizeGeneratedTemplate(projectRoot)
 		} else {
 			Log.print("error\n")
-			JOptionPane.showMessageDialog(null,
-				"Error: Cannot extract patch files.\nWurst might still be in use.\nClose any Wurst, VSCode or Eclipse instances before updating.",
-				"Error Massage", JOptionPane.ERROR_MESSAGE)
+			log.error("❌ Cannot extract template files. Close any Wurst, VSCode or Eclipse instances and try again.")
 		}
 
 		setupEnvironment(projectRoot, gameRoot, projectConfig)
 
         log.info("✔ Project generated.")
-		UiManager.refreshComponents()
 	}
 
 	private fun cleanupDownload(projectRoot: Path) {
@@ -106,6 +100,18 @@ object WurstProjectConfig {
 			}
 		}
 	}
+
+    private fun normalizeGeneratedTemplate(projectRoot: Path) {
+        val runArgs = projectRoot.resolve("wurst_run.args")
+        if (Files.exists(runArgs)) {
+            val normalizedArgs = Files.readString(runArgs)
+                .lineSequence()
+                .filterNot { it.trim().equals("lua", ignoreCase = true) || it.trim().equals("-lua", ignoreCase = true) }
+                .joinToString(System.lineSeparator())
+                .trimEnd() + System.lineSeparator()
+            Files.writeString(runArgs, normalizedArgs)
+        }
+    }
 
 	private fun setupEnvironment(projectRoot: Path, gameRoot: Path?, projectConfig: WurstProjectConfigData) {
 		Log.print("done\n")
@@ -198,12 +204,10 @@ object WurstProjectConfig {
             DependencyManager.updateDependencies(projectRoot, config)
 
             Log.print("Project successfully updated!\nReload vscode to apply the changed dependencies.\n")
-            UiManager.refreshComponents()
         } catch (e: Exception) {
             e.printStackTrace()
             Log.print("\n===ERROR PROJECT UPDATE===\n" + e.message + "\nPlease report here: github.com/wurstscript/WurstScript/issues\n")
         }
-
     }
 
     private const val VSCODE_MIN_CONFIG =
