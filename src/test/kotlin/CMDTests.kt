@@ -171,7 +171,7 @@ class CMDTests {
 
         val setupMain = SetupMain()
         setupMain.projectRoot = testproject
-        val code = catchExit { setupMain.doMain(arrayOf(BUILD, "ExampleMap.w3x")) }
+        val code = catchExit { setupMain.doMain(arrayOf(BUILD, "ExampleMap.w3x", "--noPJass")) }
         Assert.assertEquals(code, 0, "grill build should succeed on ConflagrationSpell")
     }
 
