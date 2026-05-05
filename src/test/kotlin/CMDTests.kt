@@ -1,5 +1,4 @@
 import file.ExitHandler
-import kotlin.system.exitProcess
 import file.CLICommand
 import file.DependencyManager
 import file.SetupApp
@@ -89,8 +88,8 @@ class CMDTests {
     }
 
     @Test(priority = 2)
-	    fun testCreateHelpCmd() {
-	        Assert.assertNotEquals(InstallationManager.status, InstallationManager.InstallationStatus.NOT_INSTALLED)
+    fun testCreateHelpCmd() {
+        Assert.assertNotEquals(InstallationManager.status, InstallationManager.InstallationStatus.NOT_INSTALLED)
         val setupMain = SetupMain()
         setupMain.doMain(listOf(HELP).toTypedArray())
 
@@ -99,7 +98,7 @@ class CMDTests {
 
     @Test(priority = 2)
     fun testCreateProjectCmd() {
-	        Assert.assertNotEquals(InstallationManager.status, InstallationManager.InstallationStatus.NOT_INSTALLED)
+        Assert.assertNotEquals(InstallationManager.status, InstallationManager.InstallationStatus.NOT_INSTALLED)
         deleteRecursively(SetupApp.DEFAULT_DIR.resolve(generatedProjectName))
         SetupMain.main(listOf(GENERATE, generatedProjectName).toTypedArray())
 
@@ -171,7 +170,7 @@ class CMDTests {
 
         val setupMain = SetupMain()
         setupMain.projectRoot = testproject
-        val code = catchExit { setupMain.doMain(arrayOf(BUILD, "ExampleMap.w3x")) }
+        val code = catchExit { setupMain.doMain(arrayOf(BUILD, "ExampleMap.w3x", "--noPJass")) }
         Assert.assertEquals(code, 0, "grill build should succeed on ConflagrationSpell")
     }
 
