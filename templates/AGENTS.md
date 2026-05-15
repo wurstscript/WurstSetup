@@ -25,10 +25,20 @@ to add and pull a specific Git dependency.
 After making Wurst changes, always run:
 
 ```bash
-grill typecheck
+grill typecheck --quiet
 ```
 
+The `--quiet` flag suppresses verbose compiler output and only prints errors — use it to keep context small. Without it, the compiler emits a large amount of output that wastes context window space.
+
 Fix reported errors and relevant warnings before considering the task done.
+
+When running tests:
+
+```bash
+grill test --quiet
+```
+
+Same rule applies: `--quiet` filters output to errors only and prints `✔ All tests succeeded.` on success.
 
 ## Project configuration (`wurst.build`)
 
@@ -474,7 +484,7 @@ Hot doc comments:
 
 ## Common pitfalls
 
-* Always run `grill typecheck` after code changes.
+* Always run `grill typecheck --quiet` after code changes.
 * Do not commit `_build/` or edit `_build/dependencies/` as source.
 * Wurst code must be inside `package`.
 * Indentation defines blocks.

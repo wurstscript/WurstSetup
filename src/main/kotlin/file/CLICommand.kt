@@ -56,6 +56,11 @@ enum class GlobalOptions(val optionName: String = "", val argCount: Int = 0) {
             setupMain.addGithubWorkflow = false
         }
     },
+    QUIET("--quiet") {
+        override fun runOption(setupMain: SetupMain, args: List<String>) {
+            setupMain.quiet = true
+        }
+    },
     SCRIPT_MODE("--script-mode", 1) {
         override fun runOption(setupMain: SetupMain, args: List<String>) {
             setupMain.scriptMode = when (args[0].lowercase()) {

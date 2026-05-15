@@ -94,6 +94,9 @@ object SetupApp {
                     |    --with-ci / --no-ci            Include GitHub Actions workflow (default: no)
                     |  test [filter]                    Run unit tests, optionally filtered by package/function name
                     |  typecheck                        Typecheck the project without building a map
+                    |
+                    |Global options:
+                    |  --quiet                          Suppress wurst output; only print errors and final result
                     |  outdated                         Check whether project dependencies are up to date
                     |  build <mapfile>                  Build the project using the given input map
                 """.trimMargin())
@@ -149,12 +152,14 @@ object SetupApp {
 			}
             setup.command == CLICommand.TEST -> {
                 log.info("⚗️ Testing project..")
+                if (!setup.quiet) log.info("💡 Tip: run with --quiet to suppress compiler output and only show errors (useful for AI agents).")
                 if (InstallationManager.status != InstallationManager.InstallationStatus.NOT_INSTALLED && configData != null) {
                     testProject(configData)
                 }
             }
             setup.command == CLICommand.TYPECHECK -> {
                 log.info("🔍 Typechecking project..")
+                if (!setup.quiet) log.info("💡 Tip: run with --quiet to suppress compiler output and only show errors (useful for AI agents).")
                 if (InstallationManager.status != InstallationManager.InstallationStatus.NOT_INSTALLED && configData != null) {
                     typecheckProject(configData)
                 }
@@ -320,6 +325,21 @@ object SetupApp {
 
     private fun startWurstProcess(args: ArrayList<String>): Int {
         val pb = ProcessBuilder(args)
+        if (setup.quiet) {
+            pb.redirectErrorStream(true)
+            val p = pb.start()
+            val output = p.inputStream.bufferedReader().readLines()
+            val exitCode = p.waitFor()
+            val errorLines = output.filter { line ->
+                line.contains("error", ignoreCase = true) ||
+                line.contains("Error", ignoreCase = true) ||
+                line.contains("warning", ignoreCase = true) ||
+                line.contains("FAILED", ignoreCase = true) ||
+                line.contains("Exception", ignoreCase = true)
+            }
+            errorLines.forEach { println(it) }
+            return exitCode
+        }
         pb.redirectOutput(Redirect.INHERIT)
         pb.redirectError(Redirect.INHERIT)
         val p = pb.start()

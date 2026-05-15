@@ -22,6 +22,8 @@ class SetupMain {
 
     var noPJass = false
 
+    var quiet = false
+
     // Generate wizard options (defaults: non-interactive, Lua, Reforged, no extras)
     var addAgents: Boolean = false
     var addGithubWorkflow: Boolean = false
