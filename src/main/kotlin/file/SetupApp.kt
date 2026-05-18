@@ -17,6 +17,7 @@ import java.net.URL
 import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.Paths
+import java.nio.file.StandardCopyOption
 import java.util.*
 import java.util.jar.JarFile
 import javax.swing.JOptionPane
@@ -129,26 +130,26 @@ object SetupApp {
 				}
 			}
 			setup.command == CLICommand.GENERATE -> {
+                if (!prepareGenerate(setup)) {
+                    return
+                }
                 log.info("✈ Generating project..")
-				if (configData == null) {
-                    runWizard(setup)
-                    val projectDir = DEFAULT_DIR.resolve(setup.commandArg)
-                    val stdlibUrl = if (setup.wc3Patch == Wc3Patch.PRE_129)
-                        "https://github.com/wurstscript/wurstStdlib2:pre1.29"
-                    else
-                        "https://github.com/wurstscript/wurstStdlib2"
-                    val projectConfig = WurstProjectConfigData(
-                        projectName = setup.commandArg,
-                        dependencies = ArrayList(mutableListOf(stdlibUrl)),
-                        scriptMode = setup.scriptMode,
-                        wc3Patch = setup.wc3Patch
-                    )
-                    WurstProjectConfig.handleCreate(projectDir, null, projectConfig)
-                    if (Files.exists(projectDir)) {
-                        if (setup.addAgents) downloadAgentsMd(projectDir)
-                        if (setup.addGithubWorkflow) writeCiWorkflow(projectDir)
-                    }
-				}
+                val projectDir = DEFAULT_DIR.resolve(setup.commandArg)
+                val stdlibUrl = if (setup.wc3Patch == Wc3Patch.PRE_129)
+                    "https://github.com/wurstscript/wurstStdlib2:pre1.29"
+                else
+                    "https://github.com/wurstscript/wurstStdlib2"
+                val projectConfig = WurstProjectConfigData(
+                    projectName = setup.commandArg,
+                    dependencies = ArrayList(mutableListOf(stdlibUrl)),
+                    scriptMode = setup.scriptMode,
+                    wc3Patch = setup.wc3Patch
+                )
+                WurstProjectConfig.handleCreate(projectDir, null, projectConfig)
+                if (Files.exists(projectDir)) {
+                    if (setup.addAgents) downloadAgentsMd(projectDir)
+                    if (setup.addGithubWorkflow) writeCiWorkflow(projectDir)
+                }
 			}
             setup.command == CLICommand.TEST -> {
                 log.info("⚗️ Testing project..")
@@ -206,29 +207,70 @@ object SetupApp {
 
 	}
 
-    private fun runWizard(setup: SetupMain) {
-        val console = System.console() ?: return  // non-interactive: use flags/defaults as-is
-        fun prompt(message: String, default: String): String {
-            console.writer().print("$message [$default]: ")
+    internal var generatePrompt: ((String, String?) -> String?)? = null
+
+    internal fun prepareGenerate(setup: SetupMain): Boolean {
+        if (setup.commandArg.isNotBlank()) {
+            return true
+        }
+
+        val prompt = generatePrompt ?: terminalPrompt()
+
+        while (setup.commandArg.isBlank()) {
+            val projectName = prompt("Project name", null)?.trim() ?: return false
+            if (projectName.isBlank()) {
+                log.error("Project name cannot be empty.")
+            } else {
+                setup.commandArg = projectName
+            }
+        }
+
+        runWizard(setup, prompt)
+        return true
+    }
+
+    private fun terminalPrompt(): (String, String?) -> String? {
+        val console = System.console()
+        if (console == null) {
+            return prompt@ { message, default ->
+                if (default == null) {
+                    print("$message: ")
+                } else {
+                    print("$message [$default]: ")
+                }
+                val input = readlnOrNull()?.trim() ?: return@prompt null
+                input.ifEmpty { default }
+            }
+        }
+
+        return { message, default ->
+            if (default == null) {
+                console.writer().print("$message: ")
+            } else {
+                console.writer().print("$message [$default]: ")
+            }
             console.writer().flush()
             val input = console.readLine()?.trim() ?: ""
-            return input.ifEmpty { default }
+            input.ifEmpty { default }
         }
+    }
+
+    private fun runWizard(setup: SetupMain, prompt: (String, String?) -> String?) {
         val scriptModeDefault = setup.scriptMode.name.lowercase()
         val scriptModeInput = prompt("Script mode (lua/jass)", scriptModeDefault)
-        setup.scriptMode = if (scriptModeInput.lowercase() == "jass") ScriptMode.JASS else ScriptMode.LUA
+        setup.scriptMode = if (scriptModeInput?.lowercase() == "jass") ScriptMode.JASS else ScriptMode.LUA
 
         val patchDefault = if (setup.wc3Patch == Wc3Patch.PRE_129) "pre1.29" else "reforged"
         val patchInput = prompt("WC3 patch target (reforged/pre1.29)", patchDefault)
-        setup.wc3Patch = if (patchInput.lowercase() == "pre1.29") Wc3Patch.PRE_129 else Wc3Patch.REFORGED
+        setup.wc3Patch = if (patchInput?.lowercase() == "pre1.29") Wc3Patch.PRE_129 else Wc3Patch.REFORGED
 
         val agentsDefault = if (setup.addAgents) "Y" else "N"
         val agentsInput = prompt("Add AGENTS.md?", agentsDefault)
-        setup.addAgents = agentsInput.lowercase() == "y"
+        setup.addAgents = agentsInput?.lowercase() == "y"
 
         val ciDefault = if (setup.addGithubWorkflow) "Y" else "N"
         val ciInput = prompt("Add GitHub Actions CI?", ciDefault)
-        setup.addGithubWorkflow = ciInput.lowercase() == "y"
+        setup.addGithubWorkflow = ciInput?.lowercase() == "y"
     }
 
     private fun downloadAgentsMd(projectDir: Path) {
@@ -325,6 +367,9 @@ object SetupApp {
 
     private fun startWurstProcess(args: ArrayList<String>): Int {
         val pb = ProcessBuilder(args)
+        val outputDir = compilerOutputDir()
+        Files.createDirectories(outputDir)
+        pb.directory(outputDir.toFile())
         if (setup.quiet) {
             pb.redirectErrorStream(true)
             val p = pb.start()
@@ -354,6 +399,11 @@ object SetupApp {
         }
 
         val buildFolder = setup.projectRoot.resolve("_build")
+        val outputDir = compilerOutputDir()
+        Files.createDirectories(outputDir)
+        args.add("-out")
+        args.add(outputDir.resolve(outputFileName(configData)).toAbsolutePath().toString())
+
         val jassdoc = buildFolder.resolve("dependencies").resolve("jassdoc")
         if (Files.exists(jassdoc)) {
             for (f in jassdoc.toFile().listFiles()!!) {
@@ -362,8 +412,8 @@ object SetupApp {
                 }
             }
 	        } else {
-	            val common = resolveCoreJassFile(buildFolder, "common.j")
-	            val blizzard = resolveCoreJassFile(buildFolder, "blizzard.j")
+	            val common = resolveCoreJassFile(buildFolder, "common.j", configData.wc3Patch)
+	            val blizzard = resolveCoreJassFile(buildFolder, "blizzard.j", configData.wc3Patch)
 	            if (Files.exists(common)) {
 	                args.add(common.toAbsolutePath().toString())
 	            }
@@ -386,31 +436,49 @@ object SetupApp {
         return args
     }
 
-    private fun resolveCoreJassFile(buildFolder: Path, fileName: String): Path {
+    private fun compilerOutputDir(): Path {
+        return setup.projectRoot.resolve("_build").resolve("grill")
+    }
+
+    private fun outputFileName(configData: WurstProjectConfigData): String {
+        return if (configData.scriptMode == ScriptMode.LUA) "output.lua" else "output.j"
+    }
+
+    private fun resolveCoreJassFile(buildFolder: Path, fileName: String, wc3Patch: Wc3Patch?): Path {
         val projectCopy = buildFolder.resolve(fileName)
         if (Files.exists(projectCopy)) {
             return projectCopy
         }
 
-        return extractCoreJassFile(buildFolder, fileName)
+        return extractCoreJassFile(buildFolder, fileName, wc3Patch ?: Wc3Patch.REFORGED)
     }
 
-    private fun extractCoreJassFile(buildFolder: Path, fileName: String): Path {
-        val target = buildFolder.resolve("grill").resolve(fileName)
+    private fun extractCoreJassFile(buildFolder: Path, fileName: String, wc3Patch: Wc3Patch): Path {
+        val patchFolder = when (wc3Patch) {
+            Wc3Patch.PRE_129 -> "pre1.29"
+            Wc3Patch.REFORGED -> "reforged"
+        }
+        val target = buildFolder.resolve("grill").resolve("core-jass").resolve(patchFolder).resolve(fileName)
         if (Files.exists(target)) {
             return target
         }
 
         try {
             Files.createDirectories(target.parent)
+            val resourcePath = "core-jass/$patchFolder/$fileName"
+            javaClass.classLoader.getResourceAsStream(resourcePath)?.use { input ->
+                Files.copy(input, target, StandardCopyOption.REPLACE_EXISTING)
+                return target
+            }
+
             JarFile(InstallationManager.getCompilerPath()).use { jar ->
                 val entry = jar.getEntry(fileName) ?: return target
                 jar.getInputStream(entry).use { input ->
-                    Files.copy(input, target)
+                    Files.copy(input, target, StandardCopyOption.REPLACE_EXISTING)
                 }
             }
         } catch (e: Exception) {
-            log.warn("Could not extract $fileName from compiler jar: ${e.message}")
+            log.warn("Could not extract $fileName for patch $wc3Patch: ${e.message}")
         }
         return target
     }

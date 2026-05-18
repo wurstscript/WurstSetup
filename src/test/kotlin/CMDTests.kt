@@ -10,6 +10,7 @@ import org.testng.Assert
 import org.testng.annotations.Test
 import java.nio.file.Files
 import java.nio.file.Path
+import java.nio.file.Paths
 import java.util.Comparator
 
 
@@ -132,6 +133,10 @@ class CMDTests {
 
     @Test(priority = 3)
     fun testProjectTest() {
+        val cwd = Paths.get("").toAbsolutePath()
+        Files.deleteIfExists(cwd.resolve("compiled.j.txt"))
+        Files.deleteIfExists(cwd.resolve("temp").resolve("output.j"))
+
         val testproject = Files.createTempDirectory("wurst-stdlib-test")
         DependencyManager.cloneRepo("https://github.com/wurstscript/WurstStdlib2.git", testproject)
         Assert.assertTrue(Files.exists(testproject.resolve("wurst.build")))
@@ -142,6 +147,10 @@ class CMDTests {
         setupMain.projectRoot = testproject
         val code = catchExit { setupMain.doMain(arrayOf(TEST)) }
         Assert.assertEquals(code, 0, "grill test should succeed on WurstStdlib2")
+        Assert.assertFalse(Files.exists(cwd.resolve("compiled.j.txt")), "grill test must not emit compiled.j.txt in the caller root")
+        Assert.assertFalse(Files.exists(cwd.resolve("temp").resolve("output.j")), "grill test must not emit output.j in caller temp/")
+        Assert.assertTrue(Files.exists(testproject.resolve("_build/grill/output.j")), "compiler output should be emitted under _build/grill")
+        Assert.assertTrue(Files.exists(testproject.resolve("_build/grill/compiled.j.txt")), "compiler debug output should stay under _build/grill")
     }
 
     @Test(priority = 3)

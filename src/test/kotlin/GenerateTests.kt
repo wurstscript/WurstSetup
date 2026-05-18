@@ -101,6 +101,42 @@ class GenerateTests {
     }
 
     @Test(priority = 10)
+    fun testGenerateWithoutNameUsesWizardPrompt() {
+        val setup = SetupMain()
+        setup.parseArgs(listOf("generate"))
+        val answers = java.util.ArrayDeque(listOf("wizardproject", "jass", "pre1.29", "y", "y"))
+        val prevPrompt = SetupApp.generatePrompt
+        try {
+            SetupApp.generatePrompt = { _, _ -> answers.removeFirst() }
+            Assert.assertTrue(SetupApp.prepareGenerate(setup))
+        } finally {
+            SetupApp.generatePrompt = prevPrompt
+        }
+
+        Assert.assertEquals(setup.commandArg, "wizardproject")
+        Assert.assertEquals(setup.scriptMode, ScriptMode.JASS)
+        Assert.assertEquals(setup.wc3Patch, Wc3Patch.PRE_129)
+        Assert.assertTrue(setup.addAgents)
+        Assert.assertTrue(setup.addGithubWorkflow)
+    }
+
+    @Test(priority = 10)
+    fun testGenerateWithoutNameReturnsWithoutGeneratingWhenPromptCannotReadName() {
+        val setup = SetupMain()
+        setup.parseArgs(listOf("generate"))
+        val prevPrompt = SetupApp.generatePrompt
+        val prepared = try {
+            SetupApp.generatePrompt = { _, _ -> null }
+            SetupApp.prepareGenerate(setup)
+        } finally {
+            SetupApp.generatePrompt = prevPrompt
+        }
+
+        Assert.assertFalse(prepared, "Blank generate without a readable name must not generate into the current directory")
+        Assert.assertTrue(setup.commandArg.isBlank())
+    }
+
+    @Test(priority = 10)
     fun testNoArgsExitsZeroWithoutOldUi() {
         val code = catchExit2 { SetupMain().doMain(arrayOf()) }
         Assert.assertEquals(code, 0, "No-args launch should exit 0 (CLI-first message), not open the old Swing UI")
