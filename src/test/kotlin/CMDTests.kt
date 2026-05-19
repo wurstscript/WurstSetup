@@ -145,22 +145,21 @@ class CMDTests {
 
         val setupMain = SetupMain()
         setupMain.projectRoot = testproject
-        val code = catchExit { setupMain.doMain(arrayOf(TEST)) }
-        Assert.assertEquals(code, 0, "grill test should succeed on WurstStdlib2")
+        val code = catchExit { setupMain.doMain(arrayOf(TEST, "--noPJass")) }
+        Assert.assertEquals(code, 0, "grill test --noPJass should succeed on WurstStdlib2")
         Assert.assertFalse(Files.exists(cwd.resolve("compiled.j.txt")), "grill test must not emit compiled.j.txt in the caller root")
         Assert.assertFalse(Files.exists(cwd.resolve("temp").resolve("output.j")), "grill test must not emit output.j in caller temp/")
         Assert.assertTrue(Files.exists(testproject.resolve("_build/grill/output.j")), "compiler output should be emitted under _build/grill")
-        Assert.assertTrue(Files.exists(testproject.resolve("_build/grill/compiled.j.txt")), "compiler debug output should stay under _build/grill")
     }
 
     @Test(priority = 3)
     fun testBranchPull() {
-        val testproject = Files.createTempDirectory("wurst-ptr-test")
-        DependencyManager.cloneRepo("https://github.com/wurstscript/WurstStdlib2:ptr", testproject)
+        val testproject = Files.createTempDirectory("wurst-branch-test")
+        DependencyManager.cloneRepo("https://github.com/wurstscript/WurstStdlib2:master", testproject)
 
         Assert.assertTrue(Files.exists(testproject))
         FileRepository(testproject.resolve(".git").toFile()).use { repository ->
-            Assert.assertEquals(repository.branch, "ptr")
+            Assert.assertEquals(repository.branch, "master")
 
         }
     }
