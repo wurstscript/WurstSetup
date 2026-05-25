@@ -24,6 +24,8 @@ class SetupMain {
 
     var quiet = false
 
+    var debug = false
+
     // Generate wizard options (defaults: non-interactive, Lua, Reforged, no extras)
     var addAgents: Boolean = false
     var addGithubWorkflow: Boolean = false
@@ -67,7 +69,8 @@ class SetupMain {
 				}
 			}
 		} catch(e: IllegalArgumentException) {
-			log.error("🔥 Invalid grill command <$first> ! Available commands: [generate|install|remove|test|typecheck|outdated|build] <command argument>")
+			log.error("❌ Unknown command <$first>.")
+            log.info("Try: grill help")
             ExitHandler.exit(1)
 		}
 	}

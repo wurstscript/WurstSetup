@@ -10,9 +10,9 @@ import global.Log
 import logging.KotlinLogging
 import net.ConnectionManager
 import net.NetStatus
+import org.slf4j.LoggerFactory
 import org.eclipse.jgit.api.Git
 import java.awt.GraphicsEnvironment
-import java.lang.ProcessBuilder.Redirect
 import java.net.URL
 import java.nio.file.Files
 import java.nio.file.Path
@@ -28,8 +28,12 @@ object SetupApp {
     private val log = KotlinLogging.logger {}
     lateinit var setup: SetupMain
 
+    private data class WurstProcessResult(val exitCode: Int, val output: List<String>)
+
     fun handleArgs(setup: SetupMain) {
         this.setup = setup
+        DependencyManager.debug = setup.debug
+        configureQuietLogging()
         updateGrillJar()
         if (setup.isGUILaunch) {
             val helpText = """
@@ -52,8 +56,41 @@ object SetupApp {
             }
             ExitHandler.exit(0)
         } else {
-            log.info("🔥 Grill warming up..")
+            progress("🔥 Grill ${CompileTimeInfo.version}")
             handleCMD()
+        }
+    }
+
+    private fun configureQuietLogging() {
+        val rootLogger = LoggerFactory.getLogger(org.slf4j.Logger.ROOT_LOGGER_NAME)
+        if (rootLogger is ch.qos.logback.classic.Logger) {
+            rootLogger.level = if (setup.quiet) ch.qos.logback.classic.Level.ERROR else ch.qos.logback.classic.Level.INFO
+        }
+    }
+
+    private fun progress(message: String) {
+        if (!setup.quiet) {
+            log.info(message)
+        }
+    }
+
+    private fun pass(message: String) {
+        if (setup.quiet) {
+            println(message)
+        } else {
+            log.info(message)
+        }
+    }
+
+    private fun fail(message: String) {
+        log.error(message)
+    }
+
+    private fun detail(message: String) {
+        if (setup.quiet) {
+            println(message)
+        } else {
+            log.info(message)
         }
     }
 
@@ -68,7 +105,6 @@ object SetupApp {
 	                log.debug("current setup ver: $jenkinsBuildVer latest Setup: $latestSetupBuild")
 	            }
 	        }
-        log.info("🔥 Ready. Version: <{}>", CompileTimeInfo.version)
 		handleRunArgs()
     }
 
@@ -78,34 +114,43 @@ object SetupApp {
 		var configData: WurstProjectConfigData? = null
 		if (Files.exists(configFile)) {
 			configData = WurstProjectConfig.loadProject(configFile)!!
-		} else {
-			log.warn("⚠️ No wurst.build configuration file at current location.")
 		}
 
 		when {
             setup.command == CLICommand.HELP -> {
                 log.info("""
-                    |Available commands:
-                    |  install [dep|wurstscript|grill]  Install/update dependencies, WurstScript compiler, or grill itself
+                    |Common:
+                    |  grill generate MyProject
+                    |  grill install
+                    |  grill test
+                    |  grill build ExampleMap.w3x
+                    |
+                    |Project commands:
+                    |  install [dep|wurstscript|grill]  Install/update dependencies, WurstScript compiler, or Grill itself
                     |  remove  [dep|wurstscript]        Remove a dependency or uninstall WurstScript
                     |  generate <name>                  Generate a new Wurst project in a subfolder
-                    |    --script-mode lua|jass         Script mode (default: lua)
-                    |    --wc3-patch reforged|pre1.29   WC3 patch target (default: reforged)
-                    |    --with-agents / --no-agents    Include AGENTS.md (default: no)
-                    |    --with-ci / --no-ci            Include GitHub Actions workflow (default: no)
                     |  test [filter]                    Run unit tests, optionally filtered by package/function name
                     |  typecheck                        Typecheck the project without building a map
+                    |  outdated                         Check whether project dependencies are up to date
+                    |  build <mapfile>                  Build the project using the given input map
                     |
                     |Global options:
                     |  --quiet                          Suppress wurst output; only print errors and final result
-                    |  outdated                         Check whether project dependencies are up to date
-                    |  build <mapfile>                  Build the project using the given input map
+                    |  --debug                          Print full stack traces for troubleshooting
+                    |
+                    |Generate options:
+                    |  --script-mode lua|jass           Script mode (default: lua)
+                    |  --wc3-patch reforged|pre1.29     WC3 patch target (default: reforged)
+                    |  --with-agents / --no-agents      Include AGENTS.md (default: no)
+                    |  --with-ci / --no-ci              Include GitHub Actions workflow (default: no)
                 """.trimMargin())
             }
 			setup.command == CLICommand.INSTALL -> {
                 if (setup.commandArg.isBlank()) {
                     if (configData != null) {
                         handleUpdateProject(configData)
+                    } else {
+                        missingProject()
                     }
                 } else if (setup.commandArg.lowercase() == "wurstscript") {
 					handleInstallWurst()
@@ -116,6 +161,8 @@ object SetupApp {
 						handleInstallDep(configData)
 						WurstProjectConfig.saveProjectConfig(setup.projectRoot, configData)
                         handleUpdateProject(configData)
+					} else {
+                        missingProject()
 					}
 				}
 			}
@@ -126,6 +173,8 @@ object SetupApp {
 					if (configData != null) {
 						handleRemoveDep(configData)
 						WurstProjectConfig.saveProjectConfig(setup.projectRoot, configData)
+					} else {
+                        missingProject()
 					}
 				}
 			}
@@ -133,7 +182,7 @@ object SetupApp {
                 if (!prepareGenerate(setup)) {
                     return
                 }
-                log.info("✈ Generating project..")
+                log.info("✈ Generating project...")
                 val projectDir = DEFAULT_DIR.resolve(setup.commandArg)
                 val stdlibUrl = if (setup.wc3Patch == Wc3Patch.PRE_129)
                     "https://github.com/wurstscript/wurstStdlib2:pre1.29"
@@ -149,54 +198,58 @@ object SetupApp {
                 if (Files.exists(projectDir)) {
                     if (setup.addAgents) downloadAgentsMd(projectDir)
                     if (setup.addGithubWorkflow) writeCiWorkflow(projectDir)
+                    printGenerateNextSteps(projectDir)
                 }
 			}
             setup.command == CLICommand.TEST -> {
-                log.info("⚗️ Testing project..")
-                if (!setup.quiet) log.info("💡 Tip: run with --quiet to suppress compiler output and only show errors (useful for AI agents).")
+                progress("⚗️ Running tests...")
                 if (InstallationManager.status != InstallationManager.InstallationStatus.NOT_INSTALLED && configData != null) {
                     testProject(configData)
+                } else if (configData == null) {
+                    missingProject()
                 }
             }
             setup.command == CLICommand.TYPECHECK -> {
-                log.info("🔍 Typechecking project..")
-                if (!setup.quiet) log.info("💡 Tip: run with --quiet to suppress compiler output and only show errors (useful for AI agents).")
+                progress("🔍 Typechecking project...")
                 if (InstallationManager.status != InstallationManager.InstallationStatus.NOT_INSTALLED && configData != null) {
                     typecheckProject(configData)
+                } else if (configData == null) {
+                    missingProject()
                 }
             }
             setup.command == CLICommand.OUTDATED -> {
                 if (configData == null) {
-                    log.error("No wurst.build configuration found.")
-                    ExitHandler.exit(1)
+                    missingProject()
                 }
                 checkProjectOutdated(configData)
             }
             setup.command == CLICommand.BUILD -> {
-                log.info("🔨 Building project..")
+                progress("🔨 Building project...")
                 val mapArg = if (setup.commandArg.isBlank()) {
                     val maps = Files.list(setup.projectRoot).use { stream ->
                         stream.filter { p -> p.fileName.toString().let { it.endsWith(".w3x") || it.endsWith(".w3m") } }.toList()
                     }
                     when (maps.size) {
-                        0 -> { log.error("\t❌ No input map specified and no .w3x/.w3m found in project root."); null }
-                        1 -> { log.info("\t📦 Auto-detected map: ${maps[0].fileName}"); maps[0].fileName.toString() }
-                        else -> { log.error("\t❌ Multiple maps found (${maps.joinToString { it.fileName.toString() }}), please specify one."); null }
+                        0 -> { missingMap(); null }
+                        1 -> { log.info("📦 Auto-detected map: ${maps[0].fileName}"); maps[0].fileName.toString() }
+                        else -> { multipleMaps(maps); null }
                     }
                 } else setup.commandArg
                 if (mapArg != null) {
                     if (!Files.exists(setup.projectRoot.resolve(mapArg))) {
-                        log.error("\t❌ Input map cannot be found at project root.")
+                        missingMap(mapArg)
                     } else if (InstallationManager.status != InstallationManager.InstallationStatus.NOT_INSTALLED && configData != null) {
                         setup.commandArg = mapArg
                         buildProject(configData)
+                    } else if (configData == null) {
+                        missingProject()
                     }
                 }
             }
             setup.command == CLICommand.SELF_UPDATE -> {
-                log.info("🔄 Updating..")
+                log.info("🔄 Updating...")
                 try {
-                    log.info("✔ Updated succeeded.")
+                    log.info("✅ Update succeeded.")
 	                    InstallationManager.ensureGrillJarInstalled()
                     ExitHandler.exit(0)
                 } catch(e: Exception) {
@@ -206,6 +259,99 @@ object SetupApp {
 		}
 
 	}
+
+    private fun missingProject(): Nothing {
+        log.error("❌ This folder is not a Grill project.")
+        log.info("Expected: ${setup.projectRoot.resolve(CONFIG_FILE_NAME).toAbsolutePath()}")
+        log.info("Try: run `grill generate MyProject` to create a new project, or pass `-projectDir <path>`.")
+        ExitHandler.exit(1)
+    }
+
+    private fun missingMap(requestedMap: String? = null): Nothing {
+        if (requestedMap == null) {
+            log.error("❌ No input map specified and no .w3x/.w3m file was found in the project root.")
+            log.info("Try: put a map in the project root, or run `grill build YourMap.w3x`.")
+        } else {
+            log.error("❌ Map not found: $requestedMap")
+            log.info("Expected: ${setup.projectRoot.resolve(requestedMap).toAbsolutePath()}")
+            val maps = findMaps()
+            if (maps.isNotEmpty()) {
+                log.info("Available maps: ${maps.joinToString { it.fileName.toString() }}")
+            }
+        }
+        ExitHandler.exit(1)
+    }
+
+    private fun multipleMaps(maps: List<Path>): Nothing {
+        log.error("❌ Multiple maps found: ${maps.joinToString { it.fileName.toString() }}")
+        log.info("Try: grill build ${maps.first().fileName}")
+        ExitHandler.exit(1)
+    }
+
+    private fun findMaps(): List<Path> {
+        return Files.list(setup.projectRoot).use { stream ->
+            stream.filter { p -> p.fileName.toString().let { it.endsWith(".w3x") || it.endsWith(".w3m") } }.toList()
+        }
+    }
+
+    private fun printGenerateNextSteps(projectDir: Path) {
+        log.info("""
+            |✅ Created ${projectDir.fileName}
+            |
+            |Next:
+            |  cd ${projectDir.fileName}
+            |  grill test
+            |  grill build ExampleMap.w3x
+        """.trimMargin())
+    }
+
+    private fun printCompilerFailure(commandName: String, result: WurstProcessResult) {
+        if (printPjassFailure(result.output)) {
+            return
+        }
+        fail("❌ Wurst $commandName failed.")
+        detail("Exit code: ${result.exitCode}")
+        if (setup.quiet) {
+            detail("Next: rerun without `--quiet` only for the failed file/test.")
+        } else {
+            detail("Try: rerun with `--quiet` for a shorter error log, or `--debug` for troubleshooting details.")
+        }
+    }
+
+    private fun printPjassFailure(output: List<String>): Boolean {
+        val text = output.joinToString("\n")
+        val isPjassFailure = text.contains("Pjass execution error", true) ||
+            (text.contains("Cannot run program", true) && text.contains("pjass", true))
+        if (!isPjassFailure) {
+            return false
+        }
+
+        val tried = Regex("Cannot run program \"([^\"]+)\"").find(text)?.groupValues?.get(1)
+        val reason = output.firstOrNull {
+            it.contains("Permission denied", true) ||
+                it.contains("posix_spawn failed", true) ||
+                it.contains("Cannot run program", true)
+        }?.trim()
+
+        fail("❌ PJass failed to run.")
+        if (tried != null) {
+            detail("Tried: $tried")
+        }
+        if (reason != null) {
+            detail("Reason: $reason")
+        }
+        detail("Try: check that the bundled pjass binary is executable and that its temp directory allows execution.")
+        detail("Tip: rerun with `--debug` if you need the full Java error.")
+        return true
+    }
+
+    private fun isImportantCompilerLine(line: String): Boolean {
+        return line.contains("error", ignoreCase = true) ||
+            line.contains("warning", ignoreCase = true) ||
+            line.contains("FAILED", ignoreCase = true) ||
+            line.contains("Exception", ignoreCase = true) ||
+            line.contains("Pjass", ignoreCase = true)
+    }
 
     internal var generatePrompt: ((String, String?) -> String?)? = null
 
@@ -311,10 +457,10 @@ object SetupApp {
         args.add(setup.projectRoot.resolve(setup.commandArg).toAbsolutePath().toString())
 
         val result = startWurstProcess(args)
-        when (result) {
-            0 -> { log.info("🗺️ Map has been built!"); ExitHandler.exit(0) }
+        when (result.exitCode) {
+            0 -> { pass("✅ Map built."); ExitHandler.exit(0) }
             else -> {
-                log.info("❌ There was an issue with the wurst build process.")
+                printCompilerFailure("build", result)
                 ExitHandler.exit(1)
             }
         }
@@ -330,10 +476,10 @@ object SetupApp {
         }
 
         val result = startWurstProcess(args)
-        when (result) {
-            0 -> { log.info("✔ All tests succeeded."); ExitHandler.exit(0) }
+        when (result.exitCode) {
+            0 -> { pass("✅ All tests succeeded."); ExitHandler.exit(0) }
             else -> {
-                log.info("❌ Tests did not execute successfully.")
+                printCompilerFailure("test", result)
                 ExitHandler.exit(1)
             }
         }
@@ -347,10 +493,10 @@ object SetupApp {
         }
 
         val result = startWurstProcess(args)
-        when (result) {
-            0 -> { log.info("✔ Typecheck succeeded."); ExitHandler.exit(0) }
+        when (result.exitCode) {
+            0 -> { pass("✅ Typecheck succeeded."); ExitHandler.exit(0) }
             else -> {
-                log.info("❌ Typecheck failed.")
+                printCompilerFailure("typecheck", result)
                 ExitHandler.exit(1)
             }
         }
@@ -362,33 +508,39 @@ object SetupApp {
             log.info("Project dependencies are outdated. Run `grill install`.")
             ExitHandler.exit(1)
         }
-        log.info("Project dependencies are up to date.")
+        log.info("✅ Project dependencies are up to date.")
     }
 
-    private fun startWurstProcess(args: ArrayList<String>): Int {
+    private fun startWurstProcess(args: ArrayList<String>): WurstProcessResult {
+        val result = runWurstProcess(args, compactFallback = false)
+        if (setup.quiet && result.output.any { it.contains("Unknown option: -compactOutput") }) {
+            val fallbackArgs = ArrayList(args)
+            fallbackArgs.remove("-compactOutput")
+            return runWurstProcess(fallbackArgs, compactFallback = true)
+        }
+        return result
+    }
+
+    private fun runWurstProcess(args: ArrayList<String>, compactFallback: Boolean): WurstProcessResult {
         val pb = ProcessBuilder(args)
         val outputDir = compilerOutputDir()
         Files.createDirectories(outputDir)
         pb.directory(outputDir.toFile())
-        if (setup.quiet) {
-            pb.redirectErrorStream(true)
-            val p = pb.start()
-            val output = p.inputStream.bufferedReader().readLines()
-            val exitCode = p.waitFor()
-            val errorLines = output.filter { line ->
-                line.contains("error", ignoreCase = true) ||
-                line.contains("Error", ignoreCase = true) ||
-                line.contains("warning", ignoreCase = true) ||
-                line.contains("FAILED", ignoreCase = true) ||
-                line.contains("Exception", ignoreCase = true)
-            }
-            errorLines.forEach { println(it) }
-            return exitCode
-        }
-        pb.redirectOutput(Redirect.INHERIT)
-        pb.redirectError(Redirect.INHERIT)
+        pb.redirectErrorStream(true)
         val p = pb.start()
-        return p.waitFor()
+        val output = ArrayList<String>()
+        p.inputStream.bufferedReader().forEachLine { line ->
+            output.add(line)
+            if (!setup.quiet) {
+                println(line)
+            }
+        }
+        val exitCode = p.waitFor()
+        if (setup.quiet && exitCode != 0) {
+            val linesToPrint = if (compactFallback) output.filter(::isImportantCompilerLine) else output
+            linesToPrint.forEach { println(it) }
+        }
+        return WurstProcessResult(exitCode, output)
     }
 
 	    private fun commonArgs(configData: WurstProjectConfigData): ArrayList<String> {
@@ -396,6 +548,9 @@ object SetupApp {
 
         if (configData.scriptMode == ScriptMode.LUA) {
             args.add("-lua")
+        }
+        if (setup.quiet) {
+            args.add("-compactOutput")
         }
 
         val buildFolder = setup.projectRoot.resolve("_build")
@@ -484,11 +639,12 @@ object SetupApp {
     }
 
 	private fun handleRemoveDep(configData: WurstProjectConfigData) {
-		log.error("removing ${setup.commandArg}")
+		log.info("🧹 Removing ${setup.commandArg}")
 		if (configData.dependencies.contains(setup.commandArg)) {
 			configData.dependencies.remove(setup.commandArg)
+            log.info("✅ Dependency removed.")
 		} else {
-			log.error("dependency does not exist in project")
+			log.error("❌ Dependency is not listed in wurst.build: ${setup.commandArg}")
 		}
 	}
 
@@ -507,12 +663,16 @@ object SetupApp {
 	private fun handleInstallDep(configData: WurstProjectConfigData) {
         val resolvedName = DependencyManager.resolveName(setup.commandArg)
         if (!REPO_REGEX.matches(resolvedName.first)) {
-            log.info("<${setup.commandArg}> does not appear to be a supported git repo link (e.g. https://github.com/user/repo). SSH repo URLs are not bundled in the slim CLI.")
+            log.error("❌ Unsupported dependency URL: ${setup.commandArg}")
+            log.info("Accepted forms:")
+            log.info("  https://github.com/user/repo")
+            log.info("  https://github.com/user/repo:branch")
+            log.info("SSH repo URLs are not bundled in the slim CLI.")
             ExitHandler.exit(1)
         }
 		log.info("🔹 Installing ${resolvedName.second}")
 		if (configData.dependencies.contains(setup.commandArg)) {
-			log.info("Dependency is already installed.")
+			log.info("✅ Dependency is already listed.")
 			return
 		}
 		try {
@@ -523,16 +683,23 @@ object SetupApp {
 				Log.print("valid!\n")
 				configData.dependencies.add(setup.commandArg)
 			} else {
-				log.error("Entered invalid git repo.")
+				log.error("❌ Could not find repository: ${resolvedName.first}")
+                ExitHandler.exit(1)
 			}
 		} catch (e: Exception) {
-			log.error("Entered invalid git repo.")
-			e.printStackTrace()
+			log.error("❌ Could not read repository: ${resolvedName.first}")
+            log.info("Reason: ${e.message ?: e.javaClass.simpleName}")
+            if (setup.debug) {
+                e.printStackTrace()
+            } else {
+                log.info("Try: check the URL, branch, and your git credentials. Rerun with --debug for details.")
+            }
+            ExitHandler.exit(1)
 		}
 	}
 
 	private fun handleInstallWurst() {
-		log.info("🌭 Installing WurstScript..")
+		log.info("🌭 Installing WurstScript...")
 		if (InstallationManager.status != InstallationManager.InstallationStatus.INSTALLED_UPTODATE) {
 			log.info("\tUpdate available!")
 			if (setup.requireConfirmation) {
@@ -546,7 +713,7 @@ object SetupApp {
 				InstallationManager.handleUpdate()
 			}
 		} else {
-			log.info("Already up to date.")
+			log.info("✅ Already up to date.")
 		}
 	}
 

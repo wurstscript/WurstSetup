@@ -1,190 +1,119 @@
-# AGENTS.md — WurstScript Map Project Notes
+# AGENTS.md - WurstScript Map Project Notes
 
-This repository is a WurstScript Warcraft III map project. Use these notes when editing `.wurst` code, project dependencies, generated objects, or map logic.
+WurstScript Warcraft III map project notes for editing `.wurst` code, dependencies, generated objects, tests, or map build logic.
 
-## Project workflow
+## Working Rules
 
-`grill` is the WurstScript dependency manager and project tool.
+- Prefer simple, maintainable code. Fix root causes; avoid brittle workarounds, duplicated branches, and special-case patches.
+- Keep packages focused and below ~500 lines; split by feature, responsibility, or data type.
+- Make changes in the source package, not generated output. Do not edit `_build/` or `_build/dependencies/` as source-of-truth.
+- Prefer Wurst standard-library wrappers and project helpers over raw `common.j`/Jass-style calls.
+- When unsure about Wurst syntax or local APIs, inspect nearby working code before guessing.
+- Keep tests narrow. Add/update tests for behavior, parsing, compiletime generation, or shared utilities.
+- Avoid broad refactors unless they directly reduce risk or complexity for the requested change.
 
-Use:
+## Agent Workflow
+
+Install dependencies:
 
 ```bash
 grill install
 ```
 
-to install project dependencies.
-
-Use:
-
-```bash
-grill install <https-git-url>
-```
-
-to add and pull a specific Git dependency.
-
-After making Wurst changes, always run:
+After Wurst changes, run quiet checks first:
 
 ```bash
 grill typecheck --quiet
-```
-
-The `--quiet` flag suppresses verbose compiler output and only prints errors — use it to keep context small. Without it, the compiler emits a large amount of output that wastes context window space.
-
-Fix reported errors and relevant warnings before considering the task done.
-
-When running tests:
-
-```bash
 grill test --quiet
 ```
 
-Same rule applies: `--quiet` filters output to errors only and prints `✔ All tests succeeded.` on success.
+If quiet output reports a failure, rerun narrowly:
 
-## Project configuration (`wurst.build`)
-
-`wurst.build` is a YAML file at the repository root that controls project metadata, dependencies, and map build settings. It is the source of truth for:
-
-- `projectName` — human-readable project name
-- `dependencies` — list of Git URLs managed by `grill`; add/remove entries here and run `grill install` to sync
-- `buildMapData` — map metadata (name, fileName, author, scenario description, players, forces) written into the compiled `.w3x` file
-
-Do not edit `_build/dependencies/` directly. Dependency source lives in those git repos; change `wurst.build` and reinstall to update.
-
-## Lua vs Jass compilation
-
-Warcraft III 1.32+ maps can target either **Lua** or **Jass** as the script runtime. Wurst compiles to whichever the map's script type is set to (configured in the World Editor map settings, not in `wurst.build`).
-
-This distinction has practical consequences for how code should be written:
-
-**Lua mode** (Reforged maps, recommended):
-- No operation limit — long loops and deep call stacks are fine.
-- `execute()` is a no-op for performance; do not add it as an op-limit workaround.
-- Work that was split across multiple timer callbacks purely to avoid op-limits can be run synchronously.
-- Periodic timers (`doPeriodically`, `doAfter`) are still async and introduce real frame delays — use them when you actually want a delay, not just to chunk work.
-
-**Jass mode** (older maps):
-- The Jass VM enforces an operation limit per thread (~1 million ops).
-- `execute()` spawns a new thread, resetting the op counter — necessary for large loops.
-- Heavy work must be split across ticks or use `execute()` wrappers.
-
-When reading existing code, check which mode the map targets before adding or removing `execute()` calls or chunked timer patterns.
-
-## Generated/build folders
-
-The `_build/` folder contains dynamic generated content and must not be committed.
-
-`_build/dependencies/` is managed by `grill`. Do not edit dependency code there as source-of-truth. The default dependency `wurstStdlib2` is the Wurst standard library.
-
-## Coding style for this project
-
-Prefer high-level Wurst and standard-library APIs over raw low-level Jass-style code.
-
-For every `common.j` native there is usually a Wurst wrapper or extension function. Prefer the Wurst wrapper when available.
-
-Prefer extension-function chaining and cascade syntax:
-
-```wurst
-unit
-	..setOwner(player)
-	..setPosition(pos)
-	..addAbility(ABILITY_ID)
+```bash
+grill typecheck
+grill test PackageOrTestName
 ```
 
-Avoid deeply nested call style:
+Use the failed file, line, package, or test name to narrow the next command. Avoid full noisy reruns unless there is no target.
 
-```wurst
-addAbility(setPosition(setOwner(unit, player), pos), ABILITY_ID) // avoid
+For build changes:
+
+```bash
+grill build ExampleMap.w3x --quiet
 ```
 
-Use `vec2` tuples for positions instead of `location` handles whenever possible. Locations are handles and should generally be avoided unless an API specifically requires them.
+Done means relevant errors/warnings are fixed or explicitly explained.
 
-When generating object IDs, use compiletime expressions and ID generators so IDs stay consistent and collision-free. Do not hardcode new object IDs unless the surrounding code already intentionally does so.
+## Project Configuration
 
-## WurstScript essentials
+`wurst.build` is the root YAML config. Key fields: `projectName`, `dependencies` (Git URLs managed by `grill`), and `buildMapData` (metadata written to the output `.w3x`). The default dependency is usually `wurstStdlib2`. Patch upstream repos instead of editing copied dependency code.
 
-All Wurst code must be inside a `package`.
+## Lua vs Jass
+
+Maps target Lua or Jass via World Editor settings.
+
+Lua mode:
+
+- No practical op-limit; long loops and deep calls are okay.
+- `execute()` is a no-op for performance. Do not add it as an op-limit workaround.
+- Use timers only when you need real asynchronous delay.
+
+Jass mode:
+
+- The VM has an operation limit per thread.
+- `execute()` resets the op counter by starting a new thread.
+- Heavy work may need chunking across ticks.
+
+Check the target before adding/removing `execute()` or timer chunking.
+
+## Wurst Essentials
+
+Every `.wurst` file starts with a package:
 
 ```wurst
 package MyPackage
-import Printing
+import Wurstunit
 
 init
-	print("Hello Wurst!")
+	print("loaded")
 ```
 
 Blocks are indentation-based. Use tabs or 4 spaces consistently; do not mix.
 
-```wurst
-if condition
-	doSomething()
-afterwards()
-```
-
-Newlines usually end statements, but can continue after `(`, `[`, operators, or before `.`, `..`, `)`, `]`, `begin`.
-
-## Types and variables
-
-Basic types: `boolean`, `int`, `real`, `string`.
-
-Prefer `let` for immutable values, `var` for mutable values, and explicit types only when useful.
+Common declarations:
 
 ```wurst
-let x = 5
-var y = 10
-y += 1
-int z = 7
-```
+let immutable = 5
+var mutable = 10
+constant int SOME_ID = 'A000'
+int array values = [1, 2, 3]
 
-Arrays:
-
-```wurst
-int array a
-int array b = [1, 2, 3]
-constant NAMES = ["A", "B", "C"]
-let len = b.length // initial length only
-```
-
-Package-level variables are globals. Locals can be declared anywhere inside functions.
-
-## Functions
-
-```wurst
 function max(int a, int b) returns int
 	if a > b
 		return a
 	return b
 
-function printMax(int a, int b)
-	print(max(a, b).toString())
+function doThing()
+	print("void functions omit returns")
 ```
 
-Void functions omit `returns`. Do not use Jass-style `takes` / `returns nothing`.
+Use `let` unless mutation is needed. Put locals near first use. Prefer obvious type inference. Do not write Jass-style `takes` / `returns nothing`.
 
-## Control flow
+Control flow:
 
 ```wurst
 if x > y
-	print("greater")
+	...
 else if x < y
-	print("smaller")
-else
-	print("equal")
-```
+	...
 
-```wurst
-switch value
+switch kind
 	case 1
-		print("one")
-	case 2 | 3
-		print("two or three")
+		...
 	default
-		print("other")
-```
+		...
 
-Loops:
-
-```wurst
-while condition
+while keepGoing
 	...
 
 for i = 0 to 10
@@ -193,38 +122,40 @@ for i = 0 to 10
 for i = 10 downto 0
 	...
 
-for u in someGroup
+for u in group
 	...
 
-for u from someGroup
+for u from group
 	...
 ```
 
-Use `continue` to skip an iteration. `skip` is a no-op.
-
-## Operators and expressions
+`continue` skips an iteration; `skip` is a no-op. Statements usually end at newline. Continue after `(`, `[`, operators, or before `.`, `..`, `)`, `]`, `begin`.
 
 Common operators: `+`, `-`, `*`, `/`, `div`, `%`, `mod`, `and`, `or`, `not`, `==`, `!=`, `<`, `<=`, `>`, `>=`.
 
-Ternary:
-
 ```wurst
-let label = n == 1 ? "enemy" : "enemies"
+let label = count == 1 ? "unit" : "units"
 ```
 
-Casts and type checks:
+## Packages and API Shape
 
-```wurst
-let i = obj castTo int
-if obj instanceof SomeClass
-	...
-```
+- Package members are private by default; use `public` for exports.
+- Class members are public by default; restrict with `private`/`protected`.
+- Every package implicitly imports `Wurst` unless `NoWurst` is imported.
+- `import public` re-exports names. Plain `import` does not.
+- Avoid `initlater` unless breaking an unavoidable init cycle.
+- Package initialization is top-to-bottom; imports initialize before importers.
 
-Avoid `castTo` where possible; casts are not runtime-checked.
+Naming:
 
-## Cascade operator
+- packages/classes: `UpperCamelCase`
+- tuples: `lowerCamelCase`
+- functions/members/locals: `lowerCamelCase`
+- top-level constants: `UPPER_SNAKE_CASE`
 
-`..` calls a method and returns the receiver, useful for fluent setup.
+## Preferred Wurst Style
+
+Use cascade syntax for setup:
 
 ```wurst
 CreateTrigger()
@@ -233,210 +164,79 @@ CreateTrigger()
 	..addAction(function action)
 ```
 
-Prefer this for setup/configuration code.
-
-## Packages
+Use extension functions for readable APIs:
 
 ```wurst
-package MyPackage
-import SomePackage
-import public ReExportedPackage
-import initlater CyclicPackage
+public function unit.getX2() returns real
+	return GetUnitX(this)
 ```
 
-Package members are private by default. Use `public` to export.
+Prefer `vec2` tuples over `location` handles unless required. Prefer polymorphism/data modeling over large `instanceof`/`typeId` chains. Avoid unchecked `castTo` unless proven safe.
+
+Lambdas need a target type. Standalone inference does not work:
 
 ```wurst
-public function foo()
-	...
+Predicate<int> even = x -> x mod 2 == 0
 
-public constant int SOME_ID = 'A000'
+doAfter(1.) ->
+	print("later")
 ```
 
-`import public` re-exports imported public names. `initlater` weakens initialization ordering and should only be used for unavoidable cycles.
+Closures capture locals by value. Stored/object-backed closures often need cleanup. Lambdas used as `code` cannot take parameters or capture locals.
 
-Every package implicitly imports the standard `Wurst` package unless `NoWurst` is imported.
+## Classes, Tuples, Generics
 
-`init` blocks run at map start. Package initialization runs top-to-bottom; imported packages initialize before importers unless `initlater` is used.
-
-## Classes
-
-```wurst
-class Caster
-	unit u
-
-	construct(real x, real y)
-		u = createUnit(...)
-
-	function cast(real x, real y)
-		u.issueOrder(...)
-
-	ondestroy
-		u.kill()
-```
-
-Create/destroy:
-
-```wurst
-let c = new Caster(200., 400.)
-c.cast(500., 30.)
-destroy c
-```
-
-Objects created with `new` generally need `destroy`.
-
-Class members are public by default. Use `private` or `protected` where needed.
-
-Static members:
-
-```wurst
-class Terrain
-	static var value = 12.
-	static function getZ(real x, real y) returns real
-		...
-
-let z = Terrain.getZ(0., 0.)
-```
-
-## Inheritance
+`new` objects generally need `destroy`. Tuples are value types and must not be destroyed.
 
 ```wurst
 class Missile
-	construct(string fx, real x, real y)
-		...
-
 	function onCollide(unit u)
 
-class FireballMissile extends Missile
-	construct(real x, real y)
-		super("Abilities\Weapons\RedDragonBreath\RedDragonMissile.mdl", x, y)
-
+class Fireball extends Missile
 	override function onCollide(unit u)
 		...
 ```
 
-`super(...)` must be the first constructor statement. Overridden methods require `override`. Dynamic dispatch works through superclass references.
+`super(...)` must be the first constructor statement. Overridden methods require `override`.
 
-## Interfaces, modules, generics
-
-Interface:
+Interfaces declare required methods; modules inject reusable members:
 
 ```wurst
 interface Listener
 	function onClick()
-	function onAttack(real x, real y) returns boolean
+
+module HasOwner
+	player owner
+
+class Button
+	use HasOwner
 ```
 
-Modules inject reusable behavior without subtype inheritance.
+Prefer `T:` generics for performance-sensitive or instance-heavy containers:
 
 ```wurst
-module IntContainer
-	int x
-
-	public function getX() returns int
-		return x
-
-class C
-	use IntContainer
-```
-
-Prefer new generics `T:` for performance-sensitive or instance-heavy generic containers:
-
-```wurst
-class Ref<T:>
+class Box<T:>
 	T value
 ```
 
-Old `T` generics erase through integer casts and may share storage. New `T:` generics specialize per concrete type, often faster but may increase generated script size.
+Old `T` generics erase through integer casts and can share storage.
 
-## Enums, tuples, extension functions
+## Compiletime and Objects
 
-Enums are integer-backed named constants.
-
-```wurst
-enum Animal
-	Sheep
-	Dog
-	Eagle
-```
-
-Tuples are value types and must not be destroyed.
-
-```wurst
-tuple vec2(real x, real y)
-let p = vec2(1., 2.)
-let q = p // copy
-```
-
-Add methods to existing types with extension functions:
-
-```wurst
-public function unit.getX() returns real
-	return GetUnitX(this)
-
-public function real.half() returns real
-	return this / 2.
-
-let x = u.getX().half()
-```
-
-## Lambdas and closures
-
-Lambdas implement functional interfaces.
-
-```wurst
-interface Predicate<T>
-	function isTrueFor(T t) returns boolean
-
-Predicate<int> pred = x -> x mod 2 == 0
-```
-
-Standalone lambda type inference does not work:
-
-```wurst
-let pred = x -> x mod 2 == 0 // invalid
-Predicate<int> pred = x -> x mod 2 == 0 // valid
-```
-
-Block lambda:
-
-```wurst
-doAfter(10.) ->
-	u.kill()
-	createNiceExplosion()
-```
-
-Closures capture locals by value. Closure objects generally need destruction if stored/allocated as objects. Inside a closure, `it` refers to the closure object itself.
-
-A lambda can be used as `code` only if it has no parameters and captures no locals.
-
-## Compiletime, object generation, tests
-
-Compiletime functions:
-
-```wurst
-@compiletime function generateObjects()
-	...
-```
-
-They have no parameters and no return value.
-
-Compiletime expressions:
+Use compiletime generation for object-editor data. Prefer wrappers and ID generators so IDs stay stable and collision-free.
 
 ```wurst
 let value = compiletime(fac(5))
-```
 
-Use compiletime object generation for object-editor data. Prefer object-editing wrappers and ID generators.
-
-```wurst
 @compiletime function createSpell()
 	new AbilityDefinitionMountainKingThunderBolt(SPELL_ID)
 		..setName("Wurst Bolt")
 		..presetDamage(lvl -> 400. + lvl * 100.)
 ```
 
-Tests:
+Avoid hardcoded new object IDs unless the existing code intentionally does so.
+
+## Tests
 
 ```wurst
 package MyTests
@@ -446,35 +246,17 @@ import Wurstunit
 	12.assertEquals(3 * 4)
 ```
 
-Tests should be small, self-contained, and contain assertions.
+Tests should be small, deterministic, self-contained, and assertion-driven. If quiet output lists a failed package/test, rerun that target before expanding scope.
 
-## Formatting and naming
+## Formatting
 
-Naming:
-
-* packages/classes: `UpperCamelCase`
-* tuples: `lowerCamelCase`
-* functions, members, locals: `lowerCamelCase`
-* top-level constants: `UPPER_SNAKE_CASE`
-
-Formatting:
-
-* spaces around binary operators: `a + b`
-* no space before call parentheses: `foo(1)`
-* no spaces around `.` or `..`
-* no spaces after `(` or `[` or before `)` or `]`
-* use `// Comment`, with a space after `//`
-* avoid manual horizontal alignment
-
-Prefer:
-
-* `let` over `var` when not mutated
-* local declarations near first use
-* type inference when obvious
-* polymorphism over `instanceof` / `typeId`
-* extension functions for readable APIs
-* normal `for` loops for side-effect iteration
-* fixing compiler warnings; prefix intentionally unused variables with `_`
+- spaces around binary operators: `a + b`
+- no space before call parentheses: `foo(1)`
+- no spaces around `.` or `..`
+- no spaces after `(` or `[` or before `)` or `]`
+- comments use `// Comment`
+- avoid manual horizontal alignment
+- prefix intentionally unused variables with `_`
 
 Hot doc comments:
 
@@ -482,22 +264,13 @@ Hot doc comments:
 /** This appears in autocomplete. */
 ```
 
-## Common pitfalls
+## Pitfalls
 
-* Always run `grill typecheck --quiet` after code changes.
-* Do not commit `_build/` or edit `_build/dependencies/` as source.
-* Wurst code must be inside `package`.
-* Indentation defines blocks.
-* Package members are private unless `public`.
-* Class members are public unless restricted.
-* `import` does not re-export; use `import public`.
-* Avoid `initlater` unless necessary.
-* `array.length` is only the initial length.
-* `new` objects and closure objects often need `destroy`.
-* Tuples are value copies and must not be destroyed.
-* Prefer `vec2` over `location` handles.
-* `castTo` is unchecked.
-* Lambda target type must be known.
-* Lambdas used as `code` cannot capture locals.
-* Varargs are limited by Jass’s 31-argument limit.
-* Prefer `T:` generics for performance-sensitive containers.
+- Wurst code must be inside `package`.
+- Indentation defines blocks.
+- `array.length` is only the initial length.
+- `new` objects and stored closure objects often need `destroy`.
+- Lambdas need a known target type.
+- Lambdas used as `code` cannot capture locals.
+- Varargs are limited by Jass's 31-argument limit.
+- Fix compiler warnings unless they are intentionally suppressed.

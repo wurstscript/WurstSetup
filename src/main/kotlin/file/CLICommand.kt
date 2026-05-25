@@ -61,6 +61,11 @@ enum class GlobalOptions(val optionName: String = "", val argCount: Int = 0) {
             setupMain.quiet = true
         }
     },
+    DEBUG("--debug") {
+        override fun runOption(setupMain: SetupMain, args: List<String>) {
+            setupMain.debug = true
+        }
+    },
     SCRIPT_MODE("--script-mode", 1) {
         override fun runOption(setupMain: SetupMain, args: List<String>) {
             setupMain.scriptMode = when (args[0].lowercase()) {

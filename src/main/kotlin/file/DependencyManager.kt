@@ -20,6 +20,7 @@ import java.util.Comparator
  */
 object DependencyManager {
     private val log = KotlinLogging.logger {}
+    var debug = false
 
     fun updateDependencies(projectRoot: Path, projectConfig: WurstProjectConfigData) {
         cleanupLegacyDependencyFile(projectRoot)
@@ -129,7 +130,8 @@ object DependencyManager {
                 .use { Log.print("done\n") }
         } catch (e: Exception) {
             Log.print("error!\n")
-            e.printStackTrace()
+            reportDependencyError(depURI, branch, e)
+            throw RuntimeException("Could not clone dependency <$depURI:$branch>", e)
         }
     }
 
@@ -172,12 +174,17 @@ object DependencyManager {
                     }
                 } catch (e: Exception) {
                     Log.print("error when trying to refresh repository\n")
-                    e.printStackTrace()
+                    reportDependencyError(depUri, branch, e)
                 }
             }
         } catch (e: Exception) {
             Log.print("error when trying open repository")
-            e.printStackTrace()
+            if (debug) {
+                e.printStackTrace()
+            } else {
+                log.error("❌ Could not open dependency repo at $depFolder.")
+                log.info("Try: delete that dependency folder and run `grill install` again.")
+            }
         }
         return false
     }
@@ -275,12 +282,20 @@ object DependencyManager {
                         }
                     } catch (e: Exception) {
                         Log.print("error when trying to fetch remote\n")
-                        e.printStackTrace()
+                        if (debug) {
+                            e.printStackTrace()
+                        } else {
+                            log.warn("Could not fetch dependency status: ${e.message}")
+                        }
                     }
                 }
             } catch (e: Exception) {
                 Log.print("error when trying open repository")
-                e.printStackTrace()
+                if (debug) {
+                    e.printStackTrace()
+                } else {
+                    log.warn("Could not open dependency repo: ${e.message}")
+                }
             }
         } catch (ignored: Exception) {
         }
@@ -305,6 +320,50 @@ object DependencyManager {
         } catch (e: Exception) {
             log.warn("Could not verify dependency at <$depFolder>.", e)
             true
+        }
+    }
+
+    private fun reportDependencyError(depURI: String, branch: String, e: Exception) {
+        val message = e.message ?: e.javaClass.simpleName
+        log.error("❌ Could not clone dependency.")
+        log.info("Repo: $depURI")
+        log.info("Branch: $branch")
+        when {
+            message.contains("Remote branch", true) && message.contains("not found", true) -> {
+                val branches = listRemoteBranches(depURI)
+                log.info("Reason: branch <$branch> does not exist on that remote.")
+                if (branches.isNotEmpty()) {
+                    log.info("Available branches: ${branches.joinToString(", ")}")
+                }
+                log.info("Try: use https://github.com/user/repo:branch with an existing branch.")
+            }
+            message.contains("Authentication", true) || message.contains("not authorized", true) -> {
+                log.info("Reason: authentication failed.")
+                log.info("Try: check that the repo is public or that git credentials are available.")
+            }
+            else -> {
+                log.info("Reason: $message")
+                log.info("Try: rerun with --debug for the full stack trace.")
+            }
+        }
+        if (debug) {
+            e.printStackTrace()
+        }
+    }
+
+    private fun listRemoteBranches(depURI: String): List<String> {
+        return try {
+            Git.lsRemoteRepository()
+                .setRemote(depURI)
+                .setHeads(true)
+                .setTags(false)
+                .call()
+                .mapNotNull { ref ->
+                    ref.name.takeIf { it.startsWith(Constants.R_HEADS) }?.removePrefix(Constants.R_HEADS)
+                }
+                .sorted()
+        } catch (_: Exception) {
+            emptyList()
         }
     }
 }

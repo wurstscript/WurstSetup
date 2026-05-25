@@ -101,6 +101,20 @@ class GenerateTests {
     }
 
     @Test(priority = 10)
+    fun testDebugFlag() {
+        val setup = SetupMain()
+        setup.parseArgs(listOf("test", "--debug"))
+        Assert.assertTrue(setup.debug)
+    }
+
+    @Test(priority = 10)
+    fun testQuietFlag() {
+        val setup = SetupMain()
+        setup.parseArgs(listOf("test", "--quiet"))
+        Assert.assertTrue(setup.quiet)
+    }
+
+    @Test(priority = 10)
     fun testGenerateWithoutNameUsesWizardPrompt() {
         val setup = SetupMain()
         setup.parseArgs(listOf("generate"))

@@ -31,7 +31,13 @@ object WurstProjectConfig {
         try {
             createProject(projectRoot, gameRoot, projectConfig)
         } catch (e: Exception) {
-            Log.print("\n===ERROR PROJECT CREATE===\n" + e.message + "\nPlease report here: github.com/wurstscript/WurstScript/issues\n")
+            if (DependencyManager.debug) {
+                e.printStackTrace()
+            }
+            log.error("❌ Project creation failed.")
+            log.info("Reason: ${e.message ?: e.javaClass.simpleName}")
+            log.info("Try: rerun with --debug for the full stack trace.")
+            ExitHandler.exit(1)
         }
     }
 
@@ -205,8 +211,13 @@ object WurstProjectConfig {
 
             Log.print("Project successfully updated!\nReload vscode to apply the changed dependencies.\n")
         } catch (e: Exception) {
-            e.printStackTrace()
-            Log.print("\n===ERROR PROJECT UPDATE===\n" + e.message + "\nPlease report here: github.com/wurstscript/WurstScript/issues\n")
+            if (DependencyManager.debug) {
+                e.printStackTrace()
+            }
+            log.error("❌ Project update failed.")
+            log.info("Reason: ${e.message ?: e.javaClass.simpleName}")
+            log.info("Try: rerun with --debug for the full stack trace.")
+            ExitHandler.exit(1)
         }
     }
 
