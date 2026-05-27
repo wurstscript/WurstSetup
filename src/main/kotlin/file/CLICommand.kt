@@ -1,7 +1,6 @@
 package file
 
 import config.ScriptMode
-import config.Wc3Patch
 
 enum class CLICommand {
     HELP,
@@ -76,10 +75,7 @@ enum class GlobalOptions(val optionName: String = "", val argCount: Int = 0) {
     },
     WC3_PATCH("--wc3-patch", 1) {
         override fun runOption(setupMain: SetupMain, args: List<String>) {
-            setupMain.wc3Patch = when (args[0].lowercase()) {
-                "pre1.29" -> Wc3Patch.PRE_129
-                else -> Wc3Patch.REFORGED
-            }
+            setupMain.wc3Patch = CoreJassProvider.normalizePatchInput(args[0])
         }
     };
 

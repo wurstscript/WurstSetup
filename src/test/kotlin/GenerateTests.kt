@@ -1,6 +1,6 @@
 import config.ScriptMode
-import config.Wc3Patch
 import file.CLICommand
+import file.CoreJassProvider
 import file.ExitHandler
 import file.SetupApp
 import file.SetupMain
@@ -34,7 +34,7 @@ class GenerateTests {
         Assert.assertEquals(setup.command, CLICommand.GENERATE)
         Assert.assertEquals(setup.commandArg, "myproject")
         Assert.assertEquals(setup.scriptMode, ScriptMode.LUA)
-        Assert.assertEquals(setup.wc3Patch, Wc3Patch.REFORGED)
+        Assert.assertEquals(setup.wc3Patch, CoreJassProvider.DEFAULT_PATCH)
         Assert.assertFalse(setup.addAgents)
         Assert.assertFalse(setup.addGithubWorkflow)
     }
@@ -44,7 +44,7 @@ class GenerateTests {
         val setup = SetupMain()
         setup.parseArgs(listOf("generate", "myproject", "--script-mode", "jass"))
         Assert.assertEquals(setup.scriptMode, ScriptMode.JASS)
-        Assert.assertEquals(setup.wc3Patch, Wc3Patch.REFORGED)
+        Assert.assertEquals(setup.wc3Patch, CoreJassProvider.DEFAULT_PATCH)
     }
 
     @Test(priority = 10)
@@ -52,7 +52,59 @@ class GenerateTests {
         val setup = SetupMain()
         setup.parseArgs(listOf("generate", "myproject", "--wc3-patch", "pre1.29"))
         Assert.assertEquals(setup.scriptMode, ScriptMode.LUA)
-        Assert.assertEquals(setup.wc3Patch, Wc3Patch.PRE_129)
+        Assert.assertEquals(setup.wc3Patch, CoreJassProvider.PRE_129_PATCH)
+    }
+
+    @Test(priority = 10)
+    fun testWc3PatchJassHistoryVersionFlag() {
+        val setup = SetupMain()
+        setup.parseArgs(listOf("generate", "myproject", "--wc3-patch", "Reforged-v1.36.1.20719-w3-51d40ee"))
+        Assert.assertEquals(setup.wc3Patch, "v1.36")
+
+        val letterPatch = SetupMain()
+        letterPatch.parseArgs(listOf("generate", "myproject", "--wc3-patch", "1.27b"))
+        Assert.assertEquals(letterPatch.wc3Patch, "v1.27b")
+    }
+
+    @Test(priority = 10)
+    fun testPatchAliasNormalizationAndLegacyDetection() {
+        Assert.assertEquals(CoreJassProvider.normalizePatchInput("reforged"), CoreJassProvider.DEFAULT_PATCH)
+        Assert.assertEquals(CoreJassProvider.normalizePatchInput("pre1.29"), CoreJassProvider.PRE_129_PATCH)
+        Assert.assertFalse(CoreJassProvider.isSupportedPatch("v9.99"))
+        Assert.assertTrue(CoreJassProvider.isPre129Patch("TFT-v1.28.2.7395"))
+        Assert.assertFalse(CoreJassProvider.isPre129Patch("TFT-v1.31.1.12173"))
+        Assert.assertEquals(
+            CoreJassProvider.jassHistoryFolderForPatch("v1.36"),
+            "Reforged-v1.36.1.20719-w3-51d40ee"
+        )
+        Assert.assertEquals(
+            CoreJassProvider.describePatch("v1.36"),
+            "v1.36 (latest Reforged / WC3 2.x core JASS)"
+        )
+    }
+
+    @Test(priority = 10)
+    fun testInstallPatchSelectionRejectsUnsupportedFreeText() {
+        val answers = java.util.ArrayDeque(listOf("totally-not-a-patch", "2"))
+        val prevPrompt = SetupApp.installPatchPrompt
+        try {
+            SetupApp.installPatchPrompt = { _, _ -> answers.removeFirst() }
+            Assert.assertEquals(SetupApp.selectPatchVersionForInstall(), "v1.31")
+        } finally {
+            SetupApp.installPatchPrompt = prevPrompt
+        }
+    }
+
+    @Test(priority = 10)
+    fun testInstallPatchSelectionRequiresBrowseForNonRecommendedVersions() {
+        val answers = java.util.ArrayDeque(listOf("v1.32", "more", "v1.32"))
+        val prevPrompt = SetupApp.installPatchPrompt
+        try {
+            SetupApp.installPatchPrompt = { _, _ -> answers.removeFirst() }
+            Assert.assertEquals(SetupApp.selectPatchVersionForInstall(), "v1.32")
+        } finally {
+            SetupApp.installPatchPrompt = prevPrompt
+        }
     }
 
     @Test(priority = 10)
@@ -68,7 +120,7 @@ class GenerateTests {
             )
         )
         Assert.assertEquals(setup.scriptMode, ScriptMode.JASS)
-        Assert.assertEquals(setup.wc3Patch, Wc3Patch.PRE_129)
+        Assert.assertEquals(setup.wc3Patch, CoreJassProvider.PRE_129_PATCH)
         Assert.assertTrue(setup.addAgents)
         Assert.assertTrue(setup.addGithubWorkflow)
     }
@@ -129,9 +181,29 @@ class GenerateTests {
 
         Assert.assertEquals(setup.commandArg, "wizardproject")
         Assert.assertEquals(setup.scriptMode, ScriptMode.JASS)
-        Assert.assertEquals(setup.wc3Patch, Wc3Patch.PRE_129)
+        Assert.assertEquals(setup.wc3Patch, CoreJassProvider.PRE_129_PATCH)
         Assert.assertTrue(setup.addAgents)
         Assert.assertTrue(setup.addGithubWorkflow)
+    }
+
+    @Test(priority = 10)
+    fun testGenerateWizardRejectsUnsupportedScriptModeAndPatchInput() {
+        val setup = SetupMain()
+        setup.parseArgs(listOf("generate"))
+        val answers = java.util.ArrayDeque(listOf("wizardproject", "t", "jass", "t", "2", "n", "n"))
+        val prevPrompt = SetupApp.generatePrompt
+        try {
+            SetupApp.generatePrompt = { _, _ -> answers.removeFirst() }
+            Assert.assertTrue(SetupApp.prepareGenerate(setup))
+        } finally {
+            SetupApp.generatePrompt = prevPrompt
+        }
+
+        Assert.assertEquals(setup.commandArg, "wizardproject")
+        Assert.assertEquals(setup.scriptMode, ScriptMode.JASS)
+        Assert.assertEquals(setup.wc3Patch, "v1.31")
+        Assert.assertFalse(setup.addAgents)
+        Assert.assertFalse(setup.addGithubWorkflow)
     }
 
     @Test(priority = 10)
@@ -170,6 +242,53 @@ class GenerateTests {
             Assert.assertTrue(workflow.contains("run: grill install"))
             Assert.assertTrue(workflow.contains("run: grill build ExampleMap.w3x"))
             Assert.assertFalse(workflow.contains("uses: frotty/wurstscript@master"))
+        } finally {
+            Files.walk(tmpDir).sorted(Comparator.reverseOrder()).forEach {
+                try {
+                    Files.deleteIfExists(it)
+                } catch (_: Exception) {
+                }
+            }
+        }
+    }
+
+    @Test(priority = 10)
+    fun testCoreJassFilesAreEmittedToBuildDir() {
+        val tmpDir = Files.createTempDirectory("grill-core-jass-test")
+        try {
+            SetupApp.ensureCoreJassFiles(tmpDir, CoreJassProvider.DEFAULT_PATCH)
+
+            val common = tmpDir.resolve("_build/common.j")
+            val blizzard = tmpDir.resolve("_build/blizzard.j")
+            Assert.assertTrue(Files.exists(common), "common.j should be emitted directly into _build")
+            Assert.assertTrue(Files.exists(blizzard), "blizzard.j should be emitted directly into _build")
+            Assert.assertTrue(Files.readString(common).contains("native ConvertRace"))
+            Assert.assertTrue(Files.readString(blizzard).contains("Blizzard.j"))
+        } finally {
+            Files.walk(tmpDir).sorted(Comparator.reverseOrder()).forEach {
+                try {
+                    Files.deleteIfExists(it)
+                } catch (_: Exception) {
+                }
+            }
+        }
+    }
+
+    @Test(priority = 10)
+    fun testCoreJassFilesFollowConfiguredPatch() {
+        val tmpDir = Files.createTempDirectory("grill-core-jass-patch-test")
+        try {
+            SetupApp.ensureCoreJassFiles(tmpDir, CoreJassProvider.DEFAULT_PATCH)
+            val reforgedCommonSize = Files.size(tmpDir.resolve("_build/common.j"))
+
+            SetupApp.ensureCoreJassFiles(tmpDir, CoreJassProvider.PRE_129_PATCH)
+            val pre129CommonSize = Files.size(tmpDir.resolve("_build/common.j"))
+
+            Assert.assertNotEquals(
+                pre129CommonSize,
+                reforgedCommonSize,
+                "install/generate should refresh _build/common.j when wc3Patch changes"
+            )
         } finally {
             Files.walk(tmpDir).sorted(Comparator.reverseOrder()).forEach {
                 try {

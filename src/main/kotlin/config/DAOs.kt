@@ -7,7 +7,6 @@ import kotlin.collections.ArrayList
 const val CONFIG_FILE_NAME = "wurst.build"
 
 enum class ScriptMode { LUA, JASS }
-enum class Wc3Patch { REFORGED, PRE_129 }
 
 /**
  * The root DAO that contains the child DAOs.
@@ -19,7 +18,7 @@ data class WurstProjectConfigData(
     val dependencies: ArrayList<String> = ArrayList(),
     val buildMapData: WurstProjectBuildMapData = WurstProjectBuildMapData(),
     val scriptMode: ScriptMode? = null,
-    val wc3Patch: Wc3Patch? = null
+    var wc3Patch: String? = null
 ) {
     constructor() : this("unnamed")
 }

@@ -45,6 +45,7 @@ dependencies {
     implementation 'com.fasterxml.jackson.module:jackson-module-kotlin'
     implementation 'com.fasterxml.jackson.dataformat:jackson-dataformat-yaml'
     implementation 'com.github.Frotty:SimpleRegistry:f96dda96bd'
+    implementation 'org.jline:jline:3.30.13'
     implementation group: 'org.slf4j', name: 'slf4j-api', version: '2.0.17'
     implementation group: 'ch.qos.logback', name: 'logback-classic', version: '1.5.32'
     testImplementation 'org.testng:testng:7.12.0'

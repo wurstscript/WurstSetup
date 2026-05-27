@@ -25,4 +25,17 @@ class YamlHelperTests {
         Assert.assertTrue(Files.exists(buildFile))
         Assert.assertTrue(Files.exists(dir.resolve("wurst.build.bak")))
     }
+
+    @Test
+    fun testWc3PatchVersionNormalizesToSchemaValue() {
+        val dumped = YamlHelper.dumpProjectConfig(
+            WurstProjectConfigData(projectName = "versioned", wc3Patch = "Reforged-v1.36.1.20719-w3-51d40ee")
+        )
+        val dir = Files.createTempDirectory("wurstsetup-yaml-version-test")
+        val buildFile = dir.resolve("wurst.build")
+        Files.writeString(buildFile, dumped)
+
+        val loaded = YamlHelper.loadProjectConfig(buildFile)
+        Assert.assertEquals(loaded.wc3Patch, "v1.36")
+    }
 }
