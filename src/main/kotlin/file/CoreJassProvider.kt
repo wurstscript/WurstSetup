@@ -2,6 +2,7 @@ package file
 
 import logging.KotlinLogging
 import java.net.URI
+import java.nio.file.AtomicMoveNotSupportedException
 import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.StandardCopyOption
@@ -129,16 +130,22 @@ object CoreJassProvider {
         Files.createDirectories(buildFolder)
         val patch = normalizePatchInput(wc3Patch)
         val previousPatch = readProvenance(buildFolder)
-        val canKeepExisting = previousPatch == patch
-        val files = listOf(
-            materializeFile(buildFolder, "common.j", patch, canKeepExisting),
-            materializeFile(buildFolder, "blizzard.j", patch, canKeepExisting)
+        val materializedFiles = listOf(
+            materializeFile(buildFolder, "common.j", patch, previousPatch),
+            materializeFile(buildFolder, "blizzard.j", patch, previousPatch)
         )
-        Files.writeString(
-            buildFolder.resolve("core-jass.provenance"),
-            "wc3Patch: $patch\njassHistoryFolder: ${jassHistoryFolderForPatch(patch).orEmpty()}\n"
-        )
-        return files
+        if (materializedFiles.all { it.managedByGrill }) {
+            Files.writeString(
+                buildFolder.resolve("core-jass.provenance"),
+                "wc3Patch: $patch\njassHistoryFolder: ${jassHistoryFolderForPatch(patch).orEmpty()}\n"
+            )
+        } else {
+            log.warn(
+                "Existing _build core JASS files have no Grill provenance; leaving them project-owned. " +
+                    "Delete _build/common.j and _build/blizzard.j to let Grill regenerate them for $patch."
+            )
+        }
+        return materializedFiles.map { it.path }
     }
 
     fun fetchJassHistoryVersions(): List<String> {
@@ -149,25 +156,33 @@ object CoreJassProvider {
         return (listOf(DEFAULT_PATCH, "v1.31", PRE_129_PATCH) + versions.take(1)).distinct()
     }
 
-    private fun materializeFile(buildFolder: Path, fileName: String, patch: String, canKeepExisting: Boolean): Path {
+    private data class MaterializedFile(val path: Path, val managedByGrill: Boolean)
+
+    private fun materializeFile(buildFolder: Path, fileName: String, patch: String, previousPatch: String?): MaterializedFile {
         val target = buildFolder.resolve(fileName)
         val jassHistoryFolder = PATCH_TO_JASS_HISTORY_FOLDER[patch]
         if (jassHistoryFolder == null) {
             throw IllegalArgumentException("Unsupported WC3 patch <$patch>. Supported values: ${supportedPatches.joinToString()}")
         }
 
+        if (previousPatch == null && Files.exists(target)) {
+            log.info("Keeping existing _build/$fileName because it has no Grill provenance.")
+            return MaterializedFile(target, managedByGrill = false)
+        }
+
+        val canKeepExisting = previousPatch == patch
         try {
             downloadJassHistoryFile(fileName, patch, jassHistoryFolder, target)
-            return target
+            return MaterializedFile(target, managedByGrill = true)
         } catch (e: Exception) {
-            if (canKeepExisting && Files.exists(target)) {
+            if (canKeepExisting && isValidCoreJassFile(target)) {
                 log.warn("Could not refresh $fileName for $patch; keeping existing _build copy. Reason: ${e.message}")
-                return target
+                return MaterializedFile(target, managedByGrill = true)
             }
             if (patch == DEFAULT_PATCH || patch == PRE_129_PATCH) {
                 log.warn("Could not download $fileName for $patch; falling back to bundled core JASS. Reason: ${e.message}")
                 copyBundledCoreJass(fileName, patch, target)
-                return target
+                return MaterializedFile(target, managedByGrill = true)
             }
             throw RuntimeException("Could not download $fileName for WC3 patch <$patch> from jass-history.", e)
         }
@@ -211,11 +226,33 @@ object CoreJassProvider {
     private fun downloadJassHistoryFile(fileName: String, patch: String, jassHistoryFolder: String, target: Path) {
         Files.createDirectories(target.parent)
         val rawUrl = "$JASS_HISTORY_RAW/$JASS_HISTORY_REF/war3extract/$jassHistoryFolder/scripts/$fileName"
-        URI(rawUrl).toURL().openStream().use { input ->
-            Files.copy(input, target, StandardCopyOption.REPLACE_EXISTING)
+        val tempFile = Files.createTempFile(target.parent, "$fileName.", ".download")
+        var replacedTarget = false
+        try {
+            URI(rawUrl).toURL().openStream().use { input ->
+                Files.copy(input, tempFile, StandardCopyOption.REPLACE_EXISTING)
+            }
+            if (!isValidCoreJassFile(tempFile)) {
+                throw IllegalStateException("Downloaded $fileName from jass-history did not look valid.")
+            }
+            moveValidatedDownload(tempFile, target)
+            replacedTarget = true
+        } finally {
+            if (!replacedTarget) {
+                Files.deleteIfExists(tempFile)
+            }
         }
-        if (Files.size(target) < 1024L) {
-            throw IllegalStateException("Downloaded $fileName from jass-history did not look valid.")
+    }
+
+    private fun isValidCoreJassFile(path: Path): Boolean {
+        return Files.exists(path) && Files.size(path) >= 1024L
+    }
+
+    private fun moveValidatedDownload(source: Path, target: Path) {
+        try {
+            Files.move(source, target, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE)
+        } catch (_: AtomicMoveNotSupportedException) {
+            Files.move(source, target, StandardCopyOption.REPLACE_EXISTING)
         }
     }
 

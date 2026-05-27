@@ -298,4 +298,33 @@ class GenerateTests {
             }
         }
     }
+
+    @Test(priority = 10)
+    fun testExistingCoreJassWithoutProvenanceIsPreserved() {
+        val tmpDir = Files.createTempDirectory("grill-core-jass-preserve-test")
+        try {
+            val buildDir = tmpDir.resolve("_build")
+            Files.createDirectories(buildDir)
+            val customCommon = "// custom common.j\n"
+            val customBlizzard = "// custom blizzard.j\n"
+            Files.writeString(buildDir.resolve("common.j"), customCommon)
+            Files.writeString(buildDir.resolve("blizzard.j"), customBlizzard)
+
+            SetupApp.ensureCoreJassFiles(tmpDir, CoreJassProvider.DEFAULT_PATCH)
+
+            Assert.assertEquals(Files.readString(buildDir.resolve("common.j")), customCommon)
+            Assert.assertEquals(Files.readString(buildDir.resolve("blizzard.j")), customBlizzard)
+            Assert.assertFalse(
+                Files.exists(buildDir.resolve("core-jass.provenance")),
+                "Grill must not claim ownership of pre-existing project-local core JASS files"
+            )
+        } finally {
+            Files.walk(tmpDir).sorted(Comparator.reverseOrder()).forEach {
+                try {
+                    Files.deleteIfExists(it)
+                } catch (_: Exception) {
+                }
+            }
+        }
+    }
 }
