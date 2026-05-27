@@ -171,6 +171,11 @@ object CoreJassProvider {
         }
 
         val canKeepExisting = previousPatch == patch
+        if (canKeepExisting && isValidCoreJassFile(target)) {
+            log.info("Using cached _build/$fileName for $patch.")
+            return MaterializedFile(target, managedByGrill = true)
+        }
+
         try {
             downloadJassHistoryFile(fileName, patch, jassHistoryFolder, target)
             return MaterializedFile(target, managedByGrill = true)

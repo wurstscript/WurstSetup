@@ -404,7 +404,12 @@ object SetupApp {
 
     private fun runWizard(setup: SetupMain, prompt: (String, String?) -> String?, useInteractiveMenus: Boolean) {
         setup.scriptMode = selectScriptMode(prompt, setup.scriptMode, useInteractiveMenus)
-        setup.wc3Patch = selectPatchVersion(prompt, intro = "WC3 patch choices:", useInteractiveMenus)
+        setup.wc3Patch = selectPatchVersion(
+            prompt,
+            intro = "WC3 patch choices:",
+            useInteractiveMenus = useInteractiveMenus,
+            currentPatch = setup.wc3Patch
+        )
 
         val agentsDefault = if (setup.addAgents) "Y" else "N"
         val agentsInput = prompt("Add AGENTS.md?", agentsDefault)
@@ -468,27 +473,34 @@ object SetupApp {
         return selectPatchVersion(
             installPatchPrompt ?: terminalPrompt(),
             intro = "No WC3 patch is recorded in wurst.build yet.",
-            useInteractiveMenus = installPatchPrompt == null
+            useInteractiveMenus = installPatchPrompt == null,
+            currentPatch = null
         )
     }
 
     private fun selectPatchVersion(
         prompt: (String, String?) -> String?,
         intro: String,
-        useInteractiveMenus: Boolean
+        useInteractiveMenus: Boolean,
+        currentPatch: String?
     ): String {
         val versions = CoreJassProvider.fetchJassHistoryVersions()
         val recommended = CoreJassProvider.recommendedPatchOptions(versions)
-        val defaultPatch = recommended.firstOrNull() ?: CoreJassProvider.DEFAULT_PATCH
+        val normalizedCurrentPatch = currentPatch?.let(CoreJassProvider::normalizePatchInput)
+        val defaultPatch = when {
+            normalizedCurrentPatch != null && CoreJassProvider.isSupportedPatch(normalizedCurrentPatch) -> normalizedCurrentPatch
+            else -> recommended.firstOrNull() ?: CoreJassProvider.DEFAULT_PATCH
+        }
         val browseAll = "__browse_all__"
 
         if (useInteractiveMenus) {
             while (true) {
+                val choices = recommended.map { TerminalMenu.Choice(it, CoreJassProvider.describePatch(it)) } +
+                    TerminalMenu.Choice(browseAll, "Browse all supported versions...")
                 val selection = TerminalMenu.choose(
                     title = intro,
-                    choices = recommended.map { TerminalMenu.Choice(it, CoreJassProvider.describePatch(it)) } +
-                        TerminalMenu.Choice(browseAll, "Browse all supported versions..."),
-                    defaultIndex = 0
+                    choices = choices,
+                    defaultIndex = recommended.indexOf(defaultPatch).takeIf { it >= 0 } ?: 0
                 )
                 when {
                     selection == null -> return defaultPatch
@@ -499,8 +511,9 @@ object SetupApp {
         }
 
         log.info(intro)
+        val visibleRecommended = (listOf(defaultPatch) + recommended).distinct()
         log.info("Recommended patch choices:")
-        recommended.forEachIndexed { index, patch ->
+        visibleRecommended.forEachIndexed { index, patch ->
             log.info("  ${index + 1}. ${CoreJassProvider.describePatch(patch)}")
         }
         if (versions.isNotEmpty()) {
@@ -514,15 +527,15 @@ object SetupApp {
                 return defaultPatch
             }
             val topIndex = answer.toIntOrNull()
-            if (topIndex != null && topIndex in 1..recommended.size) {
-                return recommended[topIndex - 1]
+            if (topIndex != null && topIndex in 1..visibleRecommended.size) {
+                return visibleRecommended[topIndex - 1]
             }
             when (answer.lowercase()) {
                 "more", "list", "all" -> browsePatchVersions(versions, prompt)?.let { return it }
                 "q", "quit", "cancel" -> return defaultPatch
                 else -> {
                     val normalized = CoreJassProvider.normalizePatchInput(answer)
-                    val directSelection = recommended.firstOrNull { it.equals(normalized, ignoreCase = true) }
+                    val directSelection = visibleRecommended.firstOrNull { it.equals(normalized, ignoreCase = true) }
                     if (directSelection != null) {
                         return directSelection
                     }

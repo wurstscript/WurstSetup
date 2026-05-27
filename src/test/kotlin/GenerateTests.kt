@@ -207,6 +207,26 @@ class GenerateTests {
     }
 
     @Test(priority = 10)
+    fun testGenerateWizardPreservesCliPatchDefault() {
+        val setup = SetupMain()
+        setup.parseArgs(listOf("generate", "--wc3-patch", "pre1.29"))
+        val answers = java.util.ArrayDeque(listOf("wizardproject", "", "", "n", "n"))
+        val prevPrompt = SetupApp.generatePrompt
+        try {
+            SetupApp.generatePrompt = { _, _ -> answers.removeFirst() }
+            Assert.assertTrue(SetupApp.prepareGenerate(setup))
+        } finally {
+            SetupApp.generatePrompt = prevPrompt
+        }
+
+        Assert.assertEquals(setup.commandArg, "wizardproject")
+        Assert.assertEquals(setup.scriptMode, ScriptMode.LUA)
+        Assert.assertEquals(setup.wc3Patch, CoreJassProvider.PRE_129_PATCH)
+        Assert.assertFalse(setup.addAgents)
+        Assert.assertFalse(setup.addGithubWorkflow)
+    }
+
+    @Test(priority = 10)
     fun testGenerateWithoutNameReturnsWithoutGeneratingWhenPromptCannotReadName() {
         val setup = SetupMain()
         setup.parseArgs(listOf("generate"))
@@ -318,6 +338,36 @@ class GenerateTests {
                 Files.exists(buildDir.resolve("core-jass.provenance")),
                 "Grill must not claim ownership of pre-existing project-local core JASS files"
             )
+        } finally {
+            Files.walk(tmpDir).sorted(Comparator.reverseOrder()).forEach {
+                try {
+                    Files.deleteIfExists(it)
+                } catch (_: Exception) {
+                }
+            }
+        }
+    }
+
+    @Test(priority = 10)
+    fun testMatchingProvenanceUsesCachedCoreJass() {
+        val tmpDir = Files.createTempDirectory("grill-core-jass-cache-test")
+        try {
+            val buildDir = tmpDir.resolve("_build")
+            Files.createDirectories(buildDir)
+            val cachedCommon = "// cached common.j\n" + "x".repeat(2048)
+            val cachedBlizzard = "// cached blizzard.j\n" + "y".repeat(2048)
+            Files.writeString(buildDir.resolve("common.j"), cachedCommon)
+            Files.writeString(buildDir.resolve("blizzard.j"), cachedBlizzard)
+            Files.writeString(
+                buildDir.resolve("core-jass.provenance"),
+                "wc3Patch: ${CoreJassProvider.DEFAULT_PATCH}\n" +
+                    "jassHistoryFolder: ${CoreJassProvider.jassHistoryFolderForPatch(CoreJassProvider.DEFAULT_PATCH)}\n"
+            )
+
+            SetupApp.ensureCoreJassFiles(tmpDir, CoreJassProvider.DEFAULT_PATCH)
+
+            Assert.assertEquals(Files.readString(buildDir.resolve("common.j")), cachedCommon)
+            Assert.assertEquals(Files.readString(buildDir.resolve("blizzard.j")), cachedBlizzard)
         } finally {
             Files.walk(tmpDir).sorted(Comparator.reverseOrder()).forEach {
                 try {
