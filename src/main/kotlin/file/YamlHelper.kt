@@ -64,6 +64,9 @@ object YamlHelper {
         if (configData.projectName.isBlank()) {
             configData.projectName = sourcePath?.parent?.fileName?.toString() ?: "unnamed"
         }
+        if (configData.wc3Patch != null) {
+            configData.wc3Patch = CoreJassProvider.normalizePatchInput(configData.wc3Patch)
+        }
         return configData
     }
 

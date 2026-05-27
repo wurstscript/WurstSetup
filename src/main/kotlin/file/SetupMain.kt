@@ -1,7 +1,6 @@
 package file
 
 import config.ScriptMode
-import config.Wc3Patch
 import logging.KotlinLogging
 import java.nio.file.Files
 import java.nio.file.Path
@@ -30,7 +29,7 @@ class SetupMain {
     var addAgents: Boolean = false
     var addGithubWorkflow: Boolean = false
     var scriptMode: ScriptMode = ScriptMode.LUA
-    var wc3Patch: Wc3Patch = Wc3Patch.REFORGED
+    var wc3Patch: String = CoreJassProvider.DEFAULT_PATCH
 
 	fun setProjectDir(dir: Path) {
 		Files.createDirectories(dir)
