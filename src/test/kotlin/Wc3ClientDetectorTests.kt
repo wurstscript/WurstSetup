@@ -38,6 +38,29 @@ class Wc3ClientDetectorTests {
     }
 
     @Test
+    fun testRejectsUnsupportedExplicitFilePath() {
+        val root = Files.createTempDirectory("wc3-explicit-file")
+        val textFile = root.resolve("notes.txt")
+        Files.writeString(textFile, "not a wc3 executable")
+
+        val info = Wc3ClientDetector.inspectGameRoot(textFile)
+
+        Assert.assertNull(info)
+    }
+
+    @Test
+    fun testAcceptsSupportedExplicitFilePath() {
+        val root = Files.createTempDirectory("wc3-explicit-exe")
+        val exe = root.resolve("war3.exe")
+        Files.writeString(exe, "")
+
+        val info = Wc3ClientDetector.inspectGameRoot(exe)!!
+
+        Assert.assertEquals(info.kind, Wc3ClientDetector.ClientKind.PRE_129)
+        Assert.assertEquals(info.root, root.toAbsolutePath().normalize())
+    }
+
+    @Test
     fun testWarnsWhenProjectPatchAndClientKindDiffer() {
         val root = Files.createTempDirectory("wc3-mismatch")
         Files.writeString(root.resolve("war3.exe"), "")

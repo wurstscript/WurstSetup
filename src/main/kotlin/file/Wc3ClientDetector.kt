@@ -78,7 +78,7 @@ object Wc3ClientDetector {
 
     private fun findExecutable(root: Path): Path? {
         if (Files.isRegularFile(root)) {
-            return root
+            return root.takeIf { classifyExecutable(it) != null }
         }
         return exeCandidates
             .map { root.resolve(it) }
