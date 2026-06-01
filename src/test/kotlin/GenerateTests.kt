@@ -25,6 +25,13 @@ private fun catchExit2(block: () -> Unit): Int {
     return code
 }
 
+private fun bundledCoreJassText(folder: String, fileName: String): String {
+    return CoreJassProvider::class.java.classLoader
+        .getResourceAsStream("core-jass/$folder/$fileName")!!
+        .bufferedReader()
+        .use { it.readText() }
+}
+
 class GenerateTests {
 
     @Test(priority = 10)
@@ -83,7 +90,7 @@ class GenerateTests {
         )
         Assert.assertEquals(
             CoreJassProvider.jassHistoryFolderForPatch("v2.0"),
-            "Reforged-v2.0.4.24745"
+            "Reforged-v2.0.4.23745"
         )
         Assert.assertEquals(
             CoreJassProvider.describePatch("v2.0"),
@@ -309,6 +316,60 @@ class GenerateTests {
             Assert.assertTrue(Files.readString(common).contains("native ConvertRace"))
             Assert.assertTrue(Files.readString(blizzard).contains("Blizzard.j"))
         } finally {
+            Files.walk(tmpDir).sorted(Comparator.reverseOrder()).forEach {
+                try {
+                    Files.deleteIfExists(it)
+                } catch (_: Exception) {
+                }
+            }
+        }
+    }
+
+    @Test(priority = 10)
+    fun testDefaultPatchDownloadFailureUsesBundledV2CoreJass() {
+        val tmpDir = Files.createTempDirectory("grill-core-jass-v2-fallback-test")
+        val previousDownloader = CoreJassProvider.jassHistoryFileDownloader
+        try {
+            CoreJassProvider.jassHistoryFileDownloader = { _, _ -> throw RuntimeException("offline") }
+
+            SetupApp.ensureCoreJassFiles(tmpDir, CoreJassProvider.DEFAULT_PATCH)
+
+            val buildDir = tmpDir.resolve("_build")
+            val common = Files.readString(buildDir.resolve("common.j"))
+            val blizzard = Files.readString(buildDir.resolve("blizzard.j"))
+            Assert.assertEquals(common, bundledCoreJassText("v2.0", "common.j"))
+            Assert.assertEquals(blizzard, bundledCoreJassText("v2.0", "blizzard.j"))
+            Assert.assertNotEquals(common, bundledCoreJassText("reforged", "common.j"))
+            Assert.assertTrue(
+                Files.readString(buildDir.resolve("core-jass.provenance"))
+                    .contains("jassHistoryFolder: Reforged-v2.0.4.23745")
+            )
+        } finally {
+            CoreJassProvider.jassHistoryFileDownloader = previousDownloader
+            Files.walk(tmpDir).sorted(Comparator.reverseOrder()).forEach {
+                try {
+                    Files.deleteIfExists(it)
+                } catch (_: Exception) {
+                }
+            }
+        }
+    }
+
+    @Test(priority = 10)
+    fun testNonBundledPatchDownloadFailureDoesNotUseWrongBundle() {
+        val tmpDir = Files.createTempDirectory("grill-core-jass-no-wrong-fallback-test")
+        val previousDownloader = CoreJassProvider.jassHistoryFileDownloader
+        try {
+            CoreJassProvider.jassHistoryFileDownloader = { _, _ -> throw RuntimeException("offline") }
+
+            try {
+                SetupApp.ensureCoreJassFiles(tmpDir, "v1.35")
+                Assert.fail("Expected v1.35 without a download to fail instead of using an unrelated bundled fallback")
+            } catch (e: RuntimeException) {
+                Assert.assertTrue(e.message!!.contains("v1.35"), e.message)
+            }
+        } finally {
+            CoreJassProvider.jassHistoryFileDownloader = previousDownloader
             Files.walk(tmpDir).sorted(Comparator.reverseOrder()).forEach {
                 try {
                     Files.deleteIfExists(it)

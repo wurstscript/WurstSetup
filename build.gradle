@@ -136,6 +136,25 @@ dist.dependsOn versionInfoFile
 
 dist.archiveFileName = "WurstSetup.jar"
 
+def fatJar = dist.archiveFile.map { it.asFile }
+def wurstUserDir = "${System.properties['user.home']}/.wurst"
+def grillCliDir = "${wurstUserDir}/grill-cli"
+
+tasks.register('delete_legacy_userdir_grill_jar', Delete) {
+    delete "${wurstUserDir}/WurstSetup.jar"
+}
+
+tasks.register('make_for_userdir', Copy) {
+    dependsOn 'dist', 'delete_legacy_userdir_grill_jar'
+    from fatJar
+    into grillCliDir
+    rename { 'grill.jar' }
+}
+
+tasks.register('make_for_userdir_grill_cli') {
+    dependsOn 'make_for_userdir'
+}
+
 task copy_jar(type: Copy) {
     mkdir("downloads/")
     from 'build/libs/'

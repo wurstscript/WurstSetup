@@ -19,7 +19,7 @@ object CoreJassProvider {
     private val log = KotlinLogging.logger {}
 
     private val PATCH_TO_JASS_HISTORY_FOLDER = linkedMapOf(
-        "v2.0" to "Reforged-v2.0.4.24745",
+        "v2.0" to "Reforged-v2.0.4.23745",
         "v1.36" to "Reforged-v1.36.1.20719-w3-51d40ee",
         "v1.35" to "Reforged-v1.35.0.20093-w3-5ec1b77",
         "v1.34" to "Reforged-v1.34.0.19632-w3-31590bf",
@@ -75,6 +75,14 @@ object CoreJassProvider {
     )
 
     val supportedPatches: List<String> = PATCH_TO_JASS_HISTORY_FOLDER.keys.toList()
+
+    private val BUNDLED_CORE_JASS_PATCH_FOLDERS = mapOf(
+        DEFAULT_PATCH to "v2.0",
+        "v1.36" to "reforged",
+        PRE_129_PATCH to "pre1.29"
+    )
+
+    internal var jassHistoryFileDownloader: (List<String>, Path) -> Unit = ::downloadFirstExisting
 
     fun describePatch(patch: String): String {
         val normalizedPatch = normalizePatchInput(patch)
@@ -226,7 +234,7 @@ object CoreJassProvider {
                 log.warn("Could not refresh $fileName for $patch; keeping existing _build copy. Reason: ${e.message}")
                 return MaterializedFile(target, managedByGrill = true)
             }
-            if (patch == DEFAULT_PATCH || patch == PRE_129_PATCH) {
+            if (hasBundledCoreJass(patch)) {
                 log.warn("Could not download $fileName for $patch; falling back to bundled core JASS. Reason: ${e.message}")
                 copyBundledCoreJass(fileName, patch, target)
                 return MaterializedFile(target, managedByGrill = true)
@@ -248,11 +256,13 @@ object CoreJassProvider {
             ?.let(::normalizePatchInput)
     }
 
+    private fun hasBundledCoreJass(patch: String): Boolean {
+        return BUNDLED_CORE_JASS_PATCH_FOLDERS.containsKey(normalizePatchInput(patch))
+    }
+
     private fun copyBundledCoreJass(fileName: String, patch: String, target: Path) {
-        val patchFolder = when (patch) {
-            PRE_129_PATCH -> "pre1.29"
-            else -> "reforged"
-        }
+        val patchFolder = BUNDLED_CORE_JASS_PATCH_FOLDERS[normalizePatchInput(patch)]
+            ?: throw IllegalStateException("No bundled core JASS is available for $patch.")
 
         Files.createDirectories(target.parent)
         val resourcePath = "core-jass/$patchFolder/$fileName"
@@ -275,7 +285,7 @@ object CoreJassProvider {
         val tempFile = Files.createTempFile(target.parent, "$fileName.", ".download")
         var replacedTarget = false
         try {
-            downloadFirstExisting(
+            jassHistoryFileDownloader(
                 listOf(
                     "$JASS_HISTORY_RAW/$JASS_HISTORY_REF/war3extract/$jassHistoryFolder/scripts/$fileName",
                     "$JASS_HISTORY_RAW/$JASS_HISTORY_REF/war3extract/$jassHistoryFolder/Scripts/$fileName"
