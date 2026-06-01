@@ -77,6 +77,12 @@ enum class GlobalOptions(val optionName: String = "", val argCount: Int = 0) {
         override fun runOption(setupMain: SetupMain, args: List<String>) {
             setupMain.wc3Patch = CoreJassProvider.normalizePatchInput(args[0])
         }
+    },
+    WC3_PATH("--wc3-path", 1) {
+        override fun runOption(setupMain: SetupMain, args: List<String>) {
+            setupMain.gamePath = java.nio.file.Paths.get(args[0])
+            setupMain.gamePathExplicit = true
+        }
     };
 
 	abstract fun runOption(setupMain: SetupMain, args: List<String>)

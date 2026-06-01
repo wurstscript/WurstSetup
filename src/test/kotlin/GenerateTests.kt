@@ -115,6 +115,37 @@ class GenerateTests {
     }
 
     @Test(priority = 10)
+    fun testGeneratedBuildMapDataSeedsOnlyKnownFields() {
+        val dumped = file.YamlHelper.dumpProjectConfig(
+            config.newProjectConfig(
+                projectName = "fsa",
+                buildMapData = SetupApp.generatedBuildMapData("fsa"),
+                scriptMode = ScriptMode.JASS,
+                wc3Patch = "v1.27b"
+            )
+        )
+
+        Assert.assertTrue(dumped.contains("buildMapData:"))
+        Assert.assertTrue(dumped.contains("name: fsa"))
+        Assert.assertTrue(dumped.contains("fileName: fsa.w3x"))
+        Assert.assertTrue(dumped.contains("author:"))
+        Assert.assertFalse(dumped.contains("scenarioData:"))
+        Assert.assertFalse(dumped.contains("optionsFlags:"))
+        Assert.assertFalse(dumped.contains("loadingScreen: null"))
+        Assert.assertFalse(dumped.contains("players: []"))
+        Assert.assertFalse(dumped.contains("forces: []"))
+    }
+
+    @Test(priority = 10)
+    fun testGenerateParsesWc3PathOption() {
+        val setup = SetupMain()
+        setup.parseArgs(listOf("generate", "map", "--wc3-path", "C:\\Games\\Warcraft III"))
+
+        Assert.assertEquals(setup.gamePath, java.nio.file.Paths.get("C:\\Games\\Warcraft III"))
+        Assert.assertTrue(setup.gamePathExplicit)
+    }
+
+    @Test(priority = 10)
     fun testInstallPatchSelectionRejectsUnsupportedFreeText() {
         val answers = java.util.ArrayDeque(listOf("totally-not-a-patch", "2"))
         val prevPrompt = SetupApp.installPatchPrompt
@@ -129,6 +160,18 @@ class GenerateTests {
     @Test(priority = 10)
     fun testInstallPatchSelectionRequiresBrowseForNonRecommendedVersions() {
         val answers = java.util.ArrayDeque(listOf("v1.32", "more", "v1.32"))
+        val prevPrompt = SetupApp.installPatchPrompt
+        try {
+            SetupApp.installPatchPrompt = { _, _ -> answers.removeFirst() }
+            Assert.assertEquals(SetupApp.selectPatchVersionForInstall(), "v1.32")
+        } finally {
+            SetupApp.installPatchPrompt = prevPrompt
+        }
+    }
+
+    @Test(priority = 10)
+    fun testInstallPatchSelectionKeepsExactDumpsAdvanced() {
+        val answers = java.util.ArrayDeque(listOf("exact", "Reforged-v1.32.10.19202"))
         val prevPrompt = SetupApp.installPatchPrompt
         try {
             SetupApp.installPatchPrompt = { _, _ -> answers.removeFirst() }
@@ -201,7 +244,7 @@ class GenerateTests {
     fun testGenerateWithoutNameUsesWizardPrompt() {
         val setup = SetupMain()
         setup.parseArgs(listOf("generate"))
-        val answers = java.util.ArrayDeque(listOf("wizardproject", "jass", "pre1.29", "y", "y"))
+        val answers = java.util.ArrayDeque(listOf("wizardproject", "jass", "pre1.29", "none", "y", "y"))
         val prevPrompt = SetupApp.generatePrompt
         try {
             SetupApp.generatePrompt = { _, _ -> answers.removeFirst() }
@@ -221,7 +264,7 @@ class GenerateTests {
     fun testGenerateWizardRejectsUnsupportedScriptModeAndPatchInput() {
         val setup = SetupMain()
         setup.parseArgs(listOf("generate"))
-        val answers = java.util.ArrayDeque(listOf("wizardproject", "t", "jass", "t", "2", "n", "n"))
+        val answers = java.util.ArrayDeque(listOf("wizardproject", "t", "jass", "t", "2", "none", "n", "n"))
         val prevPrompt = SetupApp.generatePrompt
         try {
             SetupApp.generatePrompt = { _, _ -> answers.removeFirst() }
@@ -241,7 +284,7 @@ class GenerateTests {
     fun testGenerateWizardPreservesCliPatchDefault() {
         val setup = SetupMain()
         setup.parseArgs(listOf("generate", "--wc3-patch", "pre1.29"))
-        val answers = java.util.ArrayDeque(listOf("wizardproject", "", "", "n", "n"))
+        val answers = java.util.ArrayDeque(listOf("wizardproject", "", "", "none", "n", "n"))
         val prevPrompt = SetupApp.generatePrompt
         try {
             SetupApp.generatePrompt = { _, _ -> answers.removeFirst() }
@@ -368,6 +411,40 @@ class GenerateTests {
             } catch (e: RuntimeException) {
                 Assert.assertTrue(e.message!!.contains("v1.35"), e.message)
             }
+        } finally {
+            CoreJassProvider.jassHistoryFileDownloader = previousDownloader
+            Files.walk(tmpDir).sorted(Comparator.reverseOrder()).forEach {
+                try {
+                    Files.deleteIfExists(it)
+                } catch (_: Exception) {
+                }
+            }
+        }
+    }
+
+    @Test(priority = 10)
+    fun testLegacyPatchDownloadTriesCapitalizedBlizzardFile() {
+        val tmpDir = Files.createTempDirectory("grill-core-jass-legacy-case-test")
+        val previousDownloader = CoreJassProvider.jassHistoryFileDownloader
+        val attemptedUrls = mutableListOf<String>()
+        try {
+            CoreJassProvider.jassHistoryFileDownloader = { urls, target ->
+                attemptedUrls.addAll(urls)
+                val acceptedUrl = urls.firstOrNull {
+                    it.endsWith("/Scripts/common.j") || it.endsWith("/Scripts/Blizzard.j")
+                } ?: throw RuntimeException("No legacy URL candidate matched")
+                val body = "// downloaded from $acceptedUrl\n" + "x".repeat(2048)
+                Files.writeString(target, body)
+            }
+
+            SetupApp.ensureCoreJassFiles(tmpDir, "v1.27b")
+
+            Assert.assertTrue(
+                attemptedUrls.any { it.endsWith("/Scripts/Blizzard.j") },
+                "Legacy jass-history dumps use Scripts/Blizzard.j; Grill must try that casing."
+            )
+            Assert.assertTrue(Files.exists(tmpDir.resolve("_build/common.j")))
+            Assert.assertTrue(Files.exists(tmpDir.resolve("_build/blizzard.j")))
         } finally {
             CoreJassProvider.jassHistoryFileDownloader = previousDownloader
             Files.walk(tmpDir).sorted(Comparator.reverseOrder()).forEach {

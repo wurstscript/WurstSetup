@@ -285,13 +285,7 @@ object CoreJassProvider {
         val tempFile = Files.createTempFile(target.parent, "$fileName.", ".download")
         var replacedTarget = false
         try {
-            jassHistoryFileDownloader(
-                listOf(
-                    "$JASS_HISTORY_RAW/$JASS_HISTORY_REF/war3extract/$jassHistoryFolder/scripts/$fileName",
-                    "$JASS_HISTORY_RAW/$JASS_HISTORY_REF/war3extract/$jassHistoryFolder/Scripts/$fileName"
-                ),
-                tempFile
-            )
+            jassHistoryFileDownloader(jassHistoryUrls(jassHistoryFolder, fileName), tempFile)
             if (!isValidCoreJassFile(tempFile)) {
                 throw IllegalStateException("Downloaded $fileName from wurstscript/jass-history did not look valid.")
             }
@@ -317,6 +311,24 @@ object CoreJassProvider {
             }
         }
         throw lastError ?: IllegalStateException("No jass-history download URL was provided.")
+    }
+
+    private fun jassHistoryUrls(jassHistoryFolder: String, fileName: String): List<String> {
+        val scriptDirs = listOf("scripts", "Scripts")
+        val fileNames = listOf(fileName, legacyCoreJassFileName(fileName)).distinct()
+        return scriptDirs.flatMap { scriptDir ->
+            fileNames.map { candidateFileName ->
+                "$JASS_HISTORY_RAW/$JASS_HISTORY_REF/war3extract/$jassHistoryFolder/$scriptDir/$candidateFileName"
+            }
+        }
+    }
+
+    private fun legacyCoreJassFileName(fileName: String): String {
+        return when (fileName) {
+            "blizzard.j" -> "Blizzard.j"
+            "common.j" -> "Common.j"
+            else -> fileName
+        }
     }
 
     private fun isValidCoreJassFile(path: Path): Boolean {
