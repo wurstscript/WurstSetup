@@ -47,9 +47,11 @@ object WurstProjectConfig {
         if (Files.exists(buildFile) && buildFile.fileName.toString().equals(CONFIG_FILE_NAME, ignoreCase = true)) {
             val config = YamlHelper.loadProjectConfig(buildFile)
 			val projectRoot = buildFile.parent
-			if (config.projectName.isEmpty()) {
-				config.projectName = projectRoot?.fileName.toString()
-				saveProjectConfig(projectRoot, config)
+			if (config.projectName.isBlank()) {
+                val namedConfig = config.withProjectName(projectRoot?.fileName?.toString() ?: "unnamed")
+				saveProjectConfig(projectRoot, namedConfig)
+                Log.print("done\n")
+                return namedConfig
 			}
 			Log.print("done\n")
 			return config

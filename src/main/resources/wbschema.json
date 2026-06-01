@@ -15,10 +15,10 @@
             "enum": ["LUA", "JASS"]
         },
         "wc3Patch": {
-            "description": "The WC3 patch target for this project. Grill maps this friendly version to the matching Luashine/jass-history war3extract folder. Default: v1.36.",
+            "description": "The WC3 patch target for this project. Grill maps this friendly version to the matching wurstscript/jass-history war3extract folder. Default: v2.0.",
             "type": "string",
             "enum": [
-                "v1.36", "v1.35", "v1.34", "v1.33", "v1.32", "v1.31", "v1.30", "v1.29", "v1.28",
+                "v2.0", "v1.36", "v1.35", "v1.34", "v1.33", "v1.32", "v1.31", "v1.30", "v1.29", "v1.28",
                 "v1.27b", "v1.27a", "v1.26a", "v1.25b",
                 "v1.24e", "v1.24d", "v1.24c", "v1.24b", "v1.24a",
                 "v1.23a", "v1.22a",
@@ -30,6 +30,7 @@
                 "v1.06", "v1.05", "v1.04", "v1.03", "v1.02a", "v1.02", "v1.01b", "v1.01", "v1.00"
             ],
             "markdownEnumDescriptions": [
+                "Latest Reforged / WC3 2.x core JASS. Uses Reforged-v2.0.4.24745.",
                 "Latest Reforged / WC3 2.x core JASS. Uses Reforged-v1.36.1.20719-w3-51d40ee.",
                 "Reforged core JASS. Uses Reforged-v1.35.0.20093-w3-5ec1b77.",
                 "Reforged core JASS. Uses Reforged-v1.34.0.19632-w3-31590bf.",

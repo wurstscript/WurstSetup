@@ -44,6 +44,7 @@ dependencies {
     implementation 'com.fasterxml.jackson.core:jackson-databind'
     implementation 'com.fasterxml.jackson.module:jackson-module-kotlin'
     implementation 'com.fasterxml.jackson.dataformat:jackson-dataformat-yaml'
+    implementation 'com.github.wurstscript:wurst-project-config:2c7ccd1a5f'
     implementation 'com.github.Frotty:SimpleRegistry:f96dda96bd'
     implementation 'org.jline:jline:3.30.13'
     implementation group: 'org.slf4j', name: 'slf4j-api', version: '2.0.17'

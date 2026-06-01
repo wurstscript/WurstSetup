@@ -79,8 +79,32 @@ class GenerateTests {
         )
         Assert.assertEquals(
             CoreJassProvider.describePatch("v1.36"),
-            "v1.36 (latest Reforged / WC3 2.x core JASS)"
+            "v1.36 (Reforged)"
         )
+        Assert.assertEquals(
+            CoreJassProvider.jassHistoryFolderForPatch("v2.0"),
+            "Reforged-v2.0.4.24745"
+        )
+        Assert.assertEquals(
+            CoreJassProvider.describePatch("v2.0"),
+            "v2.0 (latest Reforged / WC3 2.x core JASS)"
+        )
+    }
+
+    @Test(priority = 10)
+    fun testStdlibDependencyFollowsPatchEra() {
+        val legacyStdlib = "https://github.com/wurstscript/wurstStdlib2:pre1.29"
+        val currentStdlib = "https://github.com/wurstscript/wurstStdlib2"
+
+        for (patch in CoreJassProvider.supportedPatches) {
+            val minor = Regex("""v1\.(\d+)""").find(patch)?.groupValues?.get(1)?.toIntOrNull()
+            val expected = if (minor != null && minor < 29) legacyStdlib else currentStdlib
+            Assert.assertEquals(SetupApp.stdlibDependencyForPatch(patch), expected, "stdlib dependency for $patch")
+        }
+
+        Assert.assertEquals(SetupApp.stdlibDependencyForPatch("TFT-v1.27b-ru"), legacyStdlib)
+        Assert.assertEquals(SetupApp.stdlibDependencyForPatch("pre1.29"), legacyStdlib)
+        Assert.assertEquals(SetupApp.stdlibDependencyForPatch("v1.29"), currentStdlib)
     }
 
     @Test(priority = 10)
@@ -101,7 +125,7 @@ class GenerateTests {
         val prevPrompt = SetupApp.installPatchPrompt
         try {
             SetupApp.installPatchPrompt = { _, _ -> answers.removeFirst() }
-            Assert.assertEquals(SetupApp.selectPatchVersionForInstall(), "v1.32")
+            Assert.assertEquals(SetupApp.selectPatchVersionForInstall(), "Reforged-v1.32.10.19202")
         } finally {
             SetupApp.installPatchPrompt = prevPrompt
         }
@@ -368,6 +392,39 @@ class GenerateTests {
 
             Assert.assertEquals(Files.readString(buildDir.resolve("common.j")), cachedCommon)
             Assert.assertEquals(Files.readString(buildDir.resolve("blizzard.j")), cachedBlizzard)
+        } finally {
+            Files.walk(tmpDir).sorted(Comparator.reverseOrder()).forEach {
+                try {
+                    Files.deleteIfExists(it)
+                } catch (_: Exception) {
+                }
+            }
+        }
+    }
+
+    @Test(priority = 10)
+    fun testUnsupportedPatchFallsBackToDefaultCoreJass() {
+        val tmpDir = Files.createTempDirectory("grill-core-jass-unknown-patch-test")
+        try {
+            val buildDir = tmpDir.resolve("_build")
+            Files.createDirectories(buildDir)
+            val cachedCommon = "// cached default common.j\n" + "x".repeat(2048)
+            val cachedBlizzard = "// cached default blizzard.j\n" + "y".repeat(2048)
+            Files.writeString(buildDir.resolve("common.j"), cachedCommon)
+            Files.writeString(buildDir.resolve("blizzard.j"), cachedBlizzard)
+            Files.writeString(
+                buildDir.resolve("core-jass.provenance"),
+                "wc3Patch: ${CoreJassProvider.DEFAULT_PATCH}\n" +
+                    "jassHistoryFolder: ${CoreJassProvider.jassHistoryFolderForPatch(CoreJassProvider.DEFAULT_PATCH)}\n"
+            )
+
+            SetupApp.ensureCoreJassFiles(tmpDir, "some-old-custom-value")
+
+            Assert.assertEquals(Files.readString(buildDir.resolve("common.j")), cachedCommon)
+            Assert.assertEquals(Files.readString(buildDir.resolve("blizzard.j")), cachedBlizzard)
+            Assert.assertTrue(
+                Files.readString(buildDir.resolve("core-jass.provenance")).contains("wc3Patch: ${CoreJassProvider.DEFAULT_PATCH}")
+            )
         } finally {
             Files.walk(tmpDir).sorted(Comparator.reverseOrder()).forEach {
                 try {

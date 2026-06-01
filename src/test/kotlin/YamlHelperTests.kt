@@ -1,4 +1,4 @@
-import config.WurstProjectConfigData
+import config.newProjectConfig
 import file.YamlHelper
 import org.testng.Assert
 import org.testng.annotations.Test
@@ -8,7 +8,7 @@ class YamlHelperTests {
 
     @Test
     fun testDumpDoesNotProduceEmptyConfig() {
-        val dumped = YamlHelper.dumpProjectConfig(WurstProjectConfigData())
+        val dumped = YamlHelper.dumpProjectConfig(newProjectConfig())
         Assert.assertFalse(dumped.trim() == "--- {}" || dumped.trim() == "{}" || dumped.trim() == "---")
         Assert.assertTrue(dumped.contains("projectName:"))
         Assert.assertTrue(dumped.contains("dependencies:"))
@@ -29,7 +29,7 @@ class YamlHelperTests {
     @Test
     fun testWc3PatchVersionNormalizesToSchemaValue() {
         val dumped = YamlHelper.dumpProjectConfig(
-            WurstProjectConfigData(projectName = "versioned", wc3Patch = "Reforged-v1.36.1.20719-w3-51d40ee")
+            newProjectConfig(projectName = "versioned", wc3Patch = "Reforged-v1.36.1.20719-w3-51d40ee")
         )
         val dir = Files.createTempDirectory("wurstsetup-yaml-version-test")
         val buildFile = dir.resolve("wurst.build")
@@ -37,5 +37,32 @@ class YamlHelperTests {
 
         val loaded = YamlHelper.loadProjectConfig(buildFile)
         Assert.assertEquals(loaded.wc3Patch, "v1.36")
+    }
+
+    @Test
+    fun testLoadIgnoresUnknownNestedFieldsAndEnumValues() {
+        val dir = Files.createTempDirectory("wurstsetup-yaml-compat-test")
+        val buildFile = dir.resolve("wurst.build")
+        Files.writeString(
+            buildFile,
+            """
+            projectName: compat
+            scriptMode: lua
+            obsoleteRootValue: true
+            buildMapData:
+              obsoleteNestedValue: true
+              players:
+                - id: 0
+                  name: Player 1
+                  race: SPACE_ORC
+                  obsoletePlayerValue: true
+            """.trimIndent()
+        )
+
+        val loaded = YamlHelper.loadProjectConfig(buildFile)
+
+        Assert.assertEquals(loaded.projectName, "compat")
+        Assert.assertEquals(loaded.buildMapData.players.size, 1)
+        Assert.assertNull(loaded.buildMapData.players[0].race)
     }
 }

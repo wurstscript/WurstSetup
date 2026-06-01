@@ -4,6 +4,10 @@ import config.CONFIG_FILE_NAME
 import config.ScriptMode
 import config.WurstProjectConfig
 import config.WurstProjectConfigData
+import config.newProjectConfig
+import config.withAddedDependency
+import config.withRemovedDependency
+import config.withWc3Patch
 import global.InstallationManager
 import global.Log
 import logging.KotlinLogging
@@ -145,7 +149,7 @@ object SetupApp {
 			setup.command == CLICommand.INSTALL -> {
                 if (setup.commandArg.isBlank()) {
                     if (configData != null) {
-                        ensureProjectPatchRecorded(configData)
+                        configData = ensureProjectPatchRecorded(configData)
                         handleUpdateProject(configData)
                     } else {
                         missingProject()
@@ -156,8 +160,8 @@ object SetupApp {
                     handleUpdateGrill()
 				} else {
 					if (configData != null) {
-						handleInstallDep(configData)
-                        ensureProjectPatchRecorded(configData)
+						configData = handleInstallDep(configData)
+                        configData = ensureProjectPatchRecorded(configData)
 						WurstProjectConfig.saveProjectConfig(setup.projectRoot, configData)
                         handleUpdateProject(configData)
 					} else {
@@ -170,7 +174,7 @@ object SetupApp {
 					handleRemoveWurst()
 				} else {
 					if (configData != null) {
-						handleRemoveDep(configData)
+						configData = handleRemoveDep(configData)
 						WurstProjectConfig.saveProjectConfig(setup.projectRoot, configData)
 					} else {
                         missingProject()
@@ -183,13 +187,10 @@ object SetupApp {
                 }
                 log.info("✈ Generating project...")
                 val projectDir = DEFAULT_DIR.resolve(setup.commandArg)
-                val stdlibUrl = if (CoreJassProvider.isPre129Patch(setup.wc3Patch))
-                    "https://github.com/wurstscript/wurstStdlib2:pre1.29"
-                else
-                    "https://github.com/wurstscript/wurstStdlib2"
-                val projectConfig = WurstProjectConfigData(
+                val stdlibUrl = stdlibDependencyForPatch(setup.wc3Patch)
+                val projectConfig = newProjectConfig(
                     projectName = setup.commandArg,
-                    dependencies = ArrayList(mutableListOf(stdlibUrl)),
+                    dependencies = listOf(stdlibUrl),
                     scriptMode = setup.scriptMode,
                     wc3Patch = setup.wc3Patch
                 )
@@ -198,7 +199,7 @@ object SetupApp {
                 if (Files.exists(projectDir)) {
                     if (setup.addAgents) downloadAgentsMd(projectDir)
                     if (setup.addGithubWorkflow) writeCiWorkflow(projectDir)
-                    printGenerateNextSteps(projectDir)
+                    printGenerateNextSteps(projectDir, projectConfig, setup.addAgents, setup.addGithubWorkflow)
                 }
 			}
             setup.command == CLICommand.TEST -> {
@@ -294,15 +295,29 @@ object SetupApp {
         }
     }
 
-    private fun printGenerateNextSteps(projectDir: Path) {
+    private fun printGenerateNextSteps(
+        projectDir: Path,
+        projectConfig: WurstProjectConfigData,
+        addAgents: Boolean,
+        addGithubWorkflow: Boolean
+    ) {
         log.info("""
             |✅ Created ${projectDir.fileName}
             |
+            |Choices:
+            |  Script mode: ${(projectConfig.scriptMode ?: ScriptMode.LUA).name.lowercase()}
+            |  WC3 patch: ${CoreJassProvider.describePatch(projectConfig.wc3Patch ?: CoreJassProvider.DEFAULT_PATCH)}
+            |  Stdlib: ${if (projectConfig.dependencies.any { it.endsWith(":pre1.29") }) "pre1.29" else "current"}
+            |  AGENTS.md: ${yesNo(addAgents)}
+            |  GitHub Actions CI: ${yesNo(addGithubWorkflow)}
+            |
             |Next:
-            |  cd ${projectDir.fileName}
-            |  grill test
-            |  grill build ExampleMap.w3x
+            |  code ./${projectDir.fileName}
         """.trimMargin())
+    }
+
+    private fun yesNo(value: Boolean): String {
+        return if (value) "yes" else "no"
     }
 
     private fun printCompilerFailure(commandName: String, result: WurstProcessResult) {
@@ -351,6 +366,26 @@ object SetupApp {
             line.contains("FAILED", ignoreCase = true) ||
             line.contains("Exception", ignoreCase = true) ||
             line.contains("Pjass", ignoreCase = true)
+    }
+
+    private fun isNoisyCompilerVersionLine(line: String): Boolean {
+        val trimmed = line.trim()
+        return trimmed == "Warning: Ignoring unknown wc3Patch in wurst.build: ${CoreJassProvider.DEFAULT_PATCH}" ||
+            trimmed.startsWith("Warning: Ignoring unknown wc3Patch in wurst.build:") ||
+            trimmed.startsWith("Warning: Wurst compiler failed to determine game version") ||
+            trimmed.contains("VersionExtractionException: Failed to extract executable version data") ||
+            trimmed.startsWith("at net.moonlightflower.wc3libs.misc.exeversion.") ||
+            trimmed.startsWith("at net.moonlightflower.wc3libs.bin.GameExe.") ||
+            trimmed.startsWith("at net.moonlightflower.wc3libs.port.") ||
+            trimmed.startsWith("at de.peeeq.wurstio.utils.W3InstallationData.discoverVersion") ||
+            trimmed.startsWith("at de.peeeq.wurstio.utils.W3InstallationData.<init>") ||
+            trimmed.startsWith("at de.peeeq.wurstio.languageserver.requests.MapRequest.getBestW3InstallationData") ||
+            trimmed.startsWith("at de.peeeq.wurstio.languageserver.requests.MapRequest.<init>") ||
+            trimmed.startsWith("at de.peeeq.wurstio.languageserver.requests.CliBuildMap.<init>") ||
+            trimmed.startsWith("at de.peeeq.wurstio.Main.main") ||
+            trimmed.startsWith("at dorkbox.peParser.PE") ||
+            trimmed.startsWith("Caused by: java.lang.NullPointerException") ||
+            trimmed.matches(Regex("""\.\.\. \d+ more"""))
     }
 
     internal var generatePrompt: ((String, String?) -> String?)? = null
@@ -420,6 +455,14 @@ object SetupApp {
         setup.addGithubWorkflow = ciInput?.lowercase() == "y"
     }
 
+    internal fun stdlibDependencyForPatch(wc3Patch: String?): String {
+        return if (CoreJassProvider.isPre129Patch(wc3Patch)) {
+            "https://github.com/wurstscript/wurstStdlib2:pre1.29"
+        } else {
+            "https://github.com/wurstscript/wurstStdlib2"
+        }
+    }
+
     private fun selectScriptMode(
         prompt: (String, String?) -> String?,
         defaultMode: ScriptMode,
@@ -454,18 +497,19 @@ object SetupApp {
         }
     }
 
-    private fun ensureProjectPatchRecorded(configData: WurstProjectConfigData) {
+    private fun ensureProjectPatchRecorded(configData: WurstProjectConfigData): WurstProjectConfigData {
         val currentPatch = configData.wc3Patch
         if (currentPatch.isNullOrBlank()) {
             val selectedPatch = selectPatchVersionForInstall()
-            configData.wc3Patch = selectedPatch
             log.info("WC3 patch recorded in wurst.build: $selectedPatch")
-            return
+            return configData.withWc3Patch(selectedPatch)
         }
 
         val normalizedPatch = CoreJassProvider.normalizePatchInput(currentPatch)
-        if (normalizedPatch != currentPatch) {
-            configData.wc3Patch = normalizedPatch
+        return if (normalizedPatch != currentPatch) {
+            configData.withWc3Patch(normalizedPatch)
+        } else {
+            configData
         }
     }
 
@@ -535,7 +579,10 @@ object SetupApp {
                 "q", "quit", "cancel" -> return defaultPatch
                 else -> {
                     val normalized = CoreJassProvider.normalizePatchInput(answer)
-                    val directSelection = visibleRecommended.firstOrNull { it.equals(normalized, ignoreCase = true) }
+                    val directSelection = visibleRecommended.firstOrNull {
+                        it.equals(normalized, ignoreCase = true) ||
+                            CoreJassProvider.normalizePatchInput(it).equals(normalized, ignoreCase = true)
+                    }
                     if (directSelection != null) {
                         return directSelection
                     }
@@ -580,7 +627,10 @@ object SetupApp {
                 "q", "back", "cancel" -> return null
                 else -> {
                     val normalized = CoreJassProvider.normalizePatchInput(answer)
-                    val directSelection = versions.firstOrNull { it.equals(normalized, ignoreCase = true) }
+                    val directSelection = versions.firstOrNull {
+                        it.equals(normalized, ignoreCase = true) ||
+                            CoreJassProvider.normalizePatchInput(it).equals(normalized, ignoreCase = true)
+                    }
                     if (directSelection != null) {
                         return directSelection
                     }
@@ -714,13 +764,17 @@ object SetupApp {
         val output = ArrayList<String>()
         p.inputStream.bufferedReader().forEachLine { line ->
             output.add(line)
+            if (!setup.debug && isNoisyCompilerVersionLine(line)) {
+                return@forEachLine
+            }
             if (!setup.quiet) {
                 println(line)
             }
         }
         val exitCode = p.waitFor()
         if (setup.quiet && exitCode != 0) {
-            val linesToPrint = if (compactFallback) output.filter(::isImportantCompilerLine) else output
+            val printableOutput = if (setup.debug) output else output.filterNot(::isNoisyCompilerVersionLine)
+            val linesToPrint = if (compactFallback) printableOutput.filter(::isImportantCompilerLine) else printableOutput
             linesToPrint.forEach { println(it) }
         }
         return WurstProcessResult(exitCode, output)
@@ -781,14 +835,15 @@ object SetupApp {
         return CoreJassProvider.ensureFiles(projectRoot, wc3Patch)
     }
 
-	private fun handleRemoveDep(configData: WurstProjectConfigData) {
+	private fun handleRemoveDep(configData: WurstProjectConfigData): WurstProjectConfigData {
 		log.info("🧹 Removing ${setup.commandArg}")
 		if (configData.dependencies.contains(setup.commandArg)) {
-			configData.dependencies.remove(setup.commandArg)
             log.info("✅ Dependency removed.")
+            return configData.withRemovedDependency(setup.commandArg)
 		} else {
 			log.error("❌ Dependency is not listed in wurst.build: ${setup.commandArg}")
 		}
+        return configData
 	}
 
 	private fun handleRemoveWurst() {
@@ -804,7 +859,7 @@ object SetupApp {
 
     val REPO_REGEX = Regex("(https?://)([\\w.@-]+)(/)([\\w,-_]+)/([\\w,-_]+)(.git)?((/)?)")
 
-	private fun handleInstallDep(configData: WurstProjectConfigData) {
+	private fun handleInstallDep(configData: WurstProjectConfigData): WurstProjectConfigData {
         val resolvedName = DependencyManager.resolveName(setup.commandArg)
         if (!REPO_REGEX.matches(resolvedName.first)) {
             log.error("❌ Unsupported dependency URL: ${setup.commandArg}")
@@ -817,7 +872,7 @@ object SetupApp {
 		log.info("🔹 Installing ${resolvedName.second}")
 		if (configData.dependencies.contains(setup.commandArg)) {
 			log.info("✅ Dependency is already listed.")
-			return
+			return configData
 		}
 		try {
 			val result = Git.lsRemoteRepository()
@@ -825,7 +880,7 @@ object SetupApp {
 				.call()
 			if (!result.isEmpty()) {
 				Log.print("valid!\n")
-				configData.dependencies.add(setup.commandArg)
+                return configData.withAddedDependency(setup.commandArg)
 			} else {
 				log.error("❌ Could not find repository: ${resolvedName.first}")
                 ExitHandler.exit(1)
@@ -840,6 +895,7 @@ object SetupApp {
             }
             ExitHandler.exit(1)
 		}
+        return configData
 	}
 
 	private fun handleInstallWurst() {

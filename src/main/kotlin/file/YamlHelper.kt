@@ -9,6 +9,9 @@ import com.fasterxml.jackson.dataformat.yaml.YAMLFactory
 import com.fasterxml.jackson.dataformat.yaml.YAMLGenerator
 import com.fasterxml.jackson.module.kotlin.KotlinModule
 import config.WurstProjectConfigData
+import config.newProjectConfig
+import config.withProjectName
+import config.withWc3Patch
 import logging.KotlinLogging
 import java.io.IOException
 import java.nio.file.Files
@@ -27,6 +30,7 @@ object YamlHelper {
         mapper = ObjectMapper(yamlFactory)
         mapper.registerModule(KotlinModule.Builder().build())
         mapper.disable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES)
+        mapper.enable(DeserializationFeature.READ_UNKNOWN_ENUM_VALUES_AS_NULL)
         mapper.enable(DeserializationFeature.ACCEPT_SINGLE_VALUE_AS_ARRAY)
         mapper.enable(SerializationFeature.INDENT_OUTPUT)
     }
@@ -61,18 +65,22 @@ object YamlHelper {
     }
 
     private fun normalizeConfig(configData: WurstProjectConfigData, sourcePath: Path?): WurstProjectConfigData {
-        if (configData.projectName.isBlank()) {
-            configData.projectName = sourcePath?.parent?.fileName?.toString() ?: "unnamed"
+        val namedConfig = if (configData.projectName.isBlank()) {
+            configData.withProjectName(sourcePath?.parent?.fileName?.toString() ?: "unnamed")
+        } else {
+            configData
         }
-        if (configData.wc3Patch != null) {
-            configData.wc3Patch = CoreJassProvider.normalizePatchInput(configData.wc3Patch)
+        val patch = namedConfig.wc3Patch
+        return if (patch != null) {
+            namedConfig.withWc3Patch(CoreJassProvider.normalizePatchInput(patch))
+        } else {
+            namedConfig
         }
-        return configData
     }
 
     private fun fallbackConfig(path: Path): WurstProjectConfigData {
         val projectName = path.parent?.fileName?.toString() ?: "unnamed"
-        return WurstProjectConfigData(projectName)
+        return newProjectConfig(projectName)
     }
 
     private fun defaultYaml(projectName: String): String {
