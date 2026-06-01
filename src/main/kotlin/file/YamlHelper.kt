@@ -90,8 +90,8 @@ object YamlHelper {
         putIfNotBlank(result, "name", name)
         putIfNotBlank(result, "fileName", fileName)
         putIfNotBlank(result, "author", author)
-        scenarioData.toYamlValue()?.let { result["scenarioData"] = it }
-        optionsFlags.toYamlValue()?.let { result["optionsFlags"] = it }
+        scenarioData?.toYamlValue()?.let { result["scenarioData"] = it }
+        optionsFlags?.toYamlValue()?.let { result["optionsFlags"] = it }
         if (players.isNotEmpty()) {
             result["players"] = players.map { it.toYamlValue() }
         }
@@ -142,7 +142,7 @@ object YamlHelper {
     private fun WurstProjectBuildForce.toYamlValue(): Map<String, Any?> {
         val result = linkedMapOf<String, Any?>()
         putIfNotBlank(result, "name", name)
-        flags.toYamlValue()?.let { result["flags"] = it }
+        flags?.toYamlValue()?.let { result["flags"] = it }
         if (playerIds.isNotEmpty()) {
             result["playerIds"] = playerIds
         }

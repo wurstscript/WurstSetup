@@ -99,6 +99,23 @@ class GenerateTests {
     }
 
     @Test(priority = 10)
+    fun testJassHistoryVersionListSplitsWhitespaceSeparatedTokens() {
+        val parsed = CoreJassProvider.parseJassHistoryVersionList(
+            """
+            Beta-ROC-v1.21 TFT-v1.27b-ru Reforged-v2.0.4.23745
+            # comments and blank chunks should be ignored
+            not-a-version   ROC-v1.06-ru
+            """.trimIndent()
+        )
+
+        Assert.assertEquals(
+            parsed,
+            listOf("Beta-ROC-v1.21", "TFT-v1.27b-ru", "Reforged-v2.0.4.23745", "ROC-v1.06-ru")
+        )
+        Assert.assertFalse(parsed.any { it.contains(" ") })
+    }
+
+    @Test(priority = 10)
     fun testStdlibDependencyFollowsPatchEra() {
         val legacyStdlib = "https://github.com/wurstscript/wurstStdlib2:pre1.29"
         val currentStdlib = "https://github.com/wurstscript/wurstStdlib2"

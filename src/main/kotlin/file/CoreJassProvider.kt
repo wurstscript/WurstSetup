@@ -175,11 +175,7 @@ object CoreJassProvider {
     fun fetchJassHistoryVersions(): List<String> {
         val versionListUrl = "$JASS_HISTORY_RAW/$JASS_HISTORY_REF/$VERSION_LIST_FILE"
         return try {
-            URI(versionListUrl).toURL().readText()
-                .lineSequence()
-                .map { it.substringBefore("#").trim() }
-                .filter(::looksLikeJassHistoryFolder)
-                .toList()
+            parseJassHistoryVersionList(URI(versionListUrl).toURL().readText())
                 .asReversed()
                 .distinct()
                 .ifEmpty { supportedPatches }
@@ -187,6 +183,19 @@ object CoreJassProvider {
             log.warn("Could not load jass-history version list; using bundled fallback. Reason: ${e.message}")
             supportedPatches
         }
+    }
+
+    internal fun parseJassHistoryVersionList(content: String): List<String> {
+        return content
+            .lineSequence()
+            .flatMap { line ->
+                line.substringBefore("#")
+                    .trim()
+                    .splitToSequence(Regex("""\s+"""))
+                    .filter(String::isNotBlank)
+            }
+            .filter(::looksLikeJassHistoryFolder)
+            .toList()
     }
 
     fun recommendedPatchOptions(versions: List<String>): List<String> {

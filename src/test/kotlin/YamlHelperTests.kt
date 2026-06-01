@@ -49,6 +49,31 @@ class YamlHelperTests {
     }
 
     @Test
+    fun testDumpBuildMapDataWithOmittedSections() {
+        val dumped = YamlHelper.dumpProjectConfig(
+            newProjectConfig(
+                projectName = "minimal",
+                buildMapData = WurstProjectBuildMapData(
+                    "Minimal Map",
+                    "Minimal Map.w3x",
+                    "Tester",
+                    null,
+                    null,
+                    emptyList(),
+                    emptyList()
+                )
+            )
+        )
+
+        Assert.assertTrue(dumped.contains("buildMapData:"))
+        Assert.assertTrue(dumped.contains("name: Minimal Map"))
+        Assert.assertFalse(dumped.contains("scenarioData:"))
+        Assert.assertFalse(dumped.contains("optionsFlags:"))
+        Assert.assertFalse(dumped.contains("players: []"))
+        Assert.assertFalse(dumped.contains("forces: []"))
+    }
+
+    @Test
     fun testLoadMalformedConfigRecoversWithDefaults() {
         val dir = Files.createTempDirectory("wurstsetup-yaml-test")
         val buildFile = dir.resolve("wurst.build")
