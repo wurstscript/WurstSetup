@@ -3,7 +3,12 @@ package file
 import config.CONFIG_FILE_NAME
 import config.ScriptMode
 import config.WurstProjectConfig
+import config.WurstProjectBuildMapData
 import config.WurstProjectConfigData
+import config.newProjectConfig
+import config.withAddedDependency
+import config.withRemovedDependency
+import config.withWc3Patch
 import global.InstallationManager
 import global.Log
 import logging.KotlinLogging
@@ -138,6 +143,7 @@ object SetupApp {
                     |Generate options:
                     |  --script-mode lua|jass           Script mode (default: lua)
                     |  --wc3-patch <patch>              WC3 patch target: reforged, pre1.29, or jass-history version
+                    |  --wc3-path <dir>                 Warcraft III install folder for VS Code/run
                     |  --with-agents / --no-agents      Include AGENTS.md (default: no)
                     |  --with-ci / --no-ci              Include GitHub Actions workflow (default: no)
                 """.trimMargin())
@@ -145,7 +151,7 @@ object SetupApp {
 			setup.command == CLICommand.INSTALL -> {
                 if (setup.commandArg.isBlank()) {
                     if (configData != null) {
-                        ensureProjectPatchRecorded(configData)
+                        configData = ensureProjectPatchRecorded(configData)
                         handleUpdateProject(configData)
                     } else {
                         missingProject()
@@ -156,8 +162,8 @@ object SetupApp {
                     handleUpdateGrill()
 				} else {
 					if (configData != null) {
-						handleInstallDep(configData)
-                        ensureProjectPatchRecorded(configData)
+						configData = handleInstallDep(configData)
+                        configData = ensureProjectPatchRecorded(configData)
 						WurstProjectConfig.saveProjectConfig(setup.projectRoot, configData)
                         handleUpdateProject(configData)
 					} else {
@@ -170,7 +176,7 @@ object SetupApp {
 					handleRemoveWurst()
 				} else {
 					if (configData != null) {
-						handleRemoveDep(configData)
+						configData = handleRemoveDep(configData)
 						WurstProjectConfig.saveProjectConfig(setup.projectRoot, configData)
 					} else {
                         missingProject()
@@ -183,22 +189,22 @@ object SetupApp {
                 }
                 log.info("✈ Generating project...")
                 val projectDir = DEFAULT_DIR.resolve(setup.commandArg)
-                val stdlibUrl = if (CoreJassProvider.isPre129Patch(setup.wc3Patch))
-                    "https://github.com/wurstscript/wurstStdlib2:pre1.29"
-                else
-                    "https://github.com/wurstscript/wurstStdlib2"
-                val projectConfig = WurstProjectConfigData(
-                    projectName = setup.commandArg,
-                    dependencies = ArrayList(mutableListOf(stdlibUrl)),
+                val projectName = projectDir.fileName?.toString() ?: setup.commandArg
+                val stdlibUrl = stdlibDependencyForPatch(setup.wc3Patch)
+                val projectConfig = newProjectConfig(
+                    projectName = projectName,
+                    dependencies = listOf(stdlibUrl),
+                    buildMapData = generatedBuildMapData(projectName),
                     scriptMode = setup.scriptMode,
                     wc3Patch = setup.wc3Patch
                 )
-                WurstProjectConfig.handleCreate(projectDir, null, projectConfig)
+                val gameRoot = resolveGenerateGamePath(setup, projectConfig.wc3Patch)
+                WurstProjectConfig.handleCreate(projectDir, gameRoot, projectConfig)
                 ensureCoreJassFiles(projectDir, projectConfig.wc3Patch)
                 if (Files.exists(projectDir)) {
                     if (setup.addAgents) downloadAgentsMd(projectDir)
                     if (setup.addGithubWorkflow) writeCiWorkflow(projectDir)
-                    printGenerateNextSteps(projectDir)
+                    printGenerateNextSteps(projectDir, projectConfig, setup.addAgents, setup.addGithubWorkflow, gameRoot)
                 }
 			}
             setup.command == CLICommand.TEST -> {
@@ -294,15 +300,47 @@ object SetupApp {
         }
     }
 
-    private fun printGenerateNextSteps(projectDir: Path) {
+    private fun printGenerateNextSteps(
+        projectDir: Path,
+        projectConfig: WurstProjectConfigData,
+        addAgents: Boolean,
+        addGithubWorkflow: Boolean,
+        gameRoot: Path?
+    ) {
         log.info("""
             |✅ Created ${projectDir.fileName}
             |
+            |Choices:
+            |  Script mode: ${(projectConfig.scriptMode ?: ScriptMode.LUA).name.lowercase()}
+            |  WC3 patch: ${CoreJassProvider.describePatch(projectConfig.wc3Patch ?: CoreJassProvider.DEFAULT_PATCH)}
+            |  Warcraft III: ${gameRoot?.toAbsolutePath()?.normalize() ?: "not configured"}
+            |  Stdlib: ${if (projectConfig.dependencies.any { it.endsWith(":pre1.29") }) "pre1.29" else "current"}
+            |  AGENTS.md: ${yesNo(addAgents)}
+            |  GitHub Actions CI: ${yesNo(addGithubWorkflow)}
+            |
             |Next:
-            |  cd ${projectDir.fileName}
-            |  grill test
-            |  grill build ExampleMap.w3x
+            |  code ./${projectDir.fileName}
         """.trimMargin())
+    }
+
+    private fun resolveGenerateGamePath(setup: SetupMain, wc3Patch: String?): Path? {
+        val gameRoot = setup.gamePath ?: Wc3ClientDetector.detectGameRoot()
+        val clientInfo = Wc3ClientDetector.inspectGameRoot(gameRoot)
+        if (clientInfo == null) {
+            if (setup.gamePathExplicit) {
+                log.warn("Warcraft III path was set to ${setup.gamePath}, but no supported executable was found there.")
+            } else {
+                log.info("Warcraft III path: not detected. Set it later in VS Code or rerun generate with --wc3-path <dir>.")
+            }
+            return null
+        }
+        log.info("Warcraft III path: ${Wc3ClientDetector.describe(clientInfo)}")
+        Wc3ClientDetector.mismatchMessage(wc3Patch, clientInfo)?.let { log.warn(it) }
+        return clientInfo.root
+    }
+
+    private fun yesNo(value: Boolean): String {
+        return if (value) "yes" else "no"
     }
 
     private fun printCompilerFailure(commandName: String, result: WurstProcessResult) {
@@ -351,6 +389,26 @@ object SetupApp {
             line.contains("FAILED", ignoreCase = true) ||
             line.contains("Exception", ignoreCase = true) ||
             line.contains("Pjass", ignoreCase = true)
+    }
+
+    private fun isNoisyCompilerVersionLine(line: String): Boolean {
+        val trimmed = line.trim()
+        return trimmed == "Warning: Ignoring unknown wc3Patch in wurst.build: ${CoreJassProvider.DEFAULT_PATCH}" ||
+            trimmed.startsWith("Warning: Ignoring unknown wc3Patch in wurst.build:") ||
+            trimmed.startsWith("Warning: Wurst compiler failed to determine game version") ||
+            trimmed.contains("VersionExtractionException: Failed to extract executable version data") ||
+            trimmed.startsWith("at net.moonlightflower.wc3libs.misc.exeversion.") ||
+            trimmed.startsWith("at net.moonlightflower.wc3libs.bin.GameExe.") ||
+            trimmed.startsWith("at net.moonlightflower.wc3libs.port.") ||
+            trimmed.startsWith("at de.peeeq.wurstio.utils.W3InstallationData.discoverVersion") ||
+            trimmed.startsWith("at de.peeeq.wurstio.utils.W3InstallationData.<init>") ||
+            trimmed.startsWith("at de.peeeq.wurstio.languageserver.requests.MapRequest.getBestW3InstallationData") ||
+            trimmed.startsWith("at de.peeeq.wurstio.languageserver.requests.MapRequest.<init>") ||
+            trimmed.startsWith("at de.peeeq.wurstio.languageserver.requests.CliBuildMap.<init>") ||
+            trimmed.startsWith("at de.peeeq.wurstio.Main.main") ||
+            trimmed.startsWith("at dorkbox.peParser.PE") ||
+            trimmed.startsWith("Caused by: java.lang.NullPointerException") ||
+            trimmed.matches(Regex("""\.\.\. \d+ more"""))
     }
 
     internal var generatePrompt: ((String, String?) -> String?)? = null
@@ -410,6 +468,7 @@ object SetupApp {
             useInteractiveMenus = useInteractiveMenus,
             currentPatch = setup.wc3Patch
         )
+        setup.gamePath = selectGamePath(prompt, setup.wc3Patch, setup.gamePath)
 
         val agentsDefault = if (setup.addAgents) "Y" else "N"
         val agentsInput = prompt("Add AGENTS.md?", agentsDefault)
@@ -418,6 +477,64 @@ object SetupApp {
         val ciDefault = if (setup.addGithubWorkflow) "Y" else "N"
         val ciInput = prompt("Add GitHub Actions CI?", ciDefault)
         setup.addGithubWorkflow = ciInput?.lowercase() == "y"
+    }
+
+    private fun selectGamePath(
+        prompt: (String, String?) -> String?,
+        wc3Patch: String?,
+        currentPath: Path?
+    ): Path? {
+        val detected = currentPath ?: Wc3ClientDetector.detectGameRoot()
+        val detectedInfo = Wc3ClientDetector.inspectGameRoot(detected)
+        if (detectedInfo != null) {
+            log.info("Detected Warcraft III: ${Wc3ClientDetector.describe(detectedInfo)}")
+            Wc3ClientDetector.mismatchMessage(wc3Patch, detectedInfo)?.let { log.warn(it) }
+        } else {
+            log.info("No Warcraft III installation was detected automatically.")
+        }
+
+        val default = detected?.toAbsolutePath()?.normalize()?.toString() ?: "none"
+        val answer = prompt("Warcraft III directory (or none)", default)?.trim() ?: return detected
+        if (answer.equals("none", ignoreCase = true) || answer.equals("skip", ignoreCase = true)) {
+            return null
+        }
+        val selected = Paths.get(answer).toAbsolutePath().normalize()
+        val selectedInfo = Wc3ClientDetector.inspectGameRoot(selected)
+        if (selectedInfo == null) {
+            log.warn("No supported Warcraft III executable found in $selected. You can fix wurst.wc3path later in .vscode/settings.json.")
+            return null
+        }
+        Wc3ClientDetector.mismatchMessage(wc3Patch, selectedInfo)?.let { log.warn(it) }
+        return selectedInfo.root
+    }
+
+    internal fun stdlibDependencyForPatch(wc3Patch: String?): String {
+        return if (CoreJassProvider.isPre129Patch(wc3Patch)) {
+            "https://github.com/wurstscript/wurstStdlib2:pre1.29"
+        } else {
+            "https://github.com/wurstscript/wurstStdlib2"
+        }
+    }
+
+    internal fun generatedBuildMapData(projectName: String): WurstProjectBuildMapData {
+        val mapName = projectName.trim().ifBlank { "Unnamed" }
+        return WurstProjectBuildMapData(
+            mapName,
+            "$mapName.w3x",
+            defaultAuthorName(),
+            null,
+            null,
+            emptyList(),
+            emptyList()
+        )
+    }
+
+    private fun defaultAuthorName(): String {
+        val systemUser = System.getProperty("user.name").orEmpty().trim()
+        if (systemUser.isNotBlank()) {
+            return systemUser
+        }
+        return Paths.get(System.getProperty("user.home").orEmpty()).fileName?.toString()?.ifBlank { "Unknown" } ?: "Unknown"
     }
 
     private fun selectScriptMode(
@@ -454,18 +571,19 @@ object SetupApp {
         }
     }
 
-    private fun ensureProjectPatchRecorded(configData: WurstProjectConfigData) {
+    private fun ensureProjectPatchRecorded(configData: WurstProjectConfigData): WurstProjectConfigData {
         val currentPatch = configData.wc3Patch
         if (currentPatch.isNullOrBlank()) {
             val selectedPatch = selectPatchVersionForInstall()
-            configData.wc3Patch = selectedPatch
             log.info("WC3 patch recorded in wurst.build: $selectedPatch")
-            return
+            return configData.withWc3Patch(selectedPatch)
         }
 
         val normalizedPatch = CoreJassProvider.normalizePatchInput(currentPatch)
-        if (normalizedPatch != currentPatch) {
-            configData.wc3Patch = normalizedPatch
+        return if (normalizedPatch != currentPatch) {
+            configData.withWc3Patch(normalizedPatch)
+        } else {
+            configData
         }
     }
 
@@ -486,6 +604,7 @@ object SetupApp {
     ): String {
         val versions = CoreJassProvider.fetchJassHistoryVersions()
         val recommended = CoreJassProvider.recommendedPatchOptions(versions)
+        val patchTargets = CoreJassProvider.supportedPatches
         val normalizedCurrentPatch = currentPatch?.let(CoreJassProvider::normalizePatchInput)
         val defaultPatch = when {
             normalizedCurrentPatch != null && CoreJassProvider.isSupportedPatch(normalizedCurrentPatch) -> normalizedCurrentPatch
@@ -496,7 +615,8 @@ object SetupApp {
         if (useInteractiveMenus) {
             while (true) {
                 val choices = recommended.map { TerminalMenu.Choice(it, CoreJassProvider.describePatch(it)) } +
-                    TerminalMenu.Choice(browseAll, "Browse all supported versions...")
+                    TerminalMenu.Choice(browseAll, "Browse all supported patch targets...") +
+                    TerminalMenu.Choice("__browse_exact__", "Advanced: browse exact jass-history dumps...")
                 val selection = TerminalMenu.choose(
                     title = intro,
                     choices = choices,
@@ -504,7 +624,8 @@ object SetupApp {
                 )
                 when {
                     selection == null -> return defaultPatch
-                    selection == browseAll -> browsePatchVersionsInteractive(versions)?.let { return it }
+                    selection == browseAll -> browsePatchVersionsInteractive("WC3 patch targets", patchTargets)?.let { return it }
+                    selection == "__browse_exact__" -> browsePatchVersionsInteractive("Exact jass-history dumps", versions)?.let { return it }
                     else -> return selection
                 }
             }
@@ -516,8 +637,11 @@ object SetupApp {
         visibleRecommended.forEachIndexed { index, patch ->
             log.info("  ${index + 1}. ${CoreJassProvider.describePatch(patch)}")
         }
+        if (patchTargets.isNotEmpty()) {
+            log.info("Type `more` to browse supported patch targets.")
+        }
         if (versions.isNotEmpty()) {
-            log.info("Type `more` to browse all jass-history versions.")
+            log.info("Type `exact` to browse raw jass-history dump folders.")
         }
         log.info("Enter a listed number, press Enter for the default, or type `more`.")
 
@@ -531,22 +655,41 @@ object SetupApp {
                 return visibleRecommended[topIndex - 1]
             }
             when (answer.lowercase()) {
-                "more", "list", "all" -> browsePatchVersions(versions, prompt)?.let { return it }
+                "more", "list", "all" -> browsePatchVersions(
+                    title = "WC3 patch targets",
+                    versions = patchTargets,
+                    prompt = prompt,
+                    exactVersions = versions
+                )?.let { return it }
+                "exact", "raw", "dumps" -> browsePatchVersions(
+                    title = "Exact jass-history dumps",
+                    versions = versions,
+                    prompt = prompt,
+                    exactVersions = emptyList()
+                )?.let { return it }
                 "q", "quit", "cancel" -> return defaultPatch
                 else -> {
                     val normalized = CoreJassProvider.normalizePatchInput(answer)
-                    val directSelection = visibleRecommended.firstOrNull { it.equals(normalized, ignoreCase = true) }
+                    val directSelection = visibleRecommended.firstOrNull {
+                        it.equals(normalized, ignoreCase = true) ||
+                            CoreJassProvider.normalizePatchInput(it).equals(normalized, ignoreCase = true)
+                    }
                     if (directSelection != null) {
                         return directSelection
                     }
                     log.error("Unsupported patch selection: $answer")
-                    log.info("Choose one of the listed numbers, or type `more` to browse all supported versions.")
+                    log.info("Choose one of the listed numbers, type `more`, or type `exact` for raw dump folders.")
                 }
             }
         }
     }
 
-    private fun browsePatchVersions(versions: List<String>, prompt: (String, String?) -> String?): String? {
+    private fun browsePatchVersions(
+        title: String,
+        versions: List<String>,
+        prompt: (String, String?) -> String?,
+        exactVersions: List<String>
+    ): String? {
         if (versions.isEmpty()) {
             log.info("Could not load jass-history versions right now. You can still type a version folder manually.")
             return null
@@ -562,9 +705,12 @@ object SetupApp {
                 continue
             }
 
-            log.info("WC3 patch versions ${start + 1}-${start + visibleVersions.size} of ${versions.size}:")
+            log.info("$title ${start + 1}-${start + visibleVersions.size} of ${versions.size}:")
             visibleVersions.forEachIndexed { index, version ->
                 log.info("  ${index + 1}. ${CoreJassProvider.describePatch(version)}")
+            }
+            if (exactVersions.isNotEmpty()) {
+                log.info("Type `exact` for raw jass-history dump folders.")
             }
             val answer = prompt("Select version (number/version, n next, p previous, q back)", null)?.trim()
             if (answer.isNullOrBlank()) {
@@ -578,25 +724,34 @@ object SetupApp {
                 "n", "next" -> page = if (start + pageSize >= versions.size) 0 else page + 1
                 "p", "prev", "previous" -> page = if (page == 0) (versions.size - 1) / pageSize else page - 1
                 "q", "back", "cancel" -> return null
+                "exact", "raw", "dumps" -> browsePatchVersions(
+                    title = "Exact jass-history dumps",
+                    versions = exactVersions,
+                    prompt = prompt,
+                    exactVersions = emptyList()
+                )?.let { return it }
                 else -> {
                     val normalized = CoreJassProvider.normalizePatchInput(answer)
-                    val directSelection = versions.firstOrNull { it.equals(normalized, ignoreCase = true) }
+                    val directSelection = versions.firstOrNull {
+                        it.equals(normalized, ignoreCase = true) ||
+                            CoreJassProvider.normalizePatchInput(it).equals(normalized, ignoreCase = true)
+                    }
                     if (directSelection != null) {
                         return directSelection
                     }
                     log.error("Unsupported patch selection: $answer")
-                    log.info("Choose a number from the current page, use `n`/`p`, or type `q` to go back.")
+                    log.info("Choose a number from the current page, use `n`/`p`, type `exact`, or type `q` to go back.")
                 }
             }
         }
     }
 
-    private fun browsePatchVersionsInteractive(versions: List<String>): String? {
+    private fun browsePatchVersionsInteractive(title: String, versions: List<String>): String? {
         if (versions.isEmpty()) {
             return null
         }
         return TerminalMenu.choose(
-            title = "WC3 patch versions",
+            title = title,
             choices = versions.map { TerminalMenu.Choice(it, CoreJassProvider.describePatch(it)) },
             defaultIndex = 0
         )
@@ -714,13 +869,17 @@ object SetupApp {
         val output = ArrayList<String>()
         p.inputStream.bufferedReader().forEachLine { line ->
             output.add(line)
+            if (!setup.debug && isNoisyCompilerVersionLine(line)) {
+                return@forEachLine
+            }
             if (!setup.quiet) {
                 println(line)
             }
         }
         val exitCode = p.waitFor()
         if (setup.quiet && exitCode != 0) {
-            val linesToPrint = if (compactFallback) output.filter(::isImportantCompilerLine) else output
+            val printableOutput = if (setup.debug) output else output.filterNot(::isNoisyCompilerVersionLine)
+            val linesToPrint = if (compactFallback) printableOutput.filter(::isImportantCompilerLine) else printableOutput
             linesToPrint.forEach { println(it) }
         }
         return WurstProcessResult(exitCode, output)
@@ -781,14 +940,15 @@ object SetupApp {
         return CoreJassProvider.ensureFiles(projectRoot, wc3Patch)
     }
 
-	private fun handleRemoveDep(configData: WurstProjectConfigData) {
+	private fun handleRemoveDep(configData: WurstProjectConfigData): WurstProjectConfigData {
 		log.info("🧹 Removing ${setup.commandArg}")
 		if (configData.dependencies.contains(setup.commandArg)) {
-			configData.dependencies.remove(setup.commandArg)
             log.info("✅ Dependency removed.")
+            return configData.withRemovedDependency(setup.commandArg)
 		} else {
 			log.error("❌ Dependency is not listed in wurst.build: ${setup.commandArg}")
 		}
+        return configData
 	}
 
 	private fun handleRemoveWurst() {
@@ -804,7 +964,7 @@ object SetupApp {
 
     val REPO_REGEX = Regex("(https?://)([\\w.@-]+)(/)([\\w,-_]+)/([\\w,-_]+)(.git)?((/)?)")
 
-	private fun handleInstallDep(configData: WurstProjectConfigData) {
+	private fun handleInstallDep(configData: WurstProjectConfigData): WurstProjectConfigData {
         val resolvedName = DependencyManager.resolveName(setup.commandArg)
         if (!REPO_REGEX.matches(resolvedName.first)) {
             log.error("❌ Unsupported dependency URL: ${setup.commandArg}")
@@ -817,7 +977,7 @@ object SetupApp {
 		log.info("🔹 Installing ${resolvedName.second}")
 		if (configData.dependencies.contains(setup.commandArg)) {
 			log.info("✅ Dependency is already listed.")
-			return
+			return configData
 		}
 		try {
 			val result = Git.lsRemoteRepository()
@@ -825,7 +985,7 @@ object SetupApp {
 				.call()
 			if (!result.isEmpty()) {
 				Log.print("valid!\n")
-				configData.dependencies.add(setup.commandArg)
+                return configData.withAddedDependency(setup.commandArg)
 			} else {
 				log.error("❌ Could not find repository: ${resolvedName.first}")
                 ExitHandler.exit(1)
@@ -840,6 +1000,7 @@ object SetupApp {
             }
             ExitHandler.exit(1)
 		}
+        return configData
 	}
 
 	private fun handleInstallWurst() {

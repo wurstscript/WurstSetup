@@ -22,17 +22,17 @@ object InstallationManager {
     private const val GRILL_JAR_NAME = "grill.jar"
     private const val LEGACY_GRILL_JAR_NAME = "WurstSetup.jar"
 
-    val installDir: Path = Paths.get(System.getProperty("user.home"), FOLDER_PATH)
-    val compilerDir: Path = installDir.resolve("wurst-compiler")
-    val runtimeDir: Path = installDir.resolve("wurst-runtime")
-    val grillDir: Path = installDir.resolve("grill-cli")
-    val compilerJar: Path = compilerDir.resolve(COMPILER_FILE_NAME)
-    val legacyCompilerJar: Path = installDir.resolve(COMPILER_FILE_NAME)
-    val grillJar: Path = grillDir.resolve(GRILL_JAR_NAME)
-    val legacyGrillJar: Path = installDir.resolve(LEGACY_GRILL_JAR_NAME)
-    val wurstscriptLauncher: Path = installDir.resolve(if (isWindows()) "wurstscript.cmd" else "wurstscript")
-    val grillLauncher: Path = installDir.resolve(if (isWindows()) "grill.cmd" else "grill")
-    val bundledJava: Path = runtimeDir.resolve("bin").resolve(if (isWindows()) "java.exe" else "java")
+    val installDir: Path get() = configuredInstallDir()
+    val compilerDir: Path get() = installDir.resolve("wurst-compiler")
+    val runtimeDir: Path get() = installDir.resolve("wurst-runtime")
+    val grillDir: Path get() = installDir.resolve("grill-cli")
+    val compilerJar: Path get() = compilerDir.resolve(COMPILER_FILE_NAME)
+    val legacyCompilerJar: Path get() = installDir.resolve(COMPILER_FILE_NAME)
+    val grillJar: Path get() = grillDir.resolve(GRILL_JAR_NAME)
+    val legacyGrillJar: Path get() = installDir.resolve(LEGACY_GRILL_JAR_NAME)
+    val wurstscriptLauncher: Path get() = installDir.resolve(if (isWindows()) "wurstscript.cmd" else "wurstscript")
+    val grillLauncher: Path get() = installDir.resolve(if (isWindows()) "grill.cmd" else "grill")
+    val bundledJava: Path get() = runtimeDir.resolve("bin").resolve(if (isWindows()) "java.exe" else "java")
 
     var wurstConfig: WurstConfigData? = null
 
@@ -146,9 +146,24 @@ object InstallationManager {
             log.error("❌ Cannot remove WurstScript: compiler jar is in use. Close VSCode and any running Wurst instances first.")
             return
         }
-        clearFolder(installDir)
+        removeCompilerInstall()
         verifyInstallation()
         log.info("WurstScript has been removed.")
+    }
+
+    private fun removeCompilerInstall() {
+        clearFolder(compilerDir)
+        tryDelete(compilerDir)
+        tryDelete(legacyCompilerJar)
+        tryDelete(wurstscriptLauncher)
+    }
+
+    private fun tryDelete(path: Path) {
+        try {
+            Files.deleteIfExists(path)
+        } catch (e: Exception) {
+            log.warn("Could not remove $path: ${e.message}")
+        }
     }
 
 
@@ -186,6 +201,14 @@ object InstallationManager {
         } catch (_: Exception) {
             null
         }
+    }
+
+    private fun configuredInstallDir(): Path {
+        val override = System.getProperty("wurst.install.dir").orEmpty().trim()
+        if (override.isNotEmpty()) {
+            return Paths.get(override)
+        }
+        return Paths.get(System.getProperty("user.home"), FOLDER_PATH)
     }
 
     private fun isWindows(): Boolean = System.getProperty("os.name").contains("windows", true)

@@ -17,6 +17,8 @@ class SetupMain {
 
 	var projectRoot: Path = SetupApp.DEFAULT_DIR
 
+    var gamePath: Path? = null
+
     var requireConfirmation = false
 
     var noPJass = false
@@ -30,6 +32,8 @@ class SetupMain {
     var addGithubWorkflow: Boolean = false
     var scriptMode: ScriptMode = ScriptMode.LUA
     var wc3Patch: String = CoreJassProvider.DEFAULT_PATCH
+
+    var gamePathExplicit: Boolean = false
 
 	fun setProjectDir(dir: Path) {
 		Files.createDirectories(dir)

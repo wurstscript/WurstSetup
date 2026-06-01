@@ -1,6 +1,7 @@
 package file
 
 import logging.KotlinLogging
+import org.wurstscript.projectconfig.Wc3PatchTarget
 import java.net.URI
 import java.nio.file.AtomicMoveNotSupportedException
 import java.nio.file.Files
@@ -9,14 +10,16 @@ import java.nio.file.StandardCopyOption
 import java.util.jar.JarFile
 
 object CoreJassProvider {
-    const val DEFAULT_PATCH = "v1.36"
+    const val DEFAULT_PATCH = "v2.0"
     const val PRE_129_PATCH = "v1.28"
 
-    private const val JASS_HISTORY_RAW = "https://raw.githubusercontent.com/Luashine/jass-history"
+    private const val JASS_HISTORY_RAW = "https://raw.githubusercontent.com/wurstscript/jass-history"
     private const val JASS_HISTORY_REF = "master"
+    private const val VERSION_LIST_FILE = "version-list-sorted.txt"
     private val log = KotlinLogging.logger {}
 
     private val PATCH_TO_JASS_HISTORY_FOLDER = linkedMapOf(
+        "v2.0" to "Reforged-v2.0.4.23745",
         "v1.36" to "Reforged-v1.36.1.20719-w3-51d40ee",
         "v1.35" to "Reforged-v1.35.0.20093-w3-5ec1b77",
         "v1.34" to "Reforged-v1.34.0.19632-w3-31590bf",
@@ -73,6 +76,14 @@ object CoreJassProvider {
 
     val supportedPatches: List<String> = PATCH_TO_JASS_HISTORY_FOLDER.keys.toList()
 
+    private val BUNDLED_CORE_JASS_PATCH_FOLDERS = mapOf(
+        DEFAULT_PATCH to "v2.0",
+        "v1.36" to "reforged",
+        PRE_129_PATCH to "pre1.29"
+    )
+
+    internal var jassHistoryFileDownloader: (List<String>, Path) -> Unit = ::downloadFirstExisting
+
     fun describePatch(patch: String): String {
         val normalizedPatch = normalizePatchInput(patch)
         val label = when (normalizedPatch) {
@@ -80,11 +91,11 @@ object CoreJassProvider {
             "v1.31" -> "latest classic TFT"
             PRE_129_PATCH -> "legacy pre-1.29"
             else -> {
-                val minor = Regex("""v1\.(\d+)""").find(normalizedPatch)?.groupValues?.get(1)?.toIntOrNull()
-                when {
-                    minor != null && minor >= 32 -> "Reforged"
-                    minor != null && minor >= 7 -> "classic TFT"
-                    minor != null -> "classic ROC"
+                val target = Wc3PatchTarget.parse(normalizedPatch).orElse(null)
+                when (target?.kind()) {
+                    Wc3PatchTarget.Kind.REFORGED -> "Reforged"
+                    Wc3PatchTarget.Kind.CLASSIC -> "classic TFT"
+                    Wc3PatchTarget.Kind.PRE_129 -> "legacy pre-1.29"
                     else -> null
                 }
             }
@@ -93,17 +104,21 @@ object CoreJassProvider {
     }
 
     fun jassHistoryFolderForPatch(patch: String): String? {
-        return PATCH_TO_JASS_HISTORY_FOLDER[normalizePatchInput(patch)]
+        val normalized = normalizePatchInput(patch)
+        return PATCH_TO_JASS_HISTORY_FOLDER[normalized]
+            ?: normalized.takeIf(::looksLikeJassHistoryFolder)
     }
 
     fun isSupportedPatch(patch: String): Boolean {
-        return PATCH_TO_JASS_HISTORY_FOLDER.containsKey(normalizePatchInput(patch))
+        val normalized = normalizePatchInput(patch)
+        return PATCH_TO_JASS_HISTORY_FOLDER.containsKey(normalized) || looksLikeJassHistoryFolder(normalized)
     }
 
     fun normalizePatchInput(input: String?): String {
         val patch = input?.trim().orEmpty()
         val normalizedAlias = when (patch.lowercase()) {
             "", "reforged", "latest" -> DEFAULT_PATCH
+            "classic", "tft" -> "v1.31"
             "pre1.29", "pre-1.29", "pre_129", "pre-129" -> PRE_129_PATCH
             else -> patch
         }
@@ -112,23 +127,32 @@ object CoreJassProvider {
         if (canonicalCase != null) {
             return canonicalCase
         }
-        return PATCH_TO_JASS_HISTORY_FOLDER.entries.firstOrNull { it.value.equals(withPrefix, ignoreCase = true) }?.key
-            ?: withPrefix
+        PATCH_TO_JASS_HISTORY_FOLDER.entries.firstOrNull { it.value.equals(withPrefix, ignoreCase = true) }?.key?.let {
+            return it
+        }
+        if (looksLikeJassHistoryFolder(withPrefix)) {
+            return withPrefix
+        }
+        val target = Wc3PatchTarget.parse(withPrefix).orElse(null)
+        if (target != null) {
+            val versionPatch = "v${target.gameVersion()}"
+            return PATCH_TO_JASS_HISTORY_FOLDER.keys.firstOrNull { it.equals(versionPatch, ignoreCase = true) }
+                ?: versionPatch
+        }
+        return withPrefix
     }
 
     fun isPre129Patch(input: String?): Boolean {
         val patch = normalizePatchInput(input)
-        if (patch == PRE_129_PATCH) {
-            return true
-        }
-        val version = Regex("""v(\d+)\.(\d+)""").find(patch)?.groupValues ?: return false
-        return version[1].toIntOrNull() == 1 && (version[2].toIntOrNull() ?: 29) < 29
+        return Wc3PatchTarget.parse(patch)
+            .map { it.kind() == Wc3PatchTarget.Kind.PRE_129 }
+            .orElse(false)
     }
 
     fun ensureFiles(projectRoot: Path, wc3Patch: String?): List<Path> {
         val buildFolder = projectRoot.resolve("_build")
         Files.createDirectories(buildFolder)
-        val patch = normalizePatchInput(wc3Patch)
+        val patch = resolveSupportedPatch(wc3Patch)
         val previousPatch = readProvenance(buildFolder)
         val materializedFiles = listOf(
             materializeFile(buildFolder, "common.j", patch, previousPatch),
@@ -149,18 +173,53 @@ object CoreJassProvider {
     }
 
     fun fetchJassHistoryVersions(): List<String> {
-        return supportedPatches
+        val versionListUrl = "$JASS_HISTORY_RAW/$JASS_HISTORY_REF/$VERSION_LIST_FILE"
+        return try {
+            parseJassHistoryVersionList(URI(versionListUrl).toURL().readText())
+                .asReversed()
+                .distinct()
+                .ifEmpty { supportedPatches }
+        } catch (e: Exception) {
+            log.warn("Could not load jass-history version list; using bundled fallback. Reason: ${e.message}")
+            supportedPatches
+        }
+    }
+
+    internal fun parseJassHistoryVersionList(content: String): List<String> {
+        return content
+            .lineSequence()
+            .flatMap { line ->
+                line.substringBefore("#")
+                    .trim()
+                    .splitToSequence(Regex("""\s+"""))
+                    .filter(String::isNotBlank)
+            }
+            .filter(::looksLikeJassHistoryFolder)
+            .toList()
     }
 
     fun recommendedPatchOptions(versions: List<String>): List<String> {
-        return (listOf(DEFAULT_PATCH, "v1.31", PRE_129_PATCH) + versions.take(1)).distinct()
+        val base = listOf(DEFAULT_PATCH, "v1.31", PRE_129_PATCH)
+        val latestExactVersion = versions.firstOrNull { version ->
+            base.none { normalizePatchInput(it).equals(normalizePatchInput(version), ignoreCase = true) }
+        }
+        return (base + listOfNotNull(latestExactVersion)).distinct()
     }
 
     private data class MaterializedFile(val path: Path, val managedByGrill: Boolean)
 
+    private fun resolveSupportedPatch(wc3Patch: String?): String {
+        val patch = normalizePatchInput(wc3Patch)
+        if (isSupportedPatch(patch)) {
+            return patch
+        }
+        log.warn("Ignoring unsupported wc3Patch <$patch>; using ${describePatch(DEFAULT_PATCH)}.")
+        return DEFAULT_PATCH
+    }
+
     private fun materializeFile(buildFolder: Path, fileName: String, patch: String, previousPatch: String?): MaterializedFile {
         val target = buildFolder.resolve(fileName)
-        val jassHistoryFolder = PATCH_TO_JASS_HISTORY_FOLDER[patch]
+        val jassHistoryFolder = jassHistoryFolderForPatch(patch)
         if (jassHistoryFolder == null) {
             throw IllegalArgumentException("Unsupported WC3 patch <$patch>. Supported values: ${supportedPatches.joinToString()}")
         }
@@ -184,12 +243,12 @@ object CoreJassProvider {
                 log.warn("Could not refresh $fileName for $patch; keeping existing _build copy. Reason: ${e.message}")
                 return MaterializedFile(target, managedByGrill = true)
             }
-            if (patch == DEFAULT_PATCH || patch == PRE_129_PATCH) {
+            if (hasBundledCoreJass(patch)) {
                 log.warn("Could not download $fileName for $patch; falling back to bundled core JASS. Reason: ${e.message}")
                 copyBundledCoreJass(fileName, patch, target)
                 return MaterializedFile(target, managedByGrill = true)
             }
-            throw RuntimeException("Could not download $fileName for WC3 patch <$patch> from jass-history.", e)
+            throw RuntimeException("Could not download $fileName for WC3 patch <$patch> from wurstscript/jass-history.", e)
         }
     }
 
@@ -206,11 +265,17 @@ object CoreJassProvider {
             ?.let(::normalizePatchInput)
     }
 
+    private fun hasBundledCoreJass(patch: String): Boolean {
+        return BUNDLED_CORE_JASS_PATCH_FOLDERS.containsKey(normalizePatchInput(patch))
+    }
+
+    internal fun bundledCoreJassFolderForPatch(patch: String): String? {
+        return BUNDLED_CORE_JASS_PATCH_FOLDERS[normalizePatchInput(patch)]
+    }
+
     private fun copyBundledCoreJass(fileName: String, patch: String, target: Path) {
-        val patchFolder = when (patch) {
-            PRE_129_PATCH -> "pre1.29"
-            else -> "reforged"
-        }
+        val patchFolder = bundledCoreJassFolderForPatch(patch)
+            ?: throw IllegalStateException("No bundled core JASS is available for $patch.")
 
         Files.createDirectories(target.parent)
         val resourcePath = "core-jass/$patchFolder/$fileName"
@@ -230,15 +295,12 @@ object CoreJassProvider {
 
     private fun downloadJassHistoryFile(fileName: String, patch: String, jassHistoryFolder: String, target: Path) {
         Files.createDirectories(target.parent)
-        val rawUrl = "$JASS_HISTORY_RAW/$JASS_HISTORY_REF/war3extract/$jassHistoryFolder/scripts/$fileName"
         val tempFile = Files.createTempFile(target.parent, "$fileName.", ".download")
         var replacedTarget = false
         try {
-            URI(rawUrl).toURL().openStream().use { input ->
-                Files.copy(input, tempFile, StandardCopyOption.REPLACE_EXISTING)
-            }
+            jassHistoryFileDownloader(jassHistoryUrls(jassHistoryFolder, fileName), tempFile)
             if (!isValidCoreJassFile(tempFile)) {
-                throw IllegalStateException("Downloaded $fileName from jass-history did not look valid.")
+                throw IllegalStateException("Downloaded $fileName from wurstscript/jass-history did not look valid.")
             }
             moveValidatedDownload(tempFile, target)
             replacedTarget = true
@@ -246,6 +308,39 @@ object CoreJassProvider {
             if (!replacedTarget) {
                 Files.deleteIfExists(tempFile)
             }
+        }
+    }
+
+    private fun downloadFirstExisting(urls: List<String>, target: Path) {
+        var lastError: Exception? = null
+        for (url in urls) {
+            try {
+                URI(url).toURL().openStream().use { input ->
+                    Files.copy(input, target, StandardCopyOption.REPLACE_EXISTING)
+                }
+                return
+            } catch (e: Exception) {
+                lastError = e
+            }
+        }
+        throw lastError ?: IllegalStateException("No jass-history download URL was provided.")
+    }
+
+    private fun jassHistoryUrls(jassHistoryFolder: String, fileName: String): List<String> {
+        val scriptDirs = listOf("scripts", "Scripts")
+        val fileNames = listOf(fileName, legacyCoreJassFileName(fileName)).distinct()
+        return scriptDirs.flatMap { scriptDir ->
+            fileNames.map { candidateFileName ->
+                "$JASS_HISTORY_RAW/$JASS_HISTORY_REF/war3extract/$jassHistoryFolder/$scriptDir/$candidateFileName"
+            }
+        }
+    }
+
+    private fun legacyCoreJassFileName(fileName: String): String {
+        return when (fileName) {
+            "blizzard.j" -> "Blizzard.j"
+            "common.j" -> "Common.j"
+            else -> fileName
         }
     }
 
@@ -259,6 +354,14 @@ object CoreJassProvider {
         } catch (_: AtomicMoveNotSupportedException) {
             Files.move(source, target, StandardCopyOption.REPLACE_EXISTING)
         }
+    }
+
+    private fun looksLikeJassHistoryFolder(value: String): Boolean {
+        return value.startsWith("Reforged-v") ||
+            value.startsWith("TFT-v") ||
+            value.startsWith("ROC-v") ||
+            value.startsWith("Beta-TFT-v") ||
+            value.startsWith("Beta-ROC-v")
     }
 
 }

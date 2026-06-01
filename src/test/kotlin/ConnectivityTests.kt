@@ -1,12 +1,16 @@
 import net.ConnectionManager
 import net.NetStatus
 import org.testng.Assert
+import org.testng.SkipException
 import org.testng.annotations.Test
 
 class ConnectivityTests {
 
 		@Test fun testConnectionManager() {
-			Assert.assertEquals(ConnectionManager.checkConnectivity("http://google.com"), NetStatus.SERVER_CONTACT, "google.com unreachable: ${ConnectionManager.lastError}")
+			val connectivity = ConnectionManager.checkConnectivity("http://google.com")
+			if (connectivity != NetStatus.SERVER_CONTACT) {
+				throw SkipException("google.com unreachable: ${ConnectionManager.lastError}")
+			}
 
 			Assert.assertEquals(ConnectionManager.checkWurstBuild(), NetStatus.ONLINE, "wurst build unreachable, status=${ConnectionManager.netStatus}, error=${ConnectionManager.lastError}")
 

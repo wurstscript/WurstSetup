@@ -25,6 +25,13 @@ private fun catchExit2(block: () -> Unit): Int {
     return code
 }
 
+private fun bundledCoreJassText(folder: String, fileName: String): String {
+    return CoreJassProvider::class.java.classLoader
+        .getResourceAsStream("core-jass/$folder/$fileName")!!
+        .bufferedReader()
+        .use { it.readText() }
+}
+
 class GenerateTests {
 
     @Test(priority = 10)
@@ -79,8 +86,80 @@ class GenerateTests {
         )
         Assert.assertEquals(
             CoreJassProvider.describePatch("v1.36"),
-            "v1.36 (latest Reforged / WC3 2.x core JASS)"
+            "v1.36 (Reforged)"
         )
+        Assert.assertEquals(
+            CoreJassProvider.jassHistoryFolderForPatch("v2.0"),
+            "Reforged-v2.0.4.23745"
+        )
+        Assert.assertEquals(
+            CoreJassProvider.describePatch("v2.0"),
+            "v2.0 (latest Reforged / WC3 2.x core JASS)"
+        )
+    }
+
+    @Test(priority = 10)
+    fun testJassHistoryVersionListSplitsWhitespaceSeparatedTokens() {
+        val parsed = CoreJassProvider.parseJassHistoryVersionList(
+            """
+            Beta-ROC-v1.21 TFT-v1.27b-ru Reforged-v2.0.4.23745
+            # comments and blank chunks should be ignored
+            not-a-version   ROC-v1.06-ru
+            """.trimIndent()
+        )
+
+        Assert.assertEquals(
+            parsed,
+            listOf("Beta-ROC-v1.21", "TFT-v1.27b-ru", "Reforged-v2.0.4.23745", "ROC-v1.06-ru")
+        )
+        Assert.assertFalse(parsed.any { it.contains(" ") })
+    }
+
+    @Test(priority = 10)
+    fun testStdlibDependencyFollowsPatchEra() {
+        val legacyStdlib = "https://github.com/wurstscript/wurstStdlib2:pre1.29"
+        val currentStdlib = "https://github.com/wurstscript/wurstStdlib2"
+
+        for (patch in CoreJassProvider.supportedPatches) {
+            val minor = Regex("""v1\.(\d+)""").find(patch)?.groupValues?.get(1)?.toIntOrNull()
+            val expected = if (minor != null && minor < 29) legacyStdlib else currentStdlib
+            Assert.assertEquals(SetupApp.stdlibDependencyForPatch(patch), expected, "stdlib dependency for $patch")
+        }
+
+        Assert.assertEquals(SetupApp.stdlibDependencyForPatch("TFT-v1.27b-ru"), legacyStdlib)
+        Assert.assertEquals(SetupApp.stdlibDependencyForPatch("pre1.29"), legacyStdlib)
+        Assert.assertEquals(SetupApp.stdlibDependencyForPatch("v1.29"), currentStdlib)
+    }
+
+    @Test(priority = 10)
+    fun testGeneratedBuildMapDataSeedsOnlyKnownFields() {
+        val dumped = file.YamlHelper.dumpProjectConfig(
+            config.newProjectConfig(
+                projectName = "fsa",
+                buildMapData = SetupApp.generatedBuildMapData("fsa"),
+                scriptMode = ScriptMode.JASS,
+                wc3Patch = "v1.27b"
+            )
+        )
+
+        Assert.assertTrue(dumped.contains("buildMapData:"))
+        Assert.assertTrue(dumped.contains("name: fsa"))
+        Assert.assertTrue(dumped.contains("fileName: fsa.w3x"))
+        Assert.assertTrue(dumped.contains("author:"))
+        Assert.assertFalse(dumped.contains("scenarioData:"))
+        Assert.assertFalse(dumped.contains("optionsFlags:"))
+        Assert.assertFalse(dumped.contains("loadingScreen: null"))
+        Assert.assertFalse(dumped.contains("players: []"))
+        Assert.assertFalse(dumped.contains("forces: []"))
+    }
+
+    @Test(priority = 10)
+    fun testGenerateParsesWc3PathOption() {
+        val setup = SetupMain()
+        setup.parseArgs(listOf("generate", "map", "--wc3-path", "C:\\Games\\Warcraft III"))
+
+        Assert.assertEquals(setup.gamePath, java.nio.file.Paths.get("C:\\Games\\Warcraft III"))
+        Assert.assertTrue(setup.gamePathExplicit)
     }
 
     @Test(priority = 10)
@@ -102,6 +181,18 @@ class GenerateTests {
         try {
             SetupApp.installPatchPrompt = { _, _ -> answers.removeFirst() }
             Assert.assertEquals(SetupApp.selectPatchVersionForInstall(), "v1.32")
+        } finally {
+            SetupApp.installPatchPrompt = prevPrompt
+        }
+    }
+
+    @Test(priority = 10)
+    fun testInstallPatchSelectionKeepsExactDumpsAdvanced() {
+        val answers = java.util.ArrayDeque(listOf("exact", "Reforged-v1.32.10.19202"))
+        val prevPrompt = SetupApp.installPatchPrompt
+        try {
+            SetupApp.installPatchPrompt = { _, _ -> answers.removeFirst() }
+            Assert.assertEquals(SetupApp.selectPatchVersionForInstall(), "Reforged-v1.32.10.19202")
         } finally {
             SetupApp.installPatchPrompt = prevPrompt
         }
@@ -170,7 +261,7 @@ class GenerateTests {
     fun testGenerateWithoutNameUsesWizardPrompt() {
         val setup = SetupMain()
         setup.parseArgs(listOf("generate"))
-        val answers = java.util.ArrayDeque(listOf("wizardproject", "jass", "pre1.29", "y", "y"))
+        val answers = java.util.ArrayDeque(listOf("wizardproject", "jass", "pre1.29", "none", "y", "y"))
         val prevPrompt = SetupApp.generatePrompt
         try {
             SetupApp.generatePrompt = { _, _ -> answers.removeFirst() }
@@ -190,7 +281,7 @@ class GenerateTests {
     fun testGenerateWizardRejectsUnsupportedScriptModeAndPatchInput() {
         val setup = SetupMain()
         setup.parseArgs(listOf("generate"))
-        val answers = java.util.ArrayDeque(listOf("wizardproject", "t", "jass", "t", "2", "n", "n"))
+        val answers = java.util.ArrayDeque(listOf("wizardproject", "t", "jass", "t", "2", "none", "n", "n"))
         val prevPrompt = SetupApp.generatePrompt
         try {
             SetupApp.generatePrompt = { _, _ -> answers.removeFirst() }
@@ -210,7 +301,7 @@ class GenerateTests {
     fun testGenerateWizardPreservesCliPatchDefault() {
         val setup = SetupMain()
         setup.parseArgs(listOf("generate", "--wc3-patch", "pre1.29"))
-        val answers = java.util.ArrayDeque(listOf("wizardproject", "", "", "n", "n"))
+        val answers = java.util.ArrayDeque(listOf("wizardproject", "", "", "none", "n", "n"))
         val prevPrompt = SetupApp.generatePrompt
         try {
             SetupApp.generatePrompt = { _, _ -> answers.removeFirst() }
@@ -295,6 +386,95 @@ class GenerateTests {
     }
 
     @Test(priority = 10)
+    fun testDefaultPatchDownloadFailureUsesBundledV2CoreJass() {
+        val tmpDir = Files.createTempDirectory("grill-core-jass-v2-fallback-test")
+        val previousDownloader = CoreJassProvider.jassHistoryFileDownloader
+        try {
+            CoreJassProvider.jassHistoryFileDownloader = { _, _ -> throw RuntimeException("offline") }
+
+            SetupApp.ensureCoreJassFiles(tmpDir, CoreJassProvider.DEFAULT_PATCH)
+
+            val buildDir = tmpDir.resolve("_build")
+            val common = Files.readString(buildDir.resolve("common.j"))
+            val blizzard = Files.readString(buildDir.resolve("blizzard.j"))
+            Assert.assertEquals(common, bundledCoreJassText("v2.0", "common.j"))
+            Assert.assertEquals(blizzard, bundledCoreJassText("v2.0", "blizzard.j"))
+            Assert.assertEquals(CoreJassProvider.bundledCoreJassFolderForPatch(CoreJassProvider.DEFAULT_PATCH), "v2.0")
+            Assert.assertEquals(CoreJassProvider.bundledCoreJassFolderForPatch("v1.36"), "reforged")
+            Assert.assertTrue(
+                Files.readString(buildDir.resolve("core-jass.provenance"))
+                    .contains("jassHistoryFolder: Reforged-v2.0.4.23745")
+            )
+        } finally {
+            CoreJassProvider.jassHistoryFileDownloader = previousDownloader
+            Files.walk(tmpDir).sorted(Comparator.reverseOrder()).forEach {
+                try {
+                    Files.deleteIfExists(it)
+                } catch (_: Exception) {
+                }
+            }
+        }
+    }
+
+    @Test(priority = 10)
+    fun testNonBundledPatchDownloadFailureDoesNotUseWrongBundle() {
+        val tmpDir = Files.createTempDirectory("grill-core-jass-no-wrong-fallback-test")
+        val previousDownloader = CoreJassProvider.jassHistoryFileDownloader
+        try {
+            CoreJassProvider.jassHistoryFileDownloader = { _, _ -> throw RuntimeException("offline") }
+
+            try {
+                SetupApp.ensureCoreJassFiles(tmpDir, "v1.35")
+                Assert.fail("Expected v1.35 without a download to fail instead of using an unrelated bundled fallback")
+            } catch (e: RuntimeException) {
+                Assert.assertTrue(e.message!!.contains("v1.35"), e.message)
+            }
+        } finally {
+            CoreJassProvider.jassHistoryFileDownloader = previousDownloader
+            Files.walk(tmpDir).sorted(Comparator.reverseOrder()).forEach {
+                try {
+                    Files.deleteIfExists(it)
+                } catch (_: Exception) {
+                }
+            }
+        }
+    }
+
+    @Test(priority = 10)
+    fun testLegacyPatchDownloadTriesCapitalizedBlizzardFile() {
+        val tmpDir = Files.createTempDirectory("grill-core-jass-legacy-case-test")
+        val previousDownloader = CoreJassProvider.jassHistoryFileDownloader
+        val attemptedUrls = mutableListOf<String>()
+        try {
+            CoreJassProvider.jassHistoryFileDownloader = { urls, target ->
+                attemptedUrls.addAll(urls)
+                val acceptedUrl = urls.firstOrNull {
+                    it.endsWith("/Scripts/common.j") || it.endsWith("/Scripts/Blizzard.j")
+                } ?: throw RuntimeException("No legacy URL candidate matched")
+                val body = "// downloaded from $acceptedUrl\n" + "x".repeat(2048)
+                Files.writeString(target, body)
+            }
+
+            SetupApp.ensureCoreJassFiles(tmpDir, "v1.27b")
+
+            Assert.assertTrue(
+                attemptedUrls.any { it.endsWith("/Scripts/Blizzard.j") },
+                "Legacy jass-history dumps use Scripts/Blizzard.j; Grill must try that casing."
+            )
+            Assert.assertTrue(Files.exists(tmpDir.resolve("_build/common.j")))
+            Assert.assertTrue(Files.exists(tmpDir.resolve("_build/blizzard.j")))
+        } finally {
+            CoreJassProvider.jassHistoryFileDownloader = previousDownloader
+            Files.walk(tmpDir).sorted(Comparator.reverseOrder()).forEach {
+                try {
+                    Files.deleteIfExists(it)
+                } catch (_: Exception) {
+                }
+            }
+        }
+    }
+
+    @Test(priority = 10)
     fun testCoreJassFilesFollowConfiguredPatch() {
         val tmpDir = Files.createTempDirectory("grill-core-jass-patch-test")
         try {
@@ -368,6 +548,39 @@ class GenerateTests {
 
             Assert.assertEquals(Files.readString(buildDir.resolve("common.j")), cachedCommon)
             Assert.assertEquals(Files.readString(buildDir.resolve("blizzard.j")), cachedBlizzard)
+        } finally {
+            Files.walk(tmpDir).sorted(Comparator.reverseOrder()).forEach {
+                try {
+                    Files.deleteIfExists(it)
+                } catch (_: Exception) {
+                }
+            }
+        }
+    }
+
+    @Test(priority = 10)
+    fun testUnsupportedPatchFallsBackToDefaultCoreJass() {
+        val tmpDir = Files.createTempDirectory("grill-core-jass-unknown-patch-test")
+        try {
+            val buildDir = tmpDir.resolve("_build")
+            Files.createDirectories(buildDir)
+            val cachedCommon = "// cached default common.j\n" + "x".repeat(2048)
+            val cachedBlizzard = "// cached default blizzard.j\n" + "y".repeat(2048)
+            Files.writeString(buildDir.resolve("common.j"), cachedCommon)
+            Files.writeString(buildDir.resolve("blizzard.j"), cachedBlizzard)
+            Files.writeString(
+                buildDir.resolve("core-jass.provenance"),
+                "wc3Patch: ${CoreJassProvider.DEFAULT_PATCH}\n" +
+                    "jassHistoryFolder: ${CoreJassProvider.jassHistoryFolderForPatch(CoreJassProvider.DEFAULT_PATCH)}\n"
+            )
+
+            SetupApp.ensureCoreJassFiles(tmpDir, "some-old-custom-value")
+
+            Assert.assertEquals(Files.readString(buildDir.resolve("common.j")), cachedCommon)
+            Assert.assertEquals(Files.readString(buildDir.resolve("blizzard.j")), cachedBlizzard)
+            Assert.assertTrue(
+                Files.readString(buildDir.resolve("core-jass.provenance")).contains("wc3Patch: ${CoreJassProvider.DEFAULT_PATCH}")
+            )
         } finally {
             Files.walk(tmpDir).sorted(Comparator.reverseOrder()).forEach {
                 try {
