@@ -4,13 +4,19 @@ import logging.KotlinLogging
 import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.StandardCopyOption
+import java.util.Comparator
 
 val log = KotlinLogging.logger {}
 
 fun clearFolder(dir: Path) {
 	log.debug("clearing: $dir")
-	Files.walk(dir).forEach {
-		clearPathInternal(it, dir)
+	if (!Files.exists(dir)) {
+		return
+	}
+	Files.walk(dir).use { paths ->
+		paths.sorted(Comparator.reverseOrder()).forEach {
+			clearPathInternal(it, dir)
+		}
 	}
 }
 
@@ -56,7 +62,11 @@ private fun copyPath(source: Path?, target: Path?) {
 private fun clearPathInternal(it: Path, dir: Path) {
 	if (it != dir) {
 		if (Files.isDirectory(it)) {
-			clearFolder(it)
+			try {
+				Files.deleteIfExists(it)
+			} catch (_e: Exception) {
+				log.warn("Could not remove directory $it: ${_e.message}")
+			}
 		} else {
 			clearFile(it)
 		}

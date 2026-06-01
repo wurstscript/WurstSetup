@@ -49,7 +49,12 @@ class CMDTests {
         private const val TEST = "test"
         private const val BUILD = "build"
         private const val WURSTSCRIPT = "wurstscript"
+        private val testInstallDir = Files.createTempDirectory("wurst-setup-install")
         private val generatedProjectName = "myname-${System.currentTimeMillis()}"
+
+        init {
+            System.setProperty("wurst.install.dir", testInstallDir.toString())
+        }
     }
 
     private fun ensureGeneratedProjectExists() {
