@@ -382,7 +382,8 @@ class GenerateTests {
             val blizzard = Files.readString(buildDir.resolve("blizzard.j"))
             Assert.assertEquals(common, bundledCoreJassText("v2.0", "common.j"))
             Assert.assertEquals(blizzard, bundledCoreJassText("v2.0", "blizzard.j"))
-            Assert.assertNotEquals(common, bundledCoreJassText("reforged", "common.j"))
+            Assert.assertEquals(CoreJassProvider.bundledCoreJassFolderForPatch(CoreJassProvider.DEFAULT_PATCH), "v2.0")
+            Assert.assertEquals(CoreJassProvider.bundledCoreJassFolderForPatch("v1.36"), "reforged")
             Assert.assertTrue(
                 Files.readString(buildDir.resolve("core-jass.provenance"))
                     .contains("jassHistoryFolder: Reforged-v2.0.4.23745")

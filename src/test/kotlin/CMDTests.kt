@@ -7,6 +7,7 @@ import global.InstallationManager
 import net.ConnectionManager
 import org.eclipse.jgit.internal.storage.file.FileRepository
 import org.testng.Assert
+import org.testng.annotations.AfterClass
 import org.testng.annotations.Test
 import java.nio.file.Files
 import java.nio.file.Path
@@ -34,8 +35,18 @@ private fun deleteRecursively(path: Path) {
     if (!Files.exists(path)) {
         return
     }
-    Files.walk(path).sorted(Comparator.reverseOrder()).forEach {
-        Files.deleteIfExists(it)
+    Files.walk(path).use { files ->
+        files.sorted(Comparator.reverseOrder()).forEach {
+            Files.deleteIfExists(it)
+        }
+    }
+}
+
+private fun tryDeleteRecursively(path: Path) {
+    try {
+        deleteRecursively(path)
+    } catch (_: Exception) {
+        path.toFile().deleteOnExit()
     }
 }
 
@@ -50,7 +61,8 @@ class CMDTests {
         private const val BUILD = "build"
         private const val WURSTSCRIPT = "wurstscript"
         private val testInstallDir = Files.createTempDirectory("wurst-setup-install")
-        private val generatedProjectName = "myname-${System.currentTimeMillis()}"
+        private val generatedProjectDir = Files.createTempDirectory("wurst-setup-generated")
+        private val generatedProjectName = generatedProjectDir.toString()
 
         init {
             System.setProperty("wurst.install.dir", testInstallDir.toString())
@@ -58,7 +70,7 @@ class CMDTests {
     }
 
     private fun ensureGeneratedProjectExists() {
-        val projectDir = SetupApp.DEFAULT_DIR.resolve(generatedProjectName)
+        val projectDir = generatedProjectDir
         if (!Files.exists(projectDir.resolve("wurst.build"))) {
             SetupMain.main(listOf(GENERATE, generatedProjectName).toTypedArray())
         }
@@ -105,33 +117,33 @@ class CMDTests {
     @Test(priority = 2)
     fun testCreateProjectCmd() {
         Assert.assertNotEquals(InstallationManager.status, InstallationManager.InstallationStatus.NOT_INSTALLED)
-        deleteRecursively(SetupApp.DEFAULT_DIR.resolve(generatedProjectName))
+        deleteRecursively(generatedProjectDir)
         SetupMain.main(listOf(GENERATE, generatedProjectName).toTypedArray())
 
-        Assert.assertTrue(Files.exists(SetupApp.DEFAULT_DIR.resolve(generatedProjectName)))
+        Assert.assertTrue(Files.exists(generatedProjectDir))
 
-        SetupMain.main(listOf(INSTALL, "-projectDir", "./$generatedProjectName/").toTypedArray())
+        SetupMain.main(listOf(INSTALL, "-projectDir", generatedProjectDir.toString()).toTypedArray())
     }
 
     @Test(priority = 3)
     fun testAddDependency() {
         ensureGeneratedProjectExists()
-        Assert.assertTrue(Files.exists(SetupApp.DEFAULT_DIR.resolve("$generatedProjectName/wurst.build")))
+        Assert.assertTrue(Files.exists(generatedProjectDir.resolve("wurst.build")))
 
-        SetupMain.main(listOf(INSTALL, "https://github.com/Frotty/Frentity", "-projectDir", "./$generatedProjectName/").toTypedArray())
+        SetupMain.main(listOf(INSTALL, "https://github.com/Frotty/Frentity", "-projectDir", generatedProjectDir.toString()).toTypedArray())
 
-        val buildfile = String(Files.readAllBytes(SetupApp.DEFAULT_DIR.resolve("./$generatedProjectName/wurst.build")))
+        val buildfile = String(Files.readAllBytes(generatedProjectDir.resolve("wurst.build")))
         Assert.assertTrue(buildfile.contains("https://github.com/Frotty/Frentity"))
     }
 
     @Test(priority = 3)
     fun testAddDependencyBranched() {
         ensureGeneratedProjectExists()
-        Assert.assertTrue(Files.exists(SetupApp.DEFAULT_DIR.resolve("$generatedProjectName/wurst.build")))
+        Assert.assertTrue(Files.exists(generatedProjectDir.resolve("wurst.build")))
 
-        SetupMain.main(listOf(INSTALL, "https://github.com/Frotty/wurst-item-recipes:main", "-projectDir", "./$generatedProjectName/").toTypedArray())
+        SetupMain.main(listOf(INSTALL, "https://github.com/Frotty/wurst-item-recipes:main", "-projectDir", generatedProjectDir.toString()).toTypedArray())
 
-        val buildfile = String(Files.readAllBytes(SetupApp.DEFAULT_DIR.resolve("./$generatedProjectName/wurst.build")))
+        val buildfile = String(Files.readAllBytes(generatedProjectDir.resolve("wurst.build")))
         Assert.assertTrue(buildfile.contains("https://github.com/Frotty/wurst-item-recipes:main"))
     }
 
@@ -190,7 +202,7 @@ class CMDTests {
     @Test(priority = 4)
     fun testTypecheckCreatedProject() {
         ensureGeneratedProjectExists()
-        val projectDir = SetupApp.DEFAULT_DIR.resolve(generatedProjectName)
+        val projectDir = generatedProjectDir
         Assert.assertTrue(Files.exists(projectDir.resolve("wurst.build")), "generated project must exist")
         Assert.assertTrue(
             Files.exists(projectDir.resolve("_build/dependencies")),
@@ -223,6 +235,11 @@ class CMDTests {
         }
         Assert.assertEquals(status, 1)
 
+    }
+
+    @AfterClass(alwaysRun = true)
+    fun cleanupGeneratedProject() {
+        tryDeleteRecursively(generatedProjectDir)
     }
 
 }

@@ -260,8 +260,12 @@ object CoreJassProvider {
         return BUNDLED_CORE_JASS_PATCH_FOLDERS.containsKey(normalizePatchInput(patch))
     }
 
+    internal fun bundledCoreJassFolderForPatch(patch: String): String? {
+        return BUNDLED_CORE_JASS_PATCH_FOLDERS[normalizePatchInput(patch)]
+    }
+
     private fun copyBundledCoreJass(fileName: String, patch: String, target: Path) {
-        val patchFolder = BUNDLED_CORE_JASS_PATCH_FOLDERS[normalizePatchInput(patch)]
+        val patchFolder = bundledCoreJassFolderForPatch(patch)
             ?: throw IllegalStateException("No bundled core JASS is available for $patch.")
 
         Files.createDirectories(target.parent)

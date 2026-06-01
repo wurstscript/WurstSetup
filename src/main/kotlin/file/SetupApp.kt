@@ -189,11 +189,12 @@ object SetupApp {
                 }
                 log.info("✈ Generating project...")
                 val projectDir = DEFAULT_DIR.resolve(setup.commandArg)
+                val projectName = projectDir.fileName?.toString() ?: setup.commandArg
                 val stdlibUrl = stdlibDependencyForPatch(setup.wc3Patch)
                 val projectConfig = newProjectConfig(
-                    projectName = setup.commandArg,
+                    projectName = projectName,
                     dependencies = listOf(stdlibUrl),
-                    buildMapData = generatedBuildMapData(setup.commandArg),
+                    buildMapData = generatedBuildMapData(projectName),
                     scriptMode = setup.scriptMode,
                     wc3Patch = setup.wc3Patch
                 )
