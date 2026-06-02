@@ -919,6 +919,11 @@ object SetupApp {
         if (setup.noPJass) {
             args.add("-noPJass")
         }
+        // Pre-1.24 targets ship Blizzard common.j/blizzard.j with return-type mismatches
+        // the Jass VM tolerates. Tell the compiler to relax Jass type checks and skip PJass.
+        if (CoreJassProvider.isPre124(configData.wc3Patch)) {
+            args.add("-legacyJassChecks")
+        }
 
         configData.dependencies.stream().forEach {
             args.add("-lib")

@@ -114,6 +114,28 @@ object CoreJassProvider {
         return PATCH_TO_JASS_HISTORY_FOLDER.containsKey(normalized) || looksLikeJassHistoryFolder(normalized)
     }
 
+    /**
+     * Whether the patch targets a version before 1.24. These legacy patches ship Blizzard
+     * common.j/blizzard.j with return-type mismatches the Jass VM tolerates, so the compiler
+     * must relax Jass type checks and skip PJass for them.
+     */
+    fun isPre124(patch: String?): Boolean {
+        val normalized = normalizePatchInput(patch)
+        val gameVersion = Wc3PatchTarget.parse(normalized).orElse(null)?.gameVersion() ?: return false
+        return compareVersionStrings(gameVersion, "1.24") < 0
+    }
+
+    private fun compareVersionStrings(a: String, b: String): Int {
+        val pa = a.split(".")
+        val pb = b.split(".")
+        for (i in 0 until maxOf(pa.size, pb.size)) {
+            val na = pa.getOrNull(i)?.takeWhile { it.isDigit() }?.toIntOrNull() ?: 0
+            val nb = pb.getOrNull(i)?.takeWhile { it.isDigit() }?.toIntOrNull() ?: 0
+            if (na != nb) return na - nb
+        }
+        return 0
+    }
+
     fun normalizePatchInput(input: String?): String {
         val patch = input?.trim().orEmpty()
         val normalizedAlias = when (patch.lowercase()) {
