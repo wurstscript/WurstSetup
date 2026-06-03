@@ -33,6 +33,9 @@ class SetupMain {
     var scriptMode: ScriptMode = ScriptMode.LUA
     var wc3Patch: String = CoreJassProvider.DEFAULT_PATCH
 
+    /** Ids of curated dependencies (see [CuratedDependencies]) to seed into the generated project. */
+    var curatedDependencyIds: MutableList<String> = mutableListOf()
+
     var gamePathExplicit: Boolean = false
 
 	fun setProjectDir(dir: Path) {

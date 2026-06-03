@@ -1,6 +1,7 @@
 package file
 
 import config.ScriptMode
+import logging.KotlinLogging
 
 enum class CLICommand {
     HELP,
@@ -83,7 +84,25 @@ enum class GlobalOptions(val optionName: String = "", val argCount: Int = 0) {
             setupMain.gamePath = java.nio.file.Paths.get(args[0])
             setupMain.gamePathExplicit = true
         }
+    },
+    WITH_DEP("--with-dep", 1) {
+        override fun runOption(setupMain: SetupMain, args: List<String>) {
+            val requested = args[0].trim()
+            val curated = CuratedDependencies.findById(requested)
+            if (curated == null) {
+                log.error("❌ Unknown curated dependency: $requested")
+                log.info("Available: ${CuratedDependencies.ids.joinToString(", ")}")
+                ExitHandler.exit(1)
+            }
+            if (!setupMain.curatedDependencyIds.contains(curated.id)) {
+                setupMain.curatedDependencyIds.add(curated.id)
+            }
+        }
     };
 
 	abstract fun runOption(setupMain: SetupMain, args: List<String>)
+
+	companion object {
+		private val log = KotlinLogging.logger {}
+	}
 }

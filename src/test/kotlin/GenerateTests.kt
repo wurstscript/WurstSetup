@@ -1,6 +1,7 @@
 import config.ScriptMode
 import file.CLICommand
 import file.CoreJassProvider
+import file.CuratedDependencies
 import file.ExitHandler
 import file.SetupApp
 import file.SetupMain
@@ -261,7 +262,7 @@ class GenerateTests {
     fun testGenerateWithoutNameUsesWizardPrompt() {
         val setup = SetupMain()
         setup.parseArgs(listOf("generate"))
-        val answers = java.util.ArrayDeque(listOf("wizardproject", "jass", "pre1.29", "none", "y", "y"))
+        val answers = java.util.ArrayDeque(listOf("wizardproject", "jass", "pre1.29", "none", "y", "y", "n"))
         val prevPrompt = SetupApp.generatePrompt
         try {
             SetupApp.generatePrompt = { _, _ -> answers.removeFirst() }
@@ -275,13 +276,14 @@ class GenerateTests {
         Assert.assertEquals(setup.wc3Patch, CoreJassProvider.PRE_129_PATCH)
         Assert.assertTrue(setup.addAgents)
         Assert.assertTrue(setup.addGithubWorkflow)
+        Assert.assertTrue(setup.curatedDependencyIds.isEmpty())
     }
 
     @Test(priority = 10)
     fun testGenerateWizardRejectsUnsupportedScriptModeAndPatchInput() {
         val setup = SetupMain()
         setup.parseArgs(listOf("generate"))
-        val answers = java.util.ArrayDeque(listOf("wizardproject", "t", "jass", "t", "2", "none", "n", "n"))
+        val answers = java.util.ArrayDeque(listOf("wizardproject", "t", "jass", "t", "2", "none", "n", "n", "n"))
         val prevPrompt = SetupApp.generatePrompt
         try {
             SetupApp.generatePrompt = { _, _ -> answers.removeFirst() }
@@ -301,7 +303,7 @@ class GenerateTests {
     fun testGenerateWizardPreservesCliPatchDefault() {
         val setup = SetupMain()
         setup.parseArgs(listOf("generate", "--wc3-patch", "pre1.29"))
-        val answers = java.util.ArrayDeque(listOf("wizardproject", "", "", "none", "n", "n"))
+        val answers = java.util.ArrayDeque(listOf("wizardproject", "", "", "none", "n", "n", "n"))
         val prevPrompt = SetupApp.generatePrompt
         try {
             SetupApp.generatePrompt = { _, _ -> answers.removeFirst() }
@@ -331,6 +333,57 @@ class GenerateTests {
 
         Assert.assertFalse(prepared, "Blank generate without a readable name must not generate into the current directory")
         Assert.assertTrue(setup.commandArg.isBlank())
+    }
+
+    @Test(priority = 10)
+    fun testCuratedDependencyCatalogResolvesTableLayout() {
+        val dep = CuratedDependencies.findById("table-layout")
+        Assert.assertNotNull(dep)
+        Assert.assertEquals(dep!!.url, "https://github.com/Frotty/wurst-table-layout")
+        Assert.assertEquals(dep.summary, "wurst-table-layout (AI ready UI toolkit)")
+        Assert.assertEquals(CuratedDependencies.findById("TABLE-LAYOUT")?.id, "table-layout")
+        Assert.assertEquals(
+            CuratedDependencies.matching(listOf(dep.url)).map { it.id },
+            listOf("table-layout")
+        )
+    }
+
+    @Test(priority = 10)
+    fun testGenerateWithDepFlagSelectsCuratedDependency() {
+        val setup = SetupMain()
+        setup.parseArgs(listOf("generate", "myproject", "--with-dep", "table-layout"))
+        Assert.assertEquals(setup.curatedDependencyIds, listOf("table-layout"))
+    }
+
+    @Test(priority = 10)
+    fun testGenerateWithDepFlagIsDeduplicated() {
+        val setup = SetupMain()
+        setup.parseArgs(listOf("generate", "myproject", "--with-dep", "table-layout", "--with-dep", "table-layout"))
+        Assert.assertEquals(setup.curatedDependencyIds, listOf("table-layout"))
+    }
+
+    @Test(priority = 10)
+    fun testGenerateWithUnknownDepFlagExitsCleanly() {
+        val code = catchExit2 {
+            SetupMain().parseArgs(listOf("generate", "myproject", "--with-dep", "does-not-exist"))
+        }
+        Assert.assertEquals(code, 1, "An unknown curated dependency id should be reported as a CLI error")
+    }
+
+    @Test(priority = 10)
+    fun testGenerateWizardSelectsCuratedDependency() {
+        val setup = SetupMain()
+        setup.parseArgs(listOf("generate"))
+        val answers = java.util.ArrayDeque(listOf("wizardproject", "lua", "", "none", "n", "n", "y"))
+        val prevPrompt = SetupApp.generatePrompt
+        try {
+            SetupApp.generatePrompt = { _, _ -> answers.removeFirst() }
+            Assert.assertTrue(SetupApp.prepareGenerate(setup))
+        } finally {
+            SetupApp.generatePrompt = prevPrompt
+        }
+
+        Assert.assertEquals(setup.curatedDependencyIds, listOf("table-layout"))
     }
 
     @Test(priority = 10)

@@ -146,6 +146,7 @@ object SetupApp {
                     |  --wc3-path <dir>                 Warcraft III install folder for VS Code/run
                     |  --with-agents / --no-agents      Include AGENTS.md (default: no)
                     |  --with-ci / --no-ci              Include GitHub Actions workflow (default: no)
+                    |  --with-dep <id>                  Add a curated dependency (repeatable; ids: ${CuratedDependencies.ids.joinToString(", ")})
                 """.trimMargin())
             }
 			setup.command == CLICommand.INSTALL -> {
@@ -191,9 +192,10 @@ object SetupApp {
                 val projectDir = DEFAULT_DIR.resolve(setup.commandArg)
                 val projectName = projectDir.fileName?.toString() ?: setup.commandArg
                 val stdlibUrl = stdlibDependencyForPatch(setup.wc3Patch)
+                val curatedUrls = setup.curatedDependencyIds.mapNotNull { CuratedDependencies.findById(it)?.url }
                 val projectConfig = newProjectConfig(
                     projectName = projectName,
-                    dependencies = listOf(stdlibUrl),
+                    dependencies = (listOf(stdlibUrl) + curatedUrls).distinct(),
                     buildMapData = generatedBuildMapData(projectName),
                     scriptMode = setup.scriptMode,
                     wc3Patch = setup.wc3Patch
@@ -307,6 +309,8 @@ object SetupApp {
         addGithubWorkflow: Boolean,
         gameRoot: Path?
     ) {
+        val curated = CuratedDependencies.matching(projectConfig.dependencies)
+        val curatedSummary = if (curated.isEmpty()) "none" else curated.joinToString(", ") { it.label }
         log.info("""
             |✅ Created ${projectDir.fileName}
             |
@@ -315,6 +319,7 @@ object SetupApp {
             |  WC3 patch: ${CoreJassProvider.describePatch(projectConfig.wc3Patch ?: CoreJassProvider.DEFAULT_PATCH)}
             |  Warcraft III: ${gameRoot?.toAbsolutePath()?.normalize() ?: "not configured"}
             |  Stdlib: ${if (projectConfig.dependencies.any { it.endsWith(":pre1.29") }) "pre1.29" else "current"}
+            |  Curated dependencies: $curatedSummary
             |  AGENTS.md: ${yesNo(addAgents)}
             |  GitHub Actions CI: ${yesNo(addGithubWorkflow)}
             |
@@ -477,6 +482,31 @@ object SetupApp {
         val ciDefault = if (setup.addGithubWorkflow) "Y" else "N"
         val ciInput = prompt("Add GitHub Actions CI?", ciDefault)
         setup.addGithubWorkflow = ciInput?.lowercase() == "y"
+
+        setup.curatedDependencyIds = selectCuratedDependencies(prompt, setup.curatedDependencyIds).toMutableList()
+    }
+
+    private fun selectCuratedDependencies(
+        prompt: (String, String?) -> String?,
+        preselectedIds: List<String>
+    ): List<String> {
+        val catalog = CuratedDependencies.all
+        if (catalog.isEmpty()) {
+            return preselectedIds
+        }
+
+        log.info("Curated dependencies (optional extras beyond the standard library):")
+        val selected = LinkedHashSet(preselectedIds)
+        for (dependency in catalog) {
+            val default = if (selected.contains(dependency.id)) "Y" else "N"
+            val answer = prompt("Add ${dependency.summary}?", default)
+            if (answer?.trim()?.lowercase() == "y") {
+                selected.add(dependency.id)
+            } else {
+                selected.remove(dependency.id)
+            }
+        }
+        return selected.toList()
     }
 
     private fun selectGamePath(
