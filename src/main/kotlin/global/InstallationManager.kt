@@ -40,7 +40,7 @@ object InstallationManager {
     var currentCompilerVersion = -1
     var latestCompilerVersion = 0
 
-    fun verifyInstallation(): InstallationStatus {
+    fun verifyInstallation(probeVersion: Boolean = true): InstallationStatus {
         log.debug("verify Install")
         status = InstallationStatus.NOT_INSTALLED
         currentCompilerVersion = -1
@@ -53,7 +53,7 @@ object InstallationManager {
             try {
                 if (!Files.isWritable(detectedCompilerJar)) {
                     CLIParser.showWurstInUse()
-                } else {
+                } else if (probeVersion) {
                     CLIParser.getVersionFomJar()
                 }
             } catch (_: Error) {
@@ -62,7 +62,7 @@ object InstallationManager {
         } else {
             log.info("WurstScript is not currently installed (no compiler jar found at $compilerJar or $legacyCompilerJar).")
         }
-        if (ConnectionManager.netStatus == NetStatus.ONLINE) {
+        if (probeVersion && ConnectionManager.netStatus == NetStatus.ONLINE) {
 				log.debug("Client online, check for update")
             latestCompilerVersion = ConnectionManager.getLatestCompilerBuild()
 				log.debug("latest compiler: $latestCompilerVersion")

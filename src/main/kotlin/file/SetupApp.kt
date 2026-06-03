@@ -13,7 +13,6 @@ import global.InstallationManager
 import global.Log
 import logging.KotlinLogging
 import net.ConnectionManager
-import net.NetStatus
 import org.slf4j.LoggerFactory
 import org.eclipse.jgit.api.Git
 import java.awt.GraphicsEnvironment
@@ -97,14 +96,19 @@ object SetupApp {
     }
 
 	    private fun handleCMD() {
-			ConnectionManager.checkConnectivity("http://google.com")
-			ConnectionManager.checkWurstBuild()
-			InstallationManager.verifyInstallation()
-	        if (ConnectionManager.netStatus == NetStatus.ONLINE) {
-	            val latestSetupBuild = ConnectionManager.getLatestSetupBuild()
-	            val jenkinsBuildVer = InstallationManager.getJenkinsBuildVer(CompileTimeInfo.version)
-	            if (latestSetupBuild > 0) {
-	                log.debug("current setup ver: $jenkinsBuildVer latest Setup: $latestSetupBuild")
+	        // Cold-start lever: only spend network round-trips and a compiler subprocess on commands
+	        // that actually consult the installation. help/generate stay fully offline and fast.
+	        when {
+	            setup.command == CLICommand.INSTALL && setup.commandArg.equals("wurstscript", ignoreCase = true) -> {
+	                // Needs to know whether a newer compiler is available online.
+	                ConnectionManager.checkWurstBuild()
+	                InstallationManager.verifyInstallation()
+	            }
+	            setup.command == CLICommand.TEST ||
+	                setup.command == CLICommand.TYPECHECK ||
+	                setup.command == CLICommand.BUILD -> {
+	                // Only needs to know a compiler is present; skip the version subprocess and update check.
+	                InstallationManager.verifyInstallation(probeVersion = false)
 	            }
 	        }
 		handleRunArgs()
@@ -339,7 +343,8 @@ object SetupApp {
             }
             return null
         }
-        log.info("Warcraft III path: ${Wc3ClientDetector.describe(clientInfo)}")
+        // The success path is reported once in the final generate summary, so only surface
+        // a client/patch mismatch here (an actionable issue) rather than re-logging the path.
         Wc3ClientDetector.mismatchMessage(wc3Patch, clientInfo)?.let { log.warn(it) }
         return clientInfo.root
     }

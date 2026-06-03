@@ -185,6 +185,13 @@ object CoreJassProvider {
                 buildFolder.resolve("core-jass.provenance"),
                 "wc3Patch: $patch\njassHistoryFolder: ${jassHistoryFolderForPatch(patch).orEmpty()}\n"
             )
+            // Single happy-path line; stay quiet when a fallback already warned about an issue.
+            val sources = materializedFiles.map { it.source }
+            when {
+                sources.all { it == CoreJassSource.CACHED } -> log.info("✔ Core JASS ready ($patch, cached)")
+                sources.all { it == CoreJassSource.CACHED || it == CoreJassSource.FRESH } ->
+                    log.info("✔ Core JASS ready ($patch, updated)")
+            }
         } else {
             log.warn(
                 "Existing _build core JASS files have no Grill provenance; leaving them project-owned. " +
@@ -228,7 +235,11 @@ object CoreJassProvider {
         return (base + listOfNotNull(latestExactVersion)).distinct()
     }
 
-    private data class MaterializedFile(val path: Path, val managedByGrill: Boolean)
+    private enum class CoreJassSource { CACHED, FRESH, FALLBACK, PROJECT_OWNED }
+
+    private data class MaterializedFile(val path: Path, val source: CoreJassSource) {
+        val managedByGrill: Boolean get() = source != CoreJassSource.PROJECT_OWNED
+    }
 
     private fun resolveSupportedPatch(wc3Patch: String?): String {
         val patch = normalizePatchInput(wc3Patch)
@@ -247,28 +258,27 @@ object CoreJassProvider {
         }
 
         if (previousPatch == null && Files.exists(target)) {
-            log.info("Keeping existing _build/$fileName because it has no Grill provenance.")
-            return MaterializedFile(target, managedByGrill = false)
+            // Project-owned file: reported once as a warning in ensureFiles, not per file here.
+            return MaterializedFile(target, CoreJassSource.PROJECT_OWNED)
         }
 
         val canKeepExisting = previousPatch == patch
         if (canKeepExisting && isValidCoreJassFile(target)) {
-            log.info("Using cached _build/$fileName for $patch.")
-            return MaterializedFile(target, managedByGrill = true)
+            return MaterializedFile(target, CoreJassSource.CACHED)
         }
 
         try {
             downloadJassHistoryFile(fileName, patch, jassHistoryFolder, target)
-            return MaterializedFile(target, managedByGrill = true)
+            return MaterializedFile(target, CoreJassSource.FRESH)
         } catch (e: Exception) {
             if (canKeepExisting && isValidCoreJassFile(target)) {
                 log.warn("Could not refresh $fileName for $patch; keeping existing _build copy. Reason: ${e.message}")
-                return MaterializedFile(target, managedByGrill = true)
+                return MaterializedFile(target, CoreJassSource.FALLBACK)
             }
             if (hasBundledCoreJass(patch)) {
                 log.warn("Could not download $fileName for $patch; falling back to bundled core JASS. Reason: ${e.message}")
                 copyBundledCoreJass(fileName, patch, target)
-                return MaterializedFile(target, managedByGrill = true)
+                return MaterializedFile(target, CoreJassSource.FALLBACK)
             }
             throw RuntimeException("Could not download $fileName for WC3 patch <$patch> from wurstscript/jass-history.", e)
         }

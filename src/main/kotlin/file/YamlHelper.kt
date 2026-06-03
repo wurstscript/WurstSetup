@@ -1,14 +1,11 @@
 package file
 
-import com.fasterxml.jackson.core.JsonParser
-import com.fasterxml.jackson.databind.DeserializationFeature
-import com.fasterxml.jackson.databind.MapperFeature
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.databind.SerializationFeature
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory
 import com.fasterxml.jackson.dataformat.yaml.YAMLGenerator
 import com.fasterxml.jackson.dataformat.yaml.YAMLMapper
-import com.fasterxml.jackson.module.kotlin.KotlinModule
+import org.wurstscript.projectconfig.WurstProjectConfigReader
 import config.WurstProjectConfigData
 import config.WurstProjectBuildForce
 import config.WurstProjectBuildForceFlags
@@ -31,16 +28,12 @@ object YamlHelper {
 	private val log = KotlinLogging.logger {}
 
     init {
+        // Write-only mapper: reading wurst.build is delegated to the shared parser (WurstProjectConfigReader).
+        // dumpProjectConfig still serializes a pruned YAML map here to preserve the user-facing wurst.build shape.
         val yamlFactory = YAMLFactory()
         yamlFactory.enable(YAMLGenerator.Feature.MINIMIZE_QUOTES)
-        yamlFactory.enable(JsonParser.Feature.ALLOW_MISSING_VALUES)
 
         mapper = YAMLMapper.builder(yamlFactory)
-            .addModule(KotlinModule.Builder().build())
-            .disable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES)
-            .enable(DeserializationFeature.READ_UNKNOWN_ENUM_VALUES_AS_NULL)
-            .enable(DeserializationFeature.ACCEPT_SINGLE_VALUE_AS_ARRAY)
-            .enable(MapperFeature.ACCEPT_CASE_INSENSITIVE_ENUMS)
             .enable(SerializationFeature.INDENT_OUTPUT)
             .build()
     }
@@ -55,7 +48,8 @@ object YamlHelper {
         }
 
         return try {
-            val config = mapper.readValue(content, WurstProjectConfigData::class.java)
+            val config = WurstProjectConfigReader.load(path)
+                ?: throw IOException("wurst.build could not be parsed")
             normalizeConfig(config, path)
         } catch (e: Exception) {
             log.warn("The project's wurst.build file could not be read. Recovering with defaults.", e)
