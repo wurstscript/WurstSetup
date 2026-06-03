@@ -544,10 +544,12 @@ object SetupApp {
     }
 
     internal fun stdlibDependencyForPatch(wc3Patch: String?): String {
-        return if (CoreJassProvider.isPre129Patch(wc3Patch)) {
-            "https://github.com/wurstscript/wurstStdlib2:pre1.29"
-        } else {
-            "https://github.com/wurstscript/wurstStdlib2"
+        // wurstStdlib2 keeps era-specific branches. pre-1.24 must come first: it is a subset of pre-1.29,
+        // and those oldest patches need the further-reduced pre1.24 stdlib (no APIs added in 1.24+).
+        return when {
+            CoreJassProvider.isPre124(wc3Patch) -> "https://github.com/wurstscript/wurstStdlib2:pre1.24"
+            CoreJassProvider.isPre129Patch(wc3Patch) -> "https://github.com/wurstscript/wurstStdlib2:pre1.29"
+            else -> "https://github.com/wurstscript/wurstStdlib2"
         }
     }
 
