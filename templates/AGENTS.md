@@ -1,3 +1,4 @@
+<!-- WURST_AGENTS_TEMPLATE_VERSION: 2026-06-10 -->
 # AGENTS.md - WurstScript Map Project Notes
 
 WurstScript Warcraft III map project notes for editing `.wurst` code, dependencies, generated objects, tests, or map build logic.
@@ -137,6 +138,83 @@ Common operators: `+`, `-`, `*`, `/`, `div`, `%`, `mod`, `and`, `or`, `not`, `==
 let label = count == 1 ? "unit" : "units"
 ```
 
+## WurstScript Production Pitfalls
+
+These are recurring real-world Wurst/Warcraft III failure modes. Treat this section as a pre-edit checklist for any non-trivial Wurst change.
+
+### Closure capture is by value
+
+Wurst closures capture locals by value. If a closure assigns to a local from an outer scope, the outer local is not updated.
+
+Bug pattern:
+
+```wurst
+framehandle clicked = null
+dialog.build() ->
+	clicked = textButton("OK", 0.08, 0.024)
+clicked.onClick() -> // clicked is still null outside the build closure
+	doThing()
+```
+
+Safer pattern:
+
+```wurst
+dialog.build() ->
+	let clicked = textButton("OK", 0.08, 0.024)
+	clicked.onClick() ->
+		doThing()
+```
+
+Use `reference(value)` only when a value really must be read or mutated across closure boundaries, and destroy the reference when the owner is done with it:
+
+```wurst
+let clickedRef = reference(null)
+dialog.build() ->
+	clickedRef.val = textButton("OK", 0.08, 0.024)
+clickedRef.val.onClick() ->
+	doThing()
+destroy clickedRef
+```
+
+Prefer avoiding the cross-boundary mutable reference entirely when the handler can be registered inside the closure that creates the frame.
+
+### Object generation base IDs carry baggage
+
+Generated object-editor definitions must use real Warcraft III melee objects as base objects, not custom objects generated elsewhere in the map. Custom-object bases can compile into invalid or order-dependent object data.
+
+Because melee bases carry their own fields, always audit and intentionally clear inherited side effects when creating a generated unit, building, ability, upgrade, or item. Common inherited baggage includes:
+
+- repair gold/lumber costs and repair time
+- melee upgrades used / researches available / tech requirements
+- stock, dependency, bounty, collision, food, race, target, and classification fields
+- default abilities, autocast/order strings, buffs, art, missile, sound, and tooltip fields
+
+Prefer local helper presets that explicitly null known-dangerous inherited fields for each object family, then layer the intended fields afterwards. Regression tests for generated object config should assert the absence of known inherited side effects, not only the presence of the new feature.
+
+### Wurst object lifetime is manual
+
+Lua output is garbage-collected at the runtime level, but Wurst class lifetimes and destructors are still explicit. Objects created with `new`, closure/listener objects, timers/callbacks, references, collections, layout reports, and many helper wrappers usually need `destroy` when their owner is done.
+
+Do not rely on "Lua will GC it" if an `ondestroy` cleans up important state, callbacks, frame listeners, arrays, or nested objects. Conversely, do not double-destroy. Wurst instance ids can be reused, so a stale reference may point at a different future object and there is no reliable generic "is this destroyed?" check. Owners must clear stale references themselves after destroy:
+
+```wurst
+if watcher != null
+	destroy watcher
+	watcher = null
+```
+
+### Table UI and layout dependencies
+
+If a project uses `wurst-table-layout` / `TableUi`, read that dependency's `AGENTS.md`, `AI_USAGE.md`, and `WC3_FRAMEHANDLE_GUIDE.md` before editing UI. Prefer the provided helpers over raw frame code.
+
+- Load TOC files in `init` when needed, but do not create, move, size, show/hide, reparent, or otherwise manipulate custom frames during blocking map-load init. Delay actual frame work with `doAfter(0.)` or later.
+- Build frames under their eventual parent (`withParent(...)` or `dialogFrame(...).build() ->`) rather than creating under a global parent and re-parenting later; WC3 can desync visual and clickable areas after `setParent`.
+- Keep root panels, dialogs, dropdowns, and sidecars in the 4:3 safe band with `placeSafe(...)` and declared dimensions. Do not size or place UI from `BlzGetLocalClientWidth()` / `BlzGetLocalClientHeight()` unless guarded against zero/invalid values; minimized clients can report unusable dimensions.
+- Avoid on-demand complex frame creation during gameplay when players may be alt-tabbed/minimized. Prefer creating reusable hidden frame trees after map load, then only owner-show/owner-hide/update them.
+- Do not move Blizzard default chat/message frames with arbitrary sizes/coords to make room for custom UI. Bad coordinates and default-frame refreshes can crash/desync; create map-owned UI in a safe area instead.
+- Register button handlers inside the same build callback that creates the button, or pass the button into a helper immediately. Do not assign a button/frame to an outer local inside a build callback and call `.onClick()` on that outer local afterwards.
+- Prefer table-wide defaults for repeated alignment, such as `layout.defaultHalign(Align.CENTER)`, instead of writing `..center()` on every row. Use per-row alignment calls only for exceptions.
+- Hide and reuse multiplayer UI frame trees. Do not destroy/recreate framehandles during gameplay cleanup.
 ## Packages and API Shape
 
 - Package members are private by default; use `public` for exports.
@@ -182,7 +260,7 @@ doAfter(1.) ->
 	print("later")
 ```
 
-Closures capture locals by value. Stored/object-backed closures often need cleanup. Lambdas used as `code` cannot take parameters or capture locals.
+Closures capture locals by value. Stored/object-backed closures often need cleanup. Use `reference(...)` for intentional cross-closure mutation, and destroy the reference when finished. Lambdas used as `code` cannot take parameters or capture locals.
 
 ## Classes, Tuples, Generics
 
@@ -223,7 +301,7 @@ Old `T` generics erase through integer casts and can share storage.
 
 ## Compiletime and Objects
 
-Use compiletime generation for object-editor data. Prefer wrappers and ID generators so IDs stay stable and collision-free.
+Use compiletime generation for object-editor data. Prefer wrappers and ID generators so IDs stay stable and collision-free. Generated objects must use melee base objects, then explicitly clear inherited fields that would create unwanted side effects.
 
 ```wurst
 let value = compiletime(fac(5))

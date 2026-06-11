@@ -79,6 +79,13 @@ Use `build` to generate an output map according to `wurst.build` specifications.
 > grill build
 ```
 
+Use `--dev` to build the output map in run/development mode. This makes compiletime
+`isProductionBuild()` return `false` while still writing a map file.
+
+```cmd
+> grill build ExampleMap.w3x --dev
+```
+
 ## How it works
 
 ### Wurst Installation
