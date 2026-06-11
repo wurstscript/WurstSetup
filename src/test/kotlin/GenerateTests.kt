@@ -249,6 +249,20 @@ class GenerateTests {
         setup2.parseArgs(listOf("generate", "myproject", "--no-agents"))
         Assert.assertFalse(setup2.addAgents)
     }
+    @Test(priority = 10)
+    fun testAgentsTemplateMarkerAndWarnings() {
+        val marked = SetupApp.withAgentsTemplateMarker("# AGENTS.md\n")
+        Assert.assertTrue(marked.startsWith("<!-- WURST_AGENTS_TEMPLATE_VERSION: ${SetupApp.AGENTS_TEMPLATE_VERSION} -->"))
+        Assert.assertNull(SetupApp.agentsTemplateWarning(marked))
+
+        val oldMarked = "<!-- WURST_AGENTS_TEMPLATE_VERSION: 2026-01-01 -->\n# AGENTS.md\n"
+        Assert.assertTrue(SetupApp.agentsTemplateWarning(oldMarked)!!.contains("older WurstSetup template"))
+
+        val unmarkedGenerated = "# AGENTS.md - WurstScript Map Project Notes\n\nWurstScript Warcraft III map project notes"
+        Assert.assertTrue(SetupApp.agentsTemplateWarning(unmarkedGenerated)!!.contains("without a version marker"))
+
+        Assert.assertNull(SetupApp.agentsTemplateWarning("# Custom project notes\n"))
+    }
 
     @Test(priority = 10)
     fun testDebugFlag() {
@@ -262,6 +276,15 @@ class GenerateTests {
         val setup = SetupMain()
         setup.parseArgs(listOf("test", "--quiet"))
         Assert.assertTrue(setup.quiet)
+    }
+
+    @Test(priority = 10)
+    fun testDevBuildFlag() {
+        val setup = SetupMain()
+        setup.parseArgs(listOf("build", "ExampleMap.w3x", "--dev"))
+        Assert.assertEquals(setup.command, CLICommand.BUILD)
+        Assert.assertEquals(setup.commandArg, "ExampleMap.w3x")
+        Assert.assertTrue(setup.devBuild)
     }
 
     @Test(priority = 10)

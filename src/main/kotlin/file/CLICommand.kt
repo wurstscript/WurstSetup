@@ -36,6 +36,11 @@ enum class GlobalOptions(val optionName: String = "", val argCount: Int = 0) {
             setupMain.measure = true
         }
     },
+    DEV_BUILD("--dev") {
+        override fun runOption(setupMain: SetupMain, args: List<String>) {
+            setupMain.devBuild = true
+        }
+    },
     WITH_AGENTS("--with-agents") {
         override fun runOption(setupMain: SetupMain, args: List<String>) {
             setupMain.addAgents = true

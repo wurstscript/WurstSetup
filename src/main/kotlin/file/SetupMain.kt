@@ -15,6 +15,8 @@ class SetupMain {
 
     var measure = false
 
+    var devBuild = false
+
 	var projectRoot: Path = SetupApp.DEFAULT_DIR
 
     var gamePath: Path? = null

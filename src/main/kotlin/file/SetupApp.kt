@@ -17,6 +17,7 @@ import org.slf4j.LoggerFactory
 import org.eclipse.jgit.api.Git
 import java.awt.GraphicsEnvironment
 import java.net.URL
+import java.nio.charset.StandardCharsets
 import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.Paths
@@ -30,6 +31,11 @@ object SetupApp {
     lateinit var setup: SetupMain
 
     private data class WurstProcessResult(val exitCode: Int, val output: List<String>)
+
+    internal const val AGENTS_TEMPLATE_VERSION = "2026-06-10"
+    private const val AGENTS_TEMPLATE_MARKER_PREFIX = "<!-- WURST_AGENTS_TEMPLATE_VERSION:"
+    private const val AGENTS_TEMPLATE_MARKER = "<!-- WURST_AGENTS_TEMPLATE_VERSION: $AGENTS_TEMPLATE_VERSION -->"
+    private const val AGENTS_TEMPLATE_SOURCE_HINT = "WurstScript Warcraft III map project notes"
 
     fun handleArgs(setup: SetupMain) {
         this.setup = setup
@@ -143,6 +149,9 @@ object SetupApp {
                     |Global options:
                     |  --quiet                          Suppress wurst output; only print errors and final result
                     |  --debug                          Print full stack traces for troubleshooting
+                    |
+                    |Build options:
+                    |  --dev                            Build with compiletime isProductionBuild() = false
                     |
                     |Generate options:
                     |  --script-mode lua|jass           Script mode (default: lua)
@@ -796,11 +805,44 @@ object SetupApp {
 
     private fun downloadAgentsMd(projectDir: Path) {
         try {
-            val content = URL("https://raw.githubusercontent.com/wurstscript/WurstSetup/master/templates/AGENTS.md").readText()
-            Files.write(projectDir.resolve("AGENTS.md"), content.toByteArray())
+            val content = withAgentsTemplateMarker(URL("https://raw.githubusercontent.com/wurstscript/WurstSetup/master/templates/AGENTS.md").readText())
+            Files.writeString(projectDir.resolve("AGENTS.md"), content, StandardCharsets.UTF_8)
             log.info("✔ AGENTS.md written.")
         } catch (e: Exception) {
             log.warn("⚠️ Could not download AGENTS.md: ${e.message}. Continuing without it.")
+        }
+    }
+    internal fun withAgentsTemplateMarker(content: String): String {
+        return if (content.contains(AGENTS_TEMPLATE_MARKER_PREFIX)) {
+            content
+        } else {
+            "$AGENTS_TEMPLATE_MARKER\n$content"
+        }
+    }
+
+    internal fun agentsTemplateWarning(content: String): String? {
+        val markerLine = content.lineSequence().firstOrNull { it.startsWith(AGENTS_TEMPLATE_MARKER_PREFIX) }
+        if (markerLine == AGENTS_TEMPLATE_MARKER) {
+            return null
+        }
+        if (markerLine != null) {
+            return "AGENTS.md was generated from an older WurstSetup template ($markerLine). Consider refreshing it from templates/AGENTS.md and re-applying project-local notes."
+        }
+        if (content.contains(AGENTS_TEMPLATE_SOURCE_HINT)) {
+            return "AGENTS.md looks like an older WurstSetup template without a version marker. Consider refreshing it from templates/AGENTS.md and re-applying project-local notes."
+        }
+        return null
+    }
+
+    private fun warnIfAgentsTemplateStale(projectDir: Path) {
+        val agents = projectDir.resolve("AGENTS.md")
+        if (!Files.exists(agents)) {
+            return
+        }
+        try {
+            agentsTemplateWarning(Files.readString(agents, StandardCharsets.UTF_8))?.let { log.warn("⚠️ $it") }
+        } catch (e: Exception) {
+            log.warn("⚠️ Could not inspect AGENTS.md template marker: ${e.message}")
         }
     }
 
@@ -820,6 +862,10 @@ object SetupApp {
         val args = commonArgs(configData)
 
         args.add("-build")
+
+        if (setup.devBuild) {
+            args.add("-dev")
+        }
 
         if (setup.measure) {
             args.add("-measure")
@@ -1002,6 +1048,7 @@ object SetupApp {
 	private fun handleUpdateProject(configData: WurstProjectConfigData) {
 		WurstProjectConfig.handleUpdate(setup.projectRoot, null, configData)
         ensureCoreJassFiles(setup.projectRoot, configData.wc3Patch)
+        warnIfAgentsTemplateStale(setup.projectRoot)
 	}
 
     val REPO_REGEX = Regex("(https?://)([\\w.@-]+)(/)([\\w,-_]+)/([\\w,-_]+)(.git)?((/)?)")
