@@ -371,7 +371,7 @@ object SetupApp {
             return
         }
         if (setup.quiet) {
-            val diagnostics = quietCompilerDiagnostics(result.output)
+            val diagnostics = quietCompilerFailureOutput(result.output, setup.debug)
             diagnostics.forEach { System.err.println(it) }
             fail("❌ Wurst $commandName failed. (Errors: ${quietCompilerErrorCount(result.output, diagnostics)})")
             return
@@ -406,6 +406,10 @@ object SetupApp {
         detail("Try: check that the bundled pjass binary is executable and that its temp directory allows execution.")
         detail("Tip: rerun with `--debug` if you need the full Java error.")
         return true
+    }
+
+    internal fun quietCompilerFailureOutput(output: List<String>, debug: Boolean): List<String> {
+        return if (debug) output else quietCompilerDiagnostics(output)
     }
 
     internal fun quietCompilerDiagnostics(output: List<String>): List<String> {

@@ -348,6 +348,25 @@ class GenerateTests {
     }
 
     @Test(priority = 10)
+    fun testQuietDebugCompilerFailureOutputBypassesFilter() {
+        val output = listOf(
+            "Error Broken.wurst:12: Could not find variable realUserTypo.",
+            "java.lang.IllegalStateException: extra debug context",
+            "\tat de.peeeq.wurstio.Main.main(Main.java:1)",
+            "Warning: Error:  e:Could not find variable generatedNoise."
+        )
+
+        Assert.assertEquals(SetupApp.quietCompilerFailureOutput(output, debug = true), output)
+        Assert.assertEquals(
+            SetupApp.quietCompilerFailureOutput(output, debug = false),
+            listOf(
+                "Error Broken.wurst:12: Could not find variable realUserTypo.",
+                "java.lang.IllegalStateException: extra debug context"
+            )
+        )
+    }
+
+    @Test(priority = 10)
     fun testDevBuildFlag() {
         val setup = SetupMain()
         setup.parseArgs(listOf("build", "ExampleMap.w3x", "--dev"))
