@@ -279,6 +279,60 @@ class GenerateTests {
     }
 
     @Test(priority = 10)
+    fun testQuietCompilerDiagnosticsSuppressGeneratedJassNoise() {
+        val output = listOf(
+            "Warnings: 3",
+            "Warning: Error:  e:Could not find variable silverGladeCounter.",
+            "Warning: Error:  e:Could not find a function with name eg",
+            "Error Broken.wurst:12: Could not find variable realUserTypo.",
+            "compilation finished (errors: 1, warnings: 3)",
+            "Errors: 1"
+        )
+
+        Assert.assertEquals(
+            SetupApp.quietCompilerDiagnostics(output),
+            listOf("Error Broken.wurst:12: Could not find variable realUserTypo.")
+        )
+        Assert.assertEquals(SetupApp.quietCompilerErrorCount(output), 1)
+    }
+
+    @Test(priority = 10)
+    fun testQuietCompilerDiagnosticsKeepFailedTestDetails() {
+        val output = listOf(
+            "Running tests",
+            "Tests: 1/2 passed",
+            "FAILED MyPkg.testExplodes",
+            "Errors: 1",
+            "Error MyTest.wurst:9: expected 1 but got 2",
+            "Finished running tests"
+        )
+
+        Assert.assertEquals(
+            SetupApp.quietCompilerDiagnostics(output),
+            listOf(
+                "FAILED MyPkg.testExplodes",
+                "Error MyTest.wurst:9: expected 1 but got 2"
+            )
+        )
+        Assert.assertEquals(SetupApp.quietCompilerErrorCount(output), 1)
+    }
+
+    @Test(priority = 10)
+    fun testQuietCompilerDiagnosticsNormalizeVerboseFallbackErrors() {
+        val output = listOf(
+            "Error in File Broken.wurst:12:",
+            " Could not find variable realUserTypo.",
+            "Warning in File war3map.j:44:",
+            " Error:  e:Could not find variable silverGladeCounter."
+        )
+
+        Assert.assertEquals(
+            SetupApp.quietCompilerDiagnostics(output),
+            listOf("Error Broken.wurst:12: Could not find variable realUserTypo.")
+        )
+    }
+
+    @Test(priority = 10)
     fun testDevBuildFlag() {
         val setup = SetupMain()
         setup.parseArgs(listOf("build", "ExampleMap.w3x", "--dev"))
