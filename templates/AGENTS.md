@@ -74,6 +74,8 @@ For build changes:
 grill build ExampleMap.w3x --quiet
 ```
 
+Builds default to production mode, so compiletime `isProductionBuild()` returns `true`. Use `grill build ExampleMap.w3x --dev --quiet` only when validating run/development-mode behavior where `isProductionBuild()` must be `false`; `typecheck` and `test` do not need this flag.
+
 Done means relevant errors/warnings are fixed or explicitly explained.
 
 ## Project Configuration
