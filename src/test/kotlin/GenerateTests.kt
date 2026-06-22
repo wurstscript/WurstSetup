@@ -8,6 +8,7 @@ import file.SetupMain
 import org.testng.Assert
 import org.testng.annotations.Test
 import java.nio.file.Files
+import java.nio.file.Paths
 import java.util.Comparator
 
 private class ExitException2(val code: Int) : RuntimeException("exit $code")
@@ -251,6 +252,12 @@ class GenerateTests {
     }
     @Test(priority = 10)
     fun testAgentsTemplateMarkerAndWarnings() {
+        val templateFirstLine = Files.readAllLines(Paths.get("templates", "AGENTS.md")).first()
+        Assert.assertEquals(
+            templateFirstLine,
+            "<!-- WURST_AGENTS_TEMPLATE_VERSION: ${SetupApp.AGENTS_TEMPLATE_VERSION} -->"
+        )
+
         val marked = SetupApp.withAgentsTemplateMarker("# AGENTS.md\n")
         Assert.assertTrue(marked.startsWith("<!-- WURST_AGENTS_TEMPLATE_VERSION: ${SetupApp.AGENTS_TEMPLATE_VERSION} -->"))
         Assert.assertNull(SetupApp.agentsTemplateWarning(marked))
@@ -276,6 +283,87 @@ class GenerateTests {
         val setup = SetupMain()
         setup.parseArgs(listOf("test", "--quiet"))
         Assert.assertTrue(setup.quiet)
+    }
+
+    @Test(priority = 10)
+    fun testQuietCompilerDiagnosticsSuppressGeneratedJassNoise() {
+        val output = listOf(
+            "Warnings: 3",
+            "Warning: Error:  e:Could not find variable silverGladeCounter.",
+            "Warning: Error:  e:Could not find a function with name eg",
+            "Error Broken.wurst:12: Could not find variable realUserTypo.",
+            "compilation finished (errors: 1, warnings: 3)",
+            "Errors: 1"
+        )
+
+        Assert.assertEquals(
+            SetupApp.quietCompilerDiagnostics(output),
+            listOf("Error Broken.wurst:12: Could not find variable realUserTypo.")
+        )
+        Assert.assertEquals(SetupApp.quietCompilerErrorCount(output), 1)
+    }
+
+    @Test(priority = 10)
+    fun testQuietCompilerDiagnosticsKeepFailedTestDetails() {
+        val output = listOf(
+            "Running tests",
+            "Tests: 1/2 passed",
+            "FAILED MyPkg.testExplodes",
+            "\tFAILED assertion:",
+            "\tTest failed: expected 1 but got 2",
+            "\t    ╚ MyTest.wurst:9 inside call assertEquals(1, 2)",
+            "\t... when calling MyPkg.testExplodes(MyTest.wurst:12)",
+            "Errors: 1",
+            "Error MyTest.wurst:9: expected 1 but got 2",
+            "Finished running tests"
+        )
+
+        Assert.assertEquals(
+            SetupApp.quietCompilerDiagnostics(output),
+            listOf(
+                "FAILED MyPkg.testExplodes",
+                "\tFAILED assertion:",
+                "\tTest failed: expected 1 but got 2",
+                "\t    ╚ MyTest.wurst:9 inside call assertEquals(1, 2)",
+                "\t... when calling MyPkg.testExplodes(MyTest.wurst:12)",
+                "Error MyTest.wurst:9: expected 1 but got 2"
+            )
+        )
+        Assert.assertEquals(SetupApp.quietCompilerErrorCount(output), 1)
+    }
+
+    @Test(priority = 10)
+    fun testQuietCompilerDiagnosticsNormalizeVerboseFallbackErrors() {
+        val output = listOf(
+            "Error in File Broken.wurst:12:",
+            " Could not find variable realUserTypo.",
+            "Warning in File war3map.j:44:",
+            " Error:  e:Could not find variable silverGladeCounter."
+        )
+
+        Assert.assertEquals(
+            SetupApp.quietCompilerDiagnostics(output),
+            listOf("Error Broken.wurst:12: Could not find variable realUserTypo.")
+        )
+    }
+
+    @Test(priority = 10)
+    fun testQuietDebugCompilerFailureOutputBypassesFilter() {
+        val output = listOf(
+            "Error Broken.wurst:12: Could not find variable realUserTypo.",
+            "java.lang.IllegalStateException: extra debug context",
+            "\tat de.peeeq.wurstio.Main.main(Main.java:1)",
+            "Warning: Error:  e:Could not find variable generatedNoise."
+        )
+
+        Assert.assertEquals(SetupApp.quietCompilerFailureOutput(output, debug = true), output)
+        Assert.assertEquals(
+            SetupApp.quietCompilerFailureOutput(output, debug = false),
+            listOf(
+                "Error Broken.wurst:12: Could not find variable realUserTypo.",
+                "java.lang.IllegalStateException: extra debug context"
+            )
+        )
     }
 
     @Test(priority = 10)

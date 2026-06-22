@@ -32,7 +32,7 @@ object SetupApp {
 
     private data class WurstProcessResult(val exitCode: Int, val output: List<String>)
 
-    internal const val AGENTS_TEMPLATE_VERSION = "2026-06-10"
+    internal const val AGENTS_TEMPLATE_VERSION = "2026-06-22"
     private const val AGENTS_TEMPLATE_MARKER_PREFIX = "<!-- WURST_AGENTS_TEMPLATE_VERSION:"
     private const val AGENTS_TEMPLATE_MARKER = "<!-- WURST_AGENTS_TEMPLATE_VERSION: $AGENTS_TEMPLATE_VERSION -->"
     private const val AGENTS_TEMPLATE_SOURCE_HINT = "WurstScript Warcraft III map project notes"
@@ -90,12 +90,16 @@ object SetupApp {
     }
 
     private fun fail(message: String) {
-        log.error(message)
+        if (setup.quiet) {
+            System.err.println(message)
+        } else {
+            log.error(message)
+        }
     }
 
     private fun detail(message: String) {
         if (setup.quiet) {
-            println(message)
+            System.err.println(message)
         } else {
             log.info(message)
         }
@@ -366,13 +370,15 @@ object SetupApp {
         if (printPjassFailure(result.output)) {
             return
         }
+        if (setup.quiet) {
+            val diagnostics = quietCompilerFailureOutput(result.output, setup.debug)
+            diagnostics.forEach { System.err.println(it) }
+            fail("❌ Wurst $commandName failed. (Errors: ${quietCompilerErrorCount(result.output, diagnostics)})")
+            return
+        }
         fail("❌ Wurst $commandName failed.")
         detail("Exit code: ${result.exitCode}")
-        if (setup.quiet) {
-            detail("Next: rerun without `--quiet` only for the failed file/test.")
-        } else {
-            detail("Try: rerun with `--quiet` for a shorter error log, or `--debug` for troubleshooting details.")
-        }
+        detail("Try: rerun with `--quiet` for a shorter error log, or `--debug` for troubleshooting details.")
     }
 
     private fun printPjassFailure(output: List<String>): Boolean {
@@ -402,12 +408,97 @@ object SetupApp {
         return true
     }
 
-    private fun isImportantCompilerLine(line: String): Boolean {
-        return line.contains("error", ignoreCase = true) ||
-            line.contains("warning", ignoreCase = true) ||
-            line.contains("FAILED", ignoreCase = true) ||
+    internal fun quietCompilerFailureOutput(output: List<String>, debug: Boolean): List<String> {
+        return if (debug) output else quietCompilerDiagnostics(output)
+    }
+
+    internal fun quietCompilerDiagnostics(output: List<String>): List<String> {
+        val diagnostics = ArrayList<String>()
+        var pendingVerboseError: MatchResult? = null
+        var preservingTestFailureDetails = false
+
+        for (rawLine in output) {
+            val line = rawLine.trimEnd()
+            if (line.isBlank() || isNoisyCompilerVersionLine(line) || isQuietCompilerNoiseLine(line)) {
+                continue
+            }
+
+            val verboseError = Regex("""^Error in File (.+):(\d+):\s*$""").find(line.trim())
+            if (verboseError != null) {
+                pendingVerboseError = verboseError
+                continue
+            }
+
+            if (pendingVerboseError != null) {
+                diagnostics.add(
+                    "Error ${pendingVerboseError.groupValues[1]}:${pendingVerboseError.groupValues[2]}: ${line.trim()}"
+                )
+                pendingVerboseError = null
+                continue
+            }
+
+            if (preservingTestFailureDetails && isQuietTestFailureDetailLine(line)) {
+                diagnostics.add(line)
+                continue
+            }
+
+            if (isQuietCompilerDiagnosticLine(line)) {
+                diagnostics.add(line)
+                if (isQuietTestFailureHeader(line)) {
+                    preservingTestFailureDetails = true
+                }
+            }
+        }
+
+        return diagnostics.distinct()
+    }
+
+    internal fun quietCompilerErrorCount(
+        output: List<String>,
+        diagnostics: List<String> = quietCompilerDiagnostics(output)
+    ): Int {
+        output.asSequence()
+            .map { Regex("""^Errors:\s*(\d+)\s*$""").find(it.trim()) }
+            .filterNotNull()
+            .firstOrNull()
+            ?.let { return it.groupValues[1].toIntOrNull() ?: diagnostics.size.coerceAtLeast(1) }
+
+        return diagnostics.count {
+            it.startsWith("Error ", ignoreCase = true) ||
+                it.startsWith("FAILED ", ignoreCase = true) ||
+                it.contains(" exception", ignoreCase = true) ||
+                it.contains("Pjass", ignoreCase = true)
+        }.coerceAtLeast(1)
+    }
+
+    private fun isQuietCompilerDiagnosticLine(line: String): Boolean {
+        return line.startsWith("Error ", ignoreCase = true) ||
+            line.startsWith("FAILED ", ignoreCase = true) ||
+            line.contains(" assertion", ignoreCase = true) ||
             line.contains("Exception", ignoreCase = true) ||
             line.contains("Pjass", ignoreCase = true)
+    }
+
+    private fun isQuietTestFailureHeader(line: String): Boolean {
+        return line.trim().equals("FAILED assertion:", ignoreCase = true)
+    }
+
+    private fun isQuietTestFailureDetailLine(line: String): Boolean {
+        val trimmed = line.trim()
+        return trimmed.startsWith("Test failed:", ignoreCase = true) ||
+            trimmed.contains(" inside call ", ignoreCase = true) ||
+            trimmed.contains(" when calling ", ignoreCase = true)
+    }
+
+    private fun isQuietCompilerNoiseLine(line: String): Boolean {
+        val trimmed = line.trim()
+        return trimmed.startsWith("Warning", ignoreCase = true) ||
+            trimmed.matches(Regex("""^Errors:\s*\d+\s*$""")) ||
+            trimmed.matches(Regex("""^Warnings:\s*\d+\s*$""")) ||
+            trimmed.matches(Regex("""^Tests:\s*\d+/\d+\s+passed\s*$""", RegexOption.IGNORE_CASE)) ||
+            trimmed.startsWith("compilation finished", ignoreCase = true) ||
+            trimmed.startsWith("Running tests", ignoreCase = true) ||
+            trimmed.startsWith("Finished running tests", ignoreCase = true)
     }
 
     private fun isNoisyCompilerVersionLine(line: String): Boolean {
@@ -960,11 +1051,6 @@ object SetupApp {
             }
         }
         val exitCode = p.waitFor()
-        if (setup.quiet && exitCode != 0) {
-            val printableOutput = if (setup.debug) output else output.filterNot(::isNoisyCompilerVersionLine)
-            val linesToPrint = if (compactFallback) printableOutput.filter(::isImportantCompilerLine) else printableOutput
-            linesToPrint.forEach { println(it) }
-        }
         return WurstProcessResult(exitCode, output)
     }
 
