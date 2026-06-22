@@ -32,7 +32,7 @@ object SetupApp {
 
     private data class WurstProcessResult(val exitCode: Int, val output: List<String>)
 
-    internal const val AGENTS_TEMPLATE_VERSION = "2026-06-10"
+    internal const val AGENTS_TEMPLATE_VERSION = "2026-06-22"
     private const val AGENTS_TEMPLATE_MARKER_PREFIX = "<!-- WURST_AGENTS_TEMPLATE_VERSION:"
     private const val AGENTS_TEMPLATE_MARKER = "<!-- WURST_AGENTS_TEMPLATE_VERSION: $AGENTS_TEMPLATE_VERSION -->"
     private const val AGENTS_TEMPLATE_SOURCE_HINT = "WurstScript Warcraft III map project notes"
@@ -411,6 +411,7 @@ object SetupApp {
     internal fun quietCompilerDiagnostics(output: List<String>): List<String> {
         val diagnostics = ArrayList<String>()
         var pendingVerboseError: MatchResult? = null
+        var preservingTestFailureDetails = false
 
         for (rawLine in output) {
             val line = rawLine.trimEnd()
@@ -432,8 +433,16 @@ object SetupApp {
                 continue
             }
 
+            if (preservingTestFailureDetails && isQuietTestFailureDetailLine(line)) {
+                diagnostics.add(line)
+                continue
+            }
+
             if (isQuietCompilerDiagnosticLine(line)) {
                 diagnostics.add(line)
+                if (isQuietTestFailureHeader(line)) {
+                    preservingTestFailureDetails = true
+                }
             }
         }
 
@@ -464,6 +473,17 @@ object SetupApp {
             line.contains(" assertion", ignoreCase = true) ||
             line.contains("Exception", ignoreCase = true) ||
             line.contains("Pjass", ignoreCase = true)
+    }
+
+    private fun isQuietTestFailureHeader(line: String): Boolean {
+        return line.trim().equals("FAILED assertion:", ignoreCase = true)
+    }
+
+    private fun isQuietTestFailureDetailLine(line: String): Boolean {
+        val trimmed = line.trim()
+        return trimmed.startsWith("Test failed:", ignoreCase = true) ||
+            trimmed.contains(" inside call ", ignoreCase = true) ||
+            trimmed.contains(" when calling ", ignoreCase = true)
     }
 
     private fun isQuietCompilerNoiseLine(line: String): Boolean {

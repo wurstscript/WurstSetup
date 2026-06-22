@@ -8,6 +8,7 @@ import file.SetupMain
 import org.testng.Assert
 import org.testng.annotations.Test
 import java.nio.file.Files
+import java.nio.file.Paths
 import java.util.Comparator
 
 private class ExitException2(val code: Int) : RuntimeException("exit $code")
@@ -251,6 +252,12 @@ class GenerateTests {
     }
     @Test(priority = 10)
     fun testAgentsTemplateMarkerAndWarnings() {
+        val templateFirstLine = Files.readAllLines(Paths.get("templates", "AGENTS.md")).first()
+        Assert.assertEquals(
+            templateFirstLine,
+            "<!-- WURST_AGENTS_TEMPLATE_VERSION: ${SetupApp.AGENTS_TEMPLATE_VERSION} -->"
+        )
+
         val marked = SetupApp.withAgentsTemplateMarker("# AGENTS.md\n")
         Assert.assertTrue(marked.startsWith("<!-- WURST_AGENTS_TEMPLATE_VERSION: ${SetupApp.AGENTS_TEMPLATE_VERSION} -->"))
         Assert.assertNull(SetupApp.agentsTemplateWarning(marked))
@@ -302,6 +309,10 @@ class GenerateTests {
             "Running tests",
             "Tests: 1/2 passed",
             "FAILED MyPkg.testExplodes",
+            "\tFAILED assertion:",
+            "\tTest failed: expected 1 but got 2",
+            "\t    ╚ MyTest.wurst:9 inside call assertEquals(1, 2)",
+            "\t... when calling MyPkg.testExplodes(MyTest.wurst:12)",
             "Errors: 1",
             "Error MyTest.wurst:9: expected 1 but got 2",
             "Finished running tests"
@@ -311,6 +322,10 @@ class GenerateTests {
             SetupApp.quietCompilerDiagnostics(output),
             listOf(
                 "FAILED MyPkg.testExplodes",
+                "\tFAILED assertion:",
+                "\tTest failed: expected 1 but got 2",
+                "\t    ╚ MyTest.wurst:9 inside call assertEquals(1, 2)",
+                "\t... when calling MyPkg.testExplodes(MyTest.wurst:12)",
                 "Error MyTest.wurst:9: expected 1 but got 2"
             )
         )

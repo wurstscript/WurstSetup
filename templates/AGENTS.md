@@ -1,4 +1,4 @@
-<!-- WURST_AGENTS_TEMPLATE_VERSION: 2026-06-10 -->
+<!-- WURST_AGENTS_TEMPLATE_VERSION: 2026-06-22 -->
 # AGENTS.md - WurstScript Map Project Notes
 
 WurstScript Warcraft III map project notes for editing `.wurst` code, dependencies, generated objects, tests, or map build logic.
@@ -8,10 +8,41 @@ WurstScript Warcraft III map project notes for editing `.wurst` code, dependenci
 - Prefer simple, maintainable code. Fix root causes; avoid brittle workarounds, duplicated branches, and special-case patches.
 - Keep packages focused and below ~500 lines; split by feature, responsibility, or data type.
 - Make changes in the source package, not generated output. Do not edit `_build/` or `_build/dependencies/` as source-of-truth.
-- Prefer Wurst standard-library wrappers and project helpers over raw `common.j`/Jass-style calls.
+- Use Wurst stdlib/library APIs and project helpers; never call a raw `common.j`/Jass native when a wrapper exists, and do not reinvent what stdlib already provides. See **Stdlib-First** below.
 - When unsure about Wurst syntax or local APIs, inspect nearby working code before guessing.
 - Keep tests narrow. Add/update tests for behavior, parsing, compiletime generation, or shared utilities.
 - Avoid broad refactors unless they directly reduce risk or complexity for the requested change.
+
+## Stdlib-First: No Raw JASS Natives (Mandatory)
+
+The most important coding rule: high-level Wurst packages must use the WurstScript stdlib and library APIs, never ported JASS. The goal is clean, reusable Wurst — not a JASS transliteration.
+
+- Never call a raw `common.j` / `Blizzard.j` native when a Wurst wrapper or extension function exists. There is one for almost every native (on `unit`, `player`, `group`, `string`, `rect`, ...). Grep the stdlib (`_build/dependencies/wurstStdlib2/wurst/`) before writing a native call.
+- The only bar for a raw native is that you searched and confirmed no wrapper exists — then add a one-line comment saying so.
+- "It compiles" is not enough. Code that reads like JASS (manual handle juggling, native calls, global trigger callbacks, op-limit chunking) is wrong here; rewrite it idiomatically.
+
+Use the stdlib API, not a raw native, for at least:
+
+- Timers → `ClosureTimers` (`doAfter`, `doPeriodically`); never `CreateTimer`/`TimerStart`/`PauseTimer`/`DestroyTimer`.
+- Printing → `print` / `printTimed` / `p.print`; never `DisplayText*ToPlayer`/`...ToForce`.
+- Player state → `Player` extensions (`p.addGold`, `p.getGold`, `p.getId`, ...); prefer the `players[i]` array over `Player(i)`.
+- Unit inspection → `Unit` extensions (`u.getTypeId()`, `u.getOwner()`, `u.getAbilityLevel(id)`, ...).
+- Hashtables → `Hashtable` extensions (`ht.saveInt`/`loadInt`/`flushChild`/...).
+- Group iteration → `ClosureForGroups` (`forUnitsInRange`, `forUnitsInRect`) + `GroupUtils` (`getGroup()` / `group.release()`), not `GroupEnum*` + `ForGroup` globals.
+
+The `CreateTrigger()..register...()..addAction() ->` cascade is the accepted idiom and is fine.
+
+### Do Not Reinvent Stdlib Infrastructure (Mandatory)
+
+Keep custom engine-level infrastructure to a minimum. Stdlib packages are battle-tested and handle the WC3 edge cases (recycling, op-limits, cleanup, desync) that hand-rolled versions get wrong. Grep for an existing system before building one; do not ship a parallel implementation of something stdlib provides:
+
+- Dummy spell casting → `DummyCaster` / `InstantDummyCaster` (unit pooling: `DummyRecycler`).
+- Triggered damage → `DummyDamage` to deal, `DamageEvent` to detect/modify.
+- Events → `ClosureEvents` (`EventListener.add(...)`) / `RegisterEvents`; no custom global-trigger dispatcher or event bus.
+- Knockback / FX / sound / interpolation / orders → `Knockback3`, `Fx`, `SoundUtils`/`Sounds`, `Interpolation`, `Orders`/`OrderStringFactory`.
+- Collections → `LinkedList`, `HashMap`, `HashList`.
+
+If stdlib almost fits, prefer a thin wrapper around the stdlib type over a from-scratch system and note why in a comment. Reinventing this is treated as a defect even if it compiles and passes tests, because it reintroduces solved bugs.
 
 ## Agent Workflow
 
@@ -141,6 +172,15 @@ let label = count == 1 ? "unit" : "units"
 ## WurstScript Production Pitfalls
 
 These are recurring real-world Wurst/Warcraft III failure modes. Treat this section as a pre-edit checklist for any non-trivial Wurst change.
+
+### Integer overflow
+
+WC3 `int` is 32-bit signed and wraps silently at ~2.1 billion (`2^31 - 1`) — no exception, just a negative/garbage value that poisons every downstream comparison and division. Easy to hit when multiplying or summing large game quantities (gold/worth, army totals, damage products, accumulated stats).
+
+- Promote to `real` BEFORE multiplying two large quantities: `a.toReal() * b`, never `(a * b).toReal()` (the latter already overflowed).
+- Same for running sums of products: `total += worth.toReal() * count * mult`.
+- Watch `worth * worth`, `count * worth`, `total * total` in scoring/stats; aggregate worths routinely exceed ~46k (the square root of int-max), so their product overflows in ordinary large games.
+- Wurst `/` is real division even for two ints (use `div` for integer division), so division itself does not overflow — but its operands still can. Prefer `real` for any accumulator that fans in many large terms.
 
 ### Closure capture is by value
 
