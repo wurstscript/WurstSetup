@@ -12,6 +12,7 @@ enum class CLICommand {
     TYPECHECK,
     OUTDATED,
     BUILD,
+    EXPORTOBJECTS,
     SELF_UPDATE
 }
 

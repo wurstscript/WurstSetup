@@ -116,7 +116,8 @@ object SetupApp {
 	            }
 	            setup.command == CLICommand.TEST ||
 	                setup.command == CLICommand.TYPECHECK ||
-	                setup.command == CLICommand.BUILD -> {
+	                setup.command == CLICommand.BUILD ||
+                    setup.command == CLICommand.EXPORTOBJECTS -> {
 	                // Only needs to know a compiler is present; skip the version subprocess and update check.
 	                InstallationManager.verifyInstallation(probeVersion = false)
 	            }
@@ -149,6 +150,7 @@ object SetupApp {
                     |  typecheck                        Typecheck the project without building a map
                     |  outdated                         Check whether project dependencies are up to date
                     |  build <mapfile>                  Build the project using the given input map
+                    |  exportobjects <mapfile|folder>   Export object editor data to Wurst source
                     |
                     |Global options:
                     |  --quiet                          Suppress wurst output; only print errors and final result
@@ -268,6 +270,25 @@ object SetupApp {
                         buildProject(configData)
                     } else if (configData == null) {
                         missingProject()
+                    }
+                }
+            }
+            setup.command == CLICommand.EXPORTOBJECTS -> {
+                progress("Exporting object editor data...")
+                val mapArg = if (setup.commandArg.isBlank()) {
+                    val maps = findMaps()
+                    when (maps.size) {
+                        0 -> { missingMap(); null }
+                        1 -> { log.info("Auto-detected map: ${maps[0].fileName}"); maps[0].fileName.toString() }
+                        else -> { multipleMaps(maps); null }
+                    }
+                } else setup.commandArg
+                if (mapArg != null) {
+                    val mapPath = setup.projectRoot.resolve(mapArg)
+                    if (!Files.exists(mapPath)) {
+                        missingMap(mapArg)
+                    } else if (InstallationManager.status != InstallationManager.InstallationStatus.NOT_INSTALLED) {
+                        exportObjects(mapPath)
                     }
                 }
             }
@@ -973,6 +994,21 @@ object SetupApp {
             0 -> { pass("✅ Map built."); ExitHandler.exit(0) }
             else -> {
                 printCompilerFailure("build", result)
+                ExitHandler.exit(1)
+            }
+        }
+    }
+
+    private fun exportObjects(mapPath: Path) {
+        val args = ArrayList(InstallationManager.compilerLaunchCommand().toList())
+        args.add("-exportobjects")
+        args.add(mapPath.toAbsolutePath().toString())
+
+        val result = startWurstProcess(args)
+        when (result.exitCode) {
+            0 -> { pass("Object editor data exported."); ExitHandler.exit(0) }
+            else -> {
+                printCompilerFailure("exportobjects", result)
                 ExitHandler.exit(1)
             }
         }
