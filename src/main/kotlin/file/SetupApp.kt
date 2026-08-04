@@ -1,5 +1,11 @@
 package file
 
+import benchmark.BenchmarkCoordinator
+import benchmark.BENCHMARK_DISCLAIMER
+import benchmark.BenchmarkProcessLauncher
+import benchmark.BenchmarkProcessResult
+import benchmark.BenchmarkRenderer
+import benchmark.BenchmarkRequest
 import config.CONFIG_FILE_NAME
 import config.ScriptMode
 import config.WurstProjectConfig
@@ -30,6 +36,8 @@ object SetupApp {
     private val log = KotlinLogging.logger {}
     lateinit var setup: SetupMain
 
+    internal var benchmarkProcessLauncherOverride: BenchmarkProcessLauncher? = null
+
     private data class WurstProcessResult(val exitCode: Int, val output: List<String>)
 
     internal const val AGENTS_TEMPLATE_VERSION = "2026-06-22"
@@ -39,23 +47,15 @@ object SetupApp {
 
     fun handleArgs(setup: SetupMain) {
         this.setup = setup
+        if (setup.command == CLICommand.BENCHMARK && setup.benchmarkHelp) {
+            println(benchmarkHelpText())
+            ExitHandler.exit(0)
+        }
         DependencyManager.debug = setup.debug
         configureQuietLogging()
         updateGrillJar()
         if (setup.isGUILaunch) {
-            val helpText = """
-                Grill is now CLI-first. Use the command line to interact with Grill.
-
-                Example commands:
-                  grill generate MyProject              Generate a new Wurst project
-                  grill generate MyProject --with-ci    Include GitHub Actions workflow
-                  grill generate MyProject --script-mode jass --wc3-patch pre1.29
-                  grill install                         Install/update project dependencies
-                  grill install wurstscript             Install the WurstScript compiler
-                  grill build ExampleMap.w3x            Build your project map
-                  grill test                            Run project unit tests
-                  grill help                            Show all available commands
-            """.trimIndent()
+			val helpText = guiHelpText()
             if (GraphicsEnvironment.isHeadless()) {
                 log.info(helpText)
             } else {
@@ -63,15 +63,92 @@ object SetupApp {
             }
             ExitHandler.exit(0)
         } else {
-            progress("🔥 Grill ${CompileTimeInfo.version}")
+            if (!(setup.command == CLICommand.BENCHMARK && setup.benchmarkFormat == BenchmarkFormat.JSON)) {
+                progress("🔥 Grill ${CompileTimeInfo.version}")
+            }
             handleCMD()
         }
     }
 
+    internal fun benchmarkHelpText(): String = """
+        Grill benchmark — run selected @benchmark functions on the JVM-hosted Wurst IL interpreter.
+
+        Usage:
+          grill benchmark [filter] [--forks N] [--warmup N] [--iterations N] [--format human|json]
+
+        Options:
+          --forks N                         Positive number of JVM forks (default: 3)
+          --warmup N                        Non-negative warmup samples per fork (default: 5)
+          --iterations N                    Positive measured samples per fork (default: 10)
+          --format human|json               Output format (default: human)
+          --help                            Show this benchmark-specific help
+
+        JSON environment.compiler is sha256:<lowercase hex> for the exact compiler JAR.
+
+        Global options such as -projectDir, --quiet, and --debug remain available.
+
+        $BENCHMARK_DISCLAIMER
+    """.trimIndent()
+
+    internal fun guiHelpText(): String = """
+        Grill is now CLI-first. Use the command line to interact with Grill.
+
+        Example commands:
+          grill generate MyProject              Generate a new Wurst project
+          grill generate MyProject --with-ci    Include GitHub Actions workflow
+          grill generate MyProject --script-mode jass --wc3-patch pre1.29
+          grill install                         Install/update project dependencies
+          grill install wurstscript             Install the WurstScript compiler
+          grill build ExampleMap.w3x            Build your project map
+          grill test                            Run project unit tests
+          grill benchmark [filter]              Compare @benchmark functions on the JVM
+          grill help                            Show all available commands
+    """.trimIndent()
+
+    internal fun commandHelpText(): String = """
+        |Common:
+        |  grill generate MyProject
+        |  grill install
+        |  grill test
+        |  grill benchmark [filter]
+        |  grill build ExampleMap.w3x
+        |
+        |Project commands:
+        |  install [dep|wurstscript|grill]  Install/update dependencies, WurstScript compiler, or Grill itself
+        |  remove  [dep|wurstscript]        Remove a dependency or uninstall WurstScript
+        |  generate <name>                  Generate a new Wurst project in a subfolder
+        |  test [filter]                    Run unit tests, optionally filtered by package/function name
+        |  benchmark [filter]               Compare @benchmark functions on the JVM (`benchmark --help` for options)
+        |  typecheck                        Typecheck the project without building a map
+        |  outdated                         Check whether project dependencies are up to date
+        |  build <mapfile>                  Build the project using the given input map
+        |  exportobjects <mapfile|folder>   Export object editor data to Wurst source
+        |
+        |Global options:
+        |  --quiet                          Suppress wurst output; only print errors and final result
+        |  --debug                          Print full stack traces for troubleshooting
+        |
+        |Build options:
+        |  --dev                            Build with compiletime isProductionBuild() = false
+        |
+        |Generate options:
+        |  --script-mode lua|jass           Script mode (default: lua)
+        |  --wc3-patch <patch>              WC3 patch target: reforged, pre1.29, or jass-history version
+        |  --wc3-path <dir>                 Warcraft III install folder for VS Code/run
+        |  --with-agents / --no-agents      Include AGENTS.md (default: no)
+        |  --with-ci / --no-ci              Include GitHub Actions workflow (default: no)
+        |  --with-dep <id>                  Add a curated dependency (repeatable; ids: ${CuratedDependencies.ids.joinToString(", ")})
+    """.trimMargin()
+
     private fun configureQuietLogging() {
         val rootLogger = LoggerFactory.getLogger(org.slf4j.Logger.ROOT_LOGGER_NAME)
         if (rootLogger is ch.qos.logback.classic.Logger) {
-            rootLogger.level = if (setup.quiet) ch.qos.logback.classic.Level.ERROR else ch.qos.logback.classic.Level.INFO
+            rootLogger.level = when {
+                setup.command == CLICommand.BENCHMARK && setup.benchmarkFormat == BenchmarkFormat.JSON ->
+                    ch.qos.logback.classic.Level.OFF
+                setup.quiet -> ch.qos.logback.classic.Level.ERROR
+                else -> ch.qos.logback.classic.Level.INFO
+            }
         }
     }
 
@@ -115,6 +192,7 @@ object SetupApp {
 	                InstallationManager.verifyInstallation()
 	            }
 	            setup.command == CLICommand.TEST ||
+	                setup.command == CLICommand.BENCHMARK ||
 	                setup.command == CLICommand.TYPECHECK ||
 	                setup.command == CLICommand.BUILD ||
                     setup.command == CLICommand.EXPORTOBJECTS -> {
@@ -133,40 +211,9 @@ object SetupApp {
 			configData = WurstProjectConfig.loadProject(configFile)!!
 		}
 
-		when {
+        when {
             setup.command == CLICommand.HELP -> {
-                log.info("""
-                    |Common:
-                    |  grill generate MyProject
-                    |  grill install
-                    |  grill test
-                    |  grill build ExampleMap.w3x
-                    |
-                    |Project commands:
-                    |  install [dep|wurstscript|grill]  Install/update dependencies, WurstScript compiler, or Grill itself
-                    |  remove  [dep|wurstscript]        Remove a dependency or uninstall WurstScript
-                    |  generate <name>                  Generate a new Wurst project in a subfolder
-                    |  test [filter]                    Run unit tests, optionally filtered by package/function name
-                    |  typecheck                        Typecheck the project without building a map
-                    |  outdated                         Check whether project dependencies are up to date
-                    |  build <mapfile>                  Build the project using the given input map
-                    |  exportobjects <mapfile|folder>   Export object editor data to Wurst source
-                    |
-                    |Global options:
-                    |  --quiet                          Suppress wurst output; only print errors and final result
-                    |  --debug                          Print full stack traces for troubleshooting
-                    |
-                    |Build options:
-                    |  --dev                            Build with compiletime isProductionBuild() = false
-                    |
-                    |Generate options:
-                    |  --script-mode lua|jass           Script mode (default: lua)
-                    |  --wc3-patch <patch>              WC3 patch target: reforged, pre1.29, or jass-history version
-                    |  --wc3-path <dir>                 Warcraft III install folder for VS Code/run
-                    |  --with-agents / --no-agents      Include AGENTS.md (default: no)
-                    |  --with-ci / --no-ci              Include GitHub Actions workflow (default: no)
-                    |  --with-dep <id>                  Add a curated dependency (repeatable; ids: ${CuratedDependencies.ids.joinToString(", ")})
-                """.trimMargin())
+				log.info(commandHelpText())
             }
 			setup.command == CLICommand.INSTALL -> {
                 if (setup.commandArg.isBlank()) {
@@ -228,6 +275,16 @@ object SetupApp {
                     printGenerateNextSteps(projectDir, projectConfig, setup.addAgents, setup.addGithubWorkflow, gameRoot)
                 }
 			}
+            setup.command == CLICommand.BENCHMARK -> {
+                if (configData == null) {
+                    missingProject()
+                } else if (InstallationManager.status != InstallationManager.InstallationStatus.NOT_INSTALLED) {
+                    benchmarkProject(configData)
+                } else {
+                    System.err.println("❌ Wurst benchmark failed: compiler is not installed.")
+                    ExitHandler.exit(1)
+                }
+            }
             setup.command == CLICommand.TEST -> {
                 progress("⚗️ Running tests...")
                 if (InstallationManager.status != InstallationManager.InstallationStatus.NOT_INSTALLED && configData != null) {
@@ -307,9 +364,15 @@ object SetupApp {
 	}
 
     private fun missingProject(): Nothing {
-        log.error("❌ This folder is not a Grill project.")
-        log.info("Expected: ${setup.projectRoot.resolve(CONFIG_FILE_NAME).toAbsolutePath()}")
-        log.info("Try: run `grill generate MyProject` to create a new project, or pass `-projectDir <path>`.")
+        if (setup.command == CLICommand.BENCHMARK && setup.benchmarkFormat == BenchmarkFormat.JSON) {
+            System.err.println("❌ This folder is not a Grill project.")
+            System.err.println("Expected: ${setup.projectRoot.resolve(CONFIG_FILE_NAME).toAbsolutePath()}")
+            System.err.println("Try: run `grill generate MyProject` to create a new project, or pass `-projectDir <path>`.")
+        } else {
+            log.error("❌ This folder is not a Grill project.")
+            log.info("Expected: ${setup.projectRoot.resolve(CONFIG_FILE_NAME).toAbsolutePath()}")
+            log.info("Try: run `grill generate MyProject` to create a new project, or pass `-projectDir <path>`.")
+        }
         ExitHandler.exit(1)
     }
 
@@ -1033,6 +1096,52 @@ object SetupApp {
         }
     }
 
+    private fun benchmarkProject(configData: WurstProjectConfigData) {
+        val args = commonArgs(
+            configData,
+            includeOutput = false,
+            includeCompileTimeFunctions = false
+        )
+        if (!args.contains("-compactOutput")) {
+            args.add("-compactOutput")
+        }
+        val launcher = benchmarkProcessLauncherOverride ?: BenchmarkProcessLauncher { arguments ->
+            runBenchmarkWorkerProcess(arguments, compilerOutputDir())
+        }
+        val coordinator = BenchmarkCoordinator(
+            launcher = launcher,
+            commonArguments = args,
+            debug = setup.debug,
+            compilerIdentity = InstallationManager.getCompilerIdentity(),
+            grillIdentity = CompileTimeInfo.version
+        )
+        val rendered: String
+        try {
+            val report = coordinator.run(
+                BenchmarkRequest(
+                    filter = setup.commandArg.ifBlank { null },
+                    forks = setup.benchmarkForks,
+                    warmup = setup.benchmarkWarmup,
+                    iterations = setup.benchmarkIterations
+                )
+            )
+            rendered = if (setup.benchmarkFormat == BenchmarkFormat.JSON) {
+                BenchmarkRenderer.json(report)
+            } else {
+                BenchmarkRenderer.human(report)
+            }
+        } catch (exception: Exception) {
+            if (setup.debug) {
+                exception.printStackTrace(System.err)
+            } else {
+                System.err.println("❌ Wurst benchmark failed: ${exception.message ?: exception.javaClass.simpleName}")
+            }
+            ExitHandler.exit(1)
+        }
+        println(rendered)
+        ExitHandler.exit(0)
+    }
+
     private fun typecheckProject(configData: WurstProjectConfigData) {
         val args = commonArgs(configData)
 
@@ -1069,9 +1178,39 @@ object SetupApp {
         return result
     }
 
-    private fun runWurstProcess(args: ArrayList<String>, compactFallback: Boolean): WurstProcessResult {
+    private fun runWurstProcess(
+        args: ArrayList<String>,
+        compactFallback: Boolean,
+        emitOutput: Boolean = true
+    ): WurstProcessResult {
+        return runProcess(
+            args = args,
+            outputDir = compilerOutputDir(),
+            emitOutput = emitOutput,
+            debug = setup.debug,
+            quiet = setup.quiet
+        )
+    }
+
+    internal fun runBenchmarkWorkerProcess(arguments: List<String>, outputDir: Path): BenchmarkProcessResult {
+        val result = runProcess(
+            args = arguments,
+            outputDir = outputDir,
+            emitOutput = false,
+            debug = false,
+            quiet = true
+        )
+        return BenchmarkProcessResult(result.exitCode, result.output)
+    }
+
+    private fun runProcess(
+        args: List<String>,
+        outputDir: Path,
+        emitOutput: Boolean,
+        debug: Boolean,
+        quiet: Boolean
+    ): WurstProcessResult {
         val pb = ProcessBuilder(args)
-        val outputDir = compilerOutputDir()
         Files.createDirectories(outputDir)
         pb.directory(outputDir.toFile())
         pb.redirectErrorStream(true)
@@ -1079,10 +1218,10 @@ object SetupApp {
         val output = ArrayList<String>()
         p.inputStream.bufferedReader().forEachLine { line ->
             output.add(line)
-            if (!setup.debug && isNoisyCompilerVersionLine(line)) {
+            if (!debug && isNoisyCompilerVersionLine(line)) {
                 return@forEachLine
             }
-            if (!setup.quiet) {
+            if (emitOutput && !quiet) {
                 println(line)
             }
         }
@@ -1090,7 +1229,11 @@ object SetupApp {
         return WurstProcessResult(exitCode, output)
     }
 
-	    private fun commonArgs(configData: WurstProjectConfigData): ArrayList<String> {
+	    private fun commonArgs(
+            configData: WurstProjectConfigData,
+            includeOutput: Boolean = true,
+            includeCompileTimeFunctions: Boolean = true
+        ): ArrayList<String> {
 	        val args = ArrayList(InstallationManager.compilerLaunchCommand().toList())
 
         if (configData.scriptMode == ScriptMode.LUA) {
@@ -1101,10 +1244,12 @@ object SetupApp {
         }
 
         val buildFolder = setup.projectRoot.resolve("_build")
-        val outputDir = compilerOutputDir()
-        Files.createDirectories(outputDir)
-        args.add("-out")
-        args.add(outputDir.resolve(outputFileName(configData)).toAbsolutePath().toString())
+        if (includeOutput) {
+            val outputDir = compilerOutputDir()
+            Files.createDirectories(outputDir)
+            args.add("-out")
+            args.add(outputDir.resolve(outputFileName(configData)).toAbsolutePath().toString())
+        }
 
         val jassdoc = buildFolder.resolve("dependencies").resolve("jassdoc")
         if (Files.exists(jassdoc)) {
@@ -1120,7 +1265,9 @@ object SetupApp {
 	        }
 
         args.add(setup.projectRoot.resolve("wurst").toAbsolutePath().toString())
-        args.add("-runcompiletimefunctions")
+        if (includeCompileTimeFunctions) {
+            args.add("-runcompiletimefunctions")
+        }
         if (setup.noPJass) {
             args.add("-noPJass")
         }

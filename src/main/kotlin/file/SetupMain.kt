@@ -13,6 +13,16 @@ class SetupMain {
 
 	var commandArg = ""
 
+    var benchmarkForks = 3
+
+    var benchmarkWarmup = 5
+
+    var benchmarkIterations = 10
+
+    var benchmarkFormat = BenchmarkFormat.HUMAN
+
+    var benchmarkHelp = false
+
     var measure = false
 
     var devBuild = false
@@ -68,6 +78,10 @@ class SetupMain {
 		try {
 			command = CLICommand.valueOf(first.uppercase())
 			log.debug("found $command")
+			if (command == CLICommand.BENCHMARK) {
+				parseBenchmarkArgs(argsList.drop(1))
+				return
+			}
 			if (argsList.size > 1) {
 				if (!argsList[1].startsWith("-")) {
 					commandArg = argsList[1]
@@ -81,6 +95,92 @@ class SetupMain {
             log.info("Try: grill help")
             ExitHandler.exit(1)
 		}
+	}
+
+	private fun parseBenchmarkArgs(argsList: List<String>) {
+		var i = 0
+		var filterSeen = false
+		while (i < argsList.size) {
+			when (val arg = argsList[i]) {
+				"--help" -> {
+					benchmarkHelp = true
+					i++
+				}
+				"--forks" -> {
+					benchmarkForks = parseBenchmarkPositiveInt(arg, benchmarkOptionValue(argsList, i, arg))
+					i += 2
+				}
+				"--warmup" -> {
+					benchmarkWarmup = parseBenchmarkNonNegativeInt(arg, benchmarkOptionValue(argsList, i, arg))
+					i += 2
+				}
+				"--iterations" -> {
+					benchmarkIterations = parseBenchmarkPositiveInt(arg, benchmarkOptionValue(argsList, i, arg))
+					i += 2
+				}
+				"--format" -> {
+					benchmarkFormat = parseBenchmarkFormat(arg, benchmarkOptionValue(argsList, i, arg))
+					i += 2
+				}
+				else -> {
+					val globalOption = GlobalOptions.values().firstOrNull { it.optionName == arg }
+					if (globalOption != null) {
+						val argEnd = i + 1 + globalOption.argCount
+						if (argEnd > argsList.size) {
+							benchmarkError("Option $arg requires ${globalOption.argCount} argument(s).")
+						}
+						globalOption.runOption(this, argsList.subList(i + 1, argEnd))
+						i = argEnd
+					} else if (arg.startsWith("-")) {
+						benchmarkError("Unknown benchmark option <$arg>.")
+					} else if (filterSeen) {
+						benchmarkError("Unexpected extra benchmark argument <$arg>.")
+					} else {
+						commandArg = arg
+						filterSeen = true
+						i++
+					}
+				}
+			}
+		}
+	}
+
+	private fun benchmarkOptionValue(argsList: List<String>, optionIndex: Int, option: String): String {
+		if (optionIndex + 1 >= argsList.size) {
+			benchmarkError("Option $option requires an argument.")
+		}
+		return argsList[optionIndex + 1]
+	}
+
+	private fun parseBenchmarkPositiveInt(option: String, value: String): Int {
+		val parsed = value.toIntOrNull()
+		if (parsed == null || parsed <= 0) {
+			benchmarkError("Option $option requires a positive integer.")
+		}
+		return parsed
+	}
+
+	private fun parseBenchmarkNonNegativeInt(option: String, value: String): Int {
+		val parsed = value.toIntOrNull()
+		if (parsed == null || parsed < 0) {
+			benchmarkError("Option $option requires a non-negative integer.")
+		}
+		return parsed
+	}
+
+	private fun parseBenchmarkFormat(option: String, value: String): BenchmarkFormat {
+		return when (value.lowercase()) {
+			"human" -> BenchmarkFormat.HUMAN
+			"json" -> BenchmarkFormat.JSON
+			else -> {
+				benchmarkError("Option $option accepts only human or json.")
+			}
+		}
+	}
+
+	private fun benchmarkError(message: String): Nothing {
+		log.error("❌ $message")
+		ExitHandler.exit(1)
 	}
 
 	private fun parseGlobalArgs(argsList: List<String>, start: Int) {

@@ -9,6 +9,8 @@ import net.NetStatus
 import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.Paths
+import java.security.MessageDigest
+import java.util.Locale
 import java.util.regex.Pattern
 
 
@@ -170,6 +172,23 @@ object InstallationManager {
 		fun getCompilerPath(): String {
 			return (detectCompilerJar() ?: compilerJar).toAbsolutePath().toString()
 		}
+
+        fun getCompilerIdentity(): String {
+            val digest = MessageDigest.getInstance("SHA-256")
+            val compiler = detectCompilerJar() ?: compilerJar
+            Files.newInputStream(compiler).use { input ->
+                val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
+                while (true) {
+                    val read = input.read(buffer)
+                    if (read < 0) break
+                    digest.update(buffer, 0, read)
+                }
+            }
+            val hex = digest.digest().joinToString("") {
+                "%02x".format(Locale.ROOT, it.toInt() and 0xff)
+            }
+            return "sha256:$hex"
+        }
 
     fun compilerLaunchCommand(vararg extraArgs: String): Array<String> {
         val compiler = detectCompilerJar() ?: compilerJar
