@@ -765,16 +765,17 @@ object SetupApp {
             else -> recommended.firstOrNull() ?: CoreJassProvider.DEFAULT_PATCH
         }
         val browseAll = "__browse_all__"
+        val visibleRecommended = (listOf(defaultPatch) + recommended).distinct()
 
         if (useInteractiveMenus) {
             while (true) {
-                val choices = recommended.map { TerminalMenu.Choice(it, CoreJassProvider.describePatch(it)) } +
+                val choices = visibleRecommended.map { TerminalMenu.Choice(it, CoreJassProvider.describePatch(it)) } +
                     TerminalMenu.Choice(browseAll, "Browse all supported patch targets...") +
                     TerminalMenu.Choice("__browse_exact__", "Advanced: browse exact jass-history dumps...")
                 val selection = TerminalMenu.choose(
                     title = intro,
                     choices = choices,
-                    defaultIndex = recommended.indexOf(defaultPatch).takeIf { it >= 0 } ?: 0
+                    defaultIndex = visibleRecommended.indexOf(defaultPatch).takeIf { it >= 0 } ?: 0
                 )
                 when {
                     selection == null -> return defaultPatch
@@ -786,7 +787,6 @@ object SetupApp {
         }
 
         log.info(intro)
-        val visibleRecommended = (listOf(defaultPatch) + recommended).distinct()
         log.info("Recommended patch choices:")
         visibleRecommended.forEachIndexed { index, patch ->
             log.info("  ${index + 1}. ${CoreJassProvider.describePatch(patch)}")
