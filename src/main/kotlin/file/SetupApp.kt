@@ -107,7 +107,7 @@ object SetupApp {
 
 	    private fun handleCMD() {
 	        // Cold-start lever: only spend network round-trips and a compiler subprocess on commands
-	        // that actually consult the installation. help/generate stay fully offline and fast.
+	        // that actually consult the installation. help/generate avoid installation checks and stay fast.
 	        when {
 	            setup.command == CLICommand.INSTALL && setup.commandArg.equals("wurstscript", ignoreCase = true) -> {
 	                // Needs to know whether a newer compiler is available online.
@@ -756,9 +756,10 @@ object SetupApp {
         useInteractiveMenus: Boolean,
         currentPatch: String?
     ): String {
-        val versions = CoreJassProvider.fetchJassHistoryVersions()
-        val recommended = CoreJassProvider.recommendedPatchOptions(versions)
+        val bundledVersions = CoreJassProvider.supportedPatches
+        val recommended = CoreJassProvider.recommendedPatchOptions(bundledVersions)
         val patchTargets = CoreJassProvider.supportedPatches
+        val exactVersions by lazy { CoreJassProvider.fetchJassHistoryVersions() }
         val normalizedCurrentPatch = currentPatch?.let(CoreJassProvider::normalizePatchInput)
         val defaultPatch = when {
             normalizedCurrentPatch != null && CoreJassProvider.isSupportedPatch(normalizedCurrentPatch) -> normalizedCurrentPatch
@@ -780,7 +781,7 @@ object SetupApp {
                 when {
                     selection == null -> return defaultPatch
                     selection == browseAll -> browsePatchVersionsInteractive("WC3 patch targets", patchTargets)?.let { return it }
-                    selection == "__browse_exact__" -> browsePatchVersionsInteractive("Exact jass-history dumps", versions)?.let { return it }
+                    selection == "__browse_exact__" -> browsePatchVersionsInteractive("Exact jass-history dumps", exactVersions)?.let { return it }
                     else -> return selection
                 }
             }
@@ -794,9 +795,7 @@ object SetupApp {
         if (patchTargets.isNotEmpty()) {
             log.info("Type `more` to browse supported patch targets.")
         }
-        if (versions.isNotEmpty()) {
-            log.info("Type `exact` to browse raw jass-history dump folders.")
-        }
+        log.info("Type `exact` to browse raw jass-history dump folders.")
         log.info("Enter a listed number, press Enter for the default, or type `more`.")
 
         while (true) {
@@ -813,11 +812,11 @@ object SetupApp {
                     title = "WC3 patch targets",
                     versions = patchTargets,
                     prompt = prompt,
-                    exactVersions = versions
+                    exactVersions = emptyList()
                 )?.let { return it }
                 "exact", "raw", "dumps" -> browsePatchVersions(
                     title = "Exact jass-history dumps",
-                    versions = versions,
+                    versions = exactVersions,
                     prompt = prompt,
                     exactVersions = emptyList()
                 )?.let { return it }
