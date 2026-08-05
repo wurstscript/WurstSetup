@@ -568,12 +568,8 @@ object SetupApp {
     private fun terminalPrompt(): (String, String?) -> String? {
         val console = System.console()
         if (console == null) {
-            return prompt@ { message, default ->
-                if (default == null) {
-                    print("$message: ")
-                } else {
-                    print("$message [$default]: ")
-                }
+            // Non-console stdin is script input; keep EOF/default generation quiet.
+            return prompt@ { _, default ->
                 val input = readlnOrNull()?.trim() ?: return@prompt default
                 input.ifEmpty { default }
             }
