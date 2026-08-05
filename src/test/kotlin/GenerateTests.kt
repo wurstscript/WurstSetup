@@ -412,6 +412,7 @@ class GenerateTests {
         Assert.assertEquals(setup.commandArg, "wizardproject")
         Assert.assertEquals(setup.scriptMode, ScriptMode.JASS)
         Assert.assertEquals(setup.wc3Patch, CoreJassProvider.PRE_129_PATCH)
+        Assert.assertTrue(setup.gamePathOptedOut)
         Assert.assertTrue(setup.addAgents)
         Assert.assertTrue(setup.addGithubWorkflow)
         Assert.assertTrue(setup.curatedDependencyIds.isEmpty())

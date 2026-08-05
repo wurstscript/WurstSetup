@@ -367,6 +367,10 @@ object SetupApp {
     }
 
     private fun resolveGenerateGamePath(setup: SetupMain, wc3Patch: String?): Path? {
+        if (setup.gamePathOptedOut) {
+            log.info("Warcraft III path: not configured by choice.")
+            return null
+        }
         val gameRoot = setup.gamePath ?: Wc3ClientDetector.detectGameRoot()
         val clientInfo = Wc3ClientDetector.inspectGameRoot(gameRoot)
         if (clientInfo == null) {
@@ -595,7 +599,8 @@ object SetupApp {
             useInteractiveMenus = useInteractiveMenus,
             currentPatch = setup.wc3Patch
         )
-        setup.gamePath = selectGamePath(prompt, setup.wc3Patch, setup.gamePath)
+        setup.gamePathOptedOut = false
+        setup.gamePath = selectGamePath(setup, prompt, setup.wc3Patch, setup.gamePath)
 
         val agentsDefault = if (setup.addAgents) "Y" else "N"
         val agentsInput = prompt("Add AGENTS.md?", agentsDefault) ?: agentsDefault
@@ -632,6 +637,7 @@ object SetupApp {
     }
 
     private fun selectGamePath(
+        setup: SetupMain,
         prompt: (String, String?) -> String?,
         wc3Patch: String?,
         currentPath: Path?
@@ -648,6 +654,7 @@ object SetupApp {
         val default = detected?.toAbsolutePath()?.normalize()?.toString() ?: "none"
         val answer = prompt("Warcraft III directory (or none)", default)?.trim() ?: return detected
         if (answer.equals("none", ignoreCase = true) || answer.equals("skip", ignoreCase = true)) {
+            setup.gamePathOptedOut = true
             return null
         }
         val selected = Paths.get(answer).toAbsolutePath().normalize()

@@ -21,6 +21,8 @@ class SetupMain {
 
     var gamePath: Path? = null
 
+    var gamePathOptedOut: Boolean = false
+
     var requireConfirmation = false
 
     var noPJass = false
