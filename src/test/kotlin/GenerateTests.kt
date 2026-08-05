@@ -397,6 +397,27 @@ class GenerateTests {
     }
 
     @Test(priority = 10)
+    fun testGenerateWithNameUsesWizardPrompt() {
+        val setup = SetupMain()
+        setup.parseArgs(listOf("generate", "wizardproject"))
+        val answers = java.util.ArrayDeque(listOf("jass", "pre1.29", "none", "y", "y", "n"))
+        val prevPrompt = SetupApp.generatePrompt
+        try {
+            SetupApp.generatePrompt = { _, _ -> answers.removeFirst() }
+            Assert.assertTrue(SetupApp.prepareGenerate(setup))
+        } finally {
+            SetupApp.generatePrompt = prevPrompt
+        }
+
+        Assert.assertEquals(setup.commandArg, "wizardproject")
+        Assert.assertEquals(setup.scriptMode, ScriptMode.JASS)
+        Assert.assertEquals(setup.wc3Patch, CoreJassProvider.PRE_129_PATCH)
+        Assert.assertTrue(setup.addAgents)
+        Assert.assertTrue(setup.addGithubWorkflow)
+        Assert.assertTrue(setup.curatedDependencyIds.isEmpty())
+    }
+
+    @Test(priority = 10)
     fun testGenerateWizardRejectsUnsupportedScriptModeAndPatchInput() {
         val setup = SetupMain()
         setup.parseArgs(listOf("generate"))

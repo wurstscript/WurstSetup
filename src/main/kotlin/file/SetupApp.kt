@@ -546,10 +546,6 @@ object SetupApp {
     internal var installPatchPrompt: ((String, String?) -> String?)? = null
 
     internal fun prepareGenerate(setup: SetupMain): Boolean {
-        if (setup.commandArg.isNotBlank()) {
-            return true
-        }
-
         val prompt = generatePrompt ?: terminalPrompt()
 
         while (setup.commandArg.isBlank()) {
