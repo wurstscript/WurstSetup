@@ -561,7 +561,7 @@ object SetupApp {
             }
         }
 
-        runWizard(setup, prompt, useInteractiveMenus = generatePrompt == null)
+        runWizard(setup, prompt, useInteractiveMenus = generatePrompt == null && TerminalMenu.canUseInteractive())
         return true
     }
 
