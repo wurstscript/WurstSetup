@@ -2,6 +2,13 @@
 
 This repo builds the Grill CLI and project setup tooling. The generated map-project agent notes live in `templates/AGENTS.md`; keep this root file focused on WurstSetup itself.
 
+## Editing templates/AGENTS.md
+
+- The first line marker must stay in lockstep with `SetupApp.AGENTS_TEMPLATE_VERSION` (a test enforces this); bump both when changing the template.
+- Keep the intro line starting with "WurstScript Warcraft III map project notes" — `AGENTS_TEMPLATE_SOURCE_HINT` matches on it to detect template-derived files.
+- Grill fetches the template from the raw GitHub URL on master, so pushing template changes publishes them to `grill install` users immediately. Only document language features after a compiler release ships them.
+- Keep the template token-lean: it is loaded into every agent session in user projects. Prefer pointers to on-demand docs (stdlib/dependency `AGENTS.md`, the online manual) over inlining more content.
+
 ## Current Architecture
 
 - Project config models come from `com.github.wurstscript:wurst-project-config`; do not reintroduce local DAO copies.
