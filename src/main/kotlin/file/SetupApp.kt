@@ -570,7 +570,7 @@ object SetupApp {
                 } else {
                     print("$message [$default]: ")
                 }
-                val input = readlnOrNull()?.trim() ?: return@prompt null
+                val input = readlnOrNull()?.trim() ?: return@prompt default
                 input.ifEmpty { default }
             }
         }
@@ -598,12 +598,12 @@ object SetupApp {
         setup.gamePath = selectGamePath(prompt, setup.wc3Patch, setup.gamePath)
 
         val agentsDefault = if (setup.addAgents) "Y" else "N"
-        val agentsInput = prompt("Add AGENTS.md?", agentsDefault)
-        setup.addAgents = agentsInput?.lowercase() == "y"
+        val agentsInput = prompt("Add AGENTS.md?", agentsDefault) ?: agentsDefault
+        setup.addAgents = agentsInput.lowercase() == "y"
 
         val ciDefault = if (setup.addGithubWorkflow) "Y" else "N"
-        val ciInput = prompt("Add GitHub Actions CI?", ciDefault)
-        setup.addGithubWorkflow = ciInput?.lowercase() == "y"
+        val ciInput = prompt("Add GitHub Actions CI?", ciDefault) ?: ciDefault
+        setup.addGithubWorkflow = ciInput.lowercase() == "y"
 
         setup.curatedDependencyIds = selectCuratedDependencies(prompt, setup.curatedDependencyIds).toMutableList()
     }
@@ -621,8 +621,8 @@ object SetupApp {
         val selected = LinkedHashSet(preselectedIds)
         for (dependency in catalog) {
             val default = if (selected.contains(dependency.id)) "Y" else "N"
-            val answer = prompt("Add ${dependency.summary}?", default)
-            if (answer?.trim()?.lowercase() == "y") {
+            val answer = prompt("Add ${dependency.summary}?", default) ?: default
+            if (answer.trim().lowercase() == "y") {
                 selected.add(dependency.id)
             } else {
                 selected.remove(dependency.id)

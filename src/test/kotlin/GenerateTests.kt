@@ -418,6 +418,32 @@ class GenerateTests {
     }
 
     @Test(priority = 10)
+    fun testGenerateWithNamePreservesCliSelectionsWhenWizardInputIsUnavailable() {
+        val setup = SetupMain()
+        setup.parseArgs(
+            listOf(
+                "generate",
+                "wizardproject",
+                "--with-agents",
+                "--with-ci",
+                "--with-dep",
+                "table-layout"
+            )
+        )
+        val prevPrompt = SetupApp.generatePrompt
+        try {
+            SetupApp.generatePrompt = { _, _ -> null }
+            Assert.assertTrue(SetupApp.prepareGenerate(setup))
+        } finally {
+            SetupApp.generatePrompt = prevPrompt
+        }
+
+        Assert.assertTrue(setup.addAgents)
+        Assert.assertTrue(setup.addGithubWorkflow)
+        Assert.assertEquals(setup.curatedDependencyIds, listOf("table-layout"))
+    }
+
+    @Test(priority = 10)
     fun testGenerateWizardRejectsUnsupportedScriptModeAndPatchInput() {
         val setup = SetupMain()
         setup.parseArgs(listOf("generate"))
