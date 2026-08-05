@@ -32,7 +32,7 @@ object SetupApp {
 
     private data class WurstProcessResult(val exitCode: Int, val output: List<String>)
 
-    internal const val AGENTS_TEMPLATE_VERSION = "2026-06-22"
+    internal const val AGENTS_TEMPLATE_VERSION = "2026-07-16"
     private const val AGENTS_TEMPLATE_MARKER_PREFIX = "<!-- WURST_AGENTS_TEMPLATE_VERSION:"
     private const val AGENTS_TEMPLATE_MARKER = "<!-- WURST_AGENTS_TEMPLATE_VERSION: $AGENTS_TEMPLATE_VERSION -->"
     private const val AGENTS_TEMPLATE_SOURCE_HINT = "WurstScript Warcraft III map project notes"
