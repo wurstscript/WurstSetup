@@ -820,7 +820,7 @@ object SetupApp {
                     title = "WC3 patch targets",
                     versions = patchTargets,
                     prompt = prompt,
-                    exactVersions = emptyList()
+                    exactVersions = exactVersions
                 )?.let { return it }
                 "exact", "raw", "dumps" -> browsePatchVersions(
                     title = "Exact jass-history dumps",
