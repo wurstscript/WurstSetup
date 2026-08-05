@@ -1,4 +1,4 @@
-<!-- WURST_AGENTS_TEMPLATE_VERSION: 2026-07-16 -->
+<!-- WURST_AGENTS_TEMPLATE_VERSION: 2026-08-05 -->
 # AGENTS.md - WurstScript Map Project Notes
 
 WurstScript Warcraft III map project notes for editing `.wurst` code, dependencies, generated objects, tests, or map build logic.
@@ -145,7 +145,7 @@ doAfter(1.) ->
 	print("later")
 ```
 
-Lambdas used as `code` cannot take parameters or capture locals.
+Important closure rule: locals captured by a closure are captured by value. Treat captured locals as read-only shared state: assigning to one inside a callback does not update the outer local that was captured. For shared mutable state, keep the state in a class instance or use `reference(value)`, then mutate `.val` and destroy the reference when finished. Lambdas used as `code` cannot take parameters or capture locals.
 
 ## Classes, Tuples, Generics
 
@@ -246,5 +246,6 @@ Tests should be small, deterministic, self-contained, and assertion-driven. If q
 - Wurst code must be inside `package`; indentation defines blocks.
 - `array.length` is only the initial length.
 - Varargs are limited by Jass's 31-argument limit.
+- Closures capture locals by value: do not expect callback assignments to update the outer local; use a class or `reference(value)` for intentional shared mutation.
 - Lambdas need a known target type; `code` lambdas cannot capture locals.
 - `new` objects and stored closures usually need `destroy` (see Production Pitfalls).
