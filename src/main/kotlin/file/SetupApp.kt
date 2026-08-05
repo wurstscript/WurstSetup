@@ -661,6 +661,7 @@ object SetupApp {
         val selectedInfo = Wc3ClientDetector.inspectGameRoot(selected)
         if (selectedInfo == null) {
             log.warn("No supported Warcraft III executable found in $selected. You can fix wurst.wc3path later in .vscode/settings.json.")
+            setup.gamePathOptedOut = true
             return null
         }
         Wc3ClientDetector.mismatchMessage(wc3Patch, selectedInfo)?.let { log.warn(it) }
