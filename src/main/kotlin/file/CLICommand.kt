@@ -13,7 +13,13 @@ enum class CLICommand {
     OUTDATED,
     BUILD,
     EXPORTOBJECTS,
+    BENCHMARK,
     SELF_UPDATE
+}
+
+enum class BenchmarkFormat {
+    HUMAN,
+    JSON
 }
 
 enum class GlobalOptions(val optionName: String = "", val argCount: Int = 0) {
