@@ -1,3 +1,4 @@
+import file.SetupApp
 import org.testng.Assert
 import org.testng.annotations.Test
 import java.nio.file.Files
@@ -25,5 +26,12 @@ class AgentsTemplateTests {
 
         Assert.assertTrue(localIndex >= 0, "Missing compiler-matched local language reference")
         Assert.assertTrue(onlineIndex > localIndex, "Online manual must remain a fallback after the local reference")
+    }
+
+    @Test
+    fun testNewerTemplateDoesNotLookStaleToOlderGrill() {
+        val newerMarked = "<!-- WURST_AGENTS_TEMPLATE_VERSION: 2099-01-01 -->\n# AGENTS.md\n"
+
+        Assert.assertNull(SetupApp.agentsTemplateWarning(newerMarked))
     }
 }

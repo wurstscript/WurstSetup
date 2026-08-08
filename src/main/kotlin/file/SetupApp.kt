@@ -937,6 +937,17 @@ object SetupApp {
             return null
         }
         if (markerLine != null) {
+            val markerVersion = markerLine
+                .removePrefix(AGENTS_TEMPLATE_MARKER_PREFIX)
+                .removeSuffix("-->")
+                .trim()
+            // Template versions are ISO dates, so lexical ordering is chronological. A newer
+            // downloaded template is valid even when this older Grill binary cannot recognize it.
+            if (markerVersion > AGENTS_TEMPLATE_VERSION) {
+                return null
+            }
+        }
+        if (markerLine != null) {
             return "AGENTS.md was generated from an older WurstSetup template ($markerLine). Consider refreshing it from templates/AGENTS.md and re-applying project-local notes."
         }
         if (content.contains(AGENTS_TEMPLATE_SOURCE_HINT)) {

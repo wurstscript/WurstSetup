@@ -9,6 +9,8 @@ import net.NetStatus
 import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.Paths
+import java.nio.file.StandardCopyOption
+import java.util.jar.JarFile
 import java.util.regex.Pattern
 
 
@@ -19,6 +21,7 @@ object InstallationManager {
     private val log = KotlinLogging.logger {}
     private const val FOLDER_PATH = ".wurst"
     private const val COMPILER_FILE_NAME = "wurstscript.jar"
+    private const val LANGUAGE_AGENT_DOC_ENTRY = "agent-docs/WURST_LANGUAGE.md"
     private const val GRILL_JAR_NAME = "grill.jar"
     private const val LEGACY_GRILL_JAR_NAME = "WurstSetup.jar"
 
@@ -49,6 +52,7 @@ object InstallationManager {
         log.info("verifyInstallation: detectedCompilerJar=$detectedCompilerJar exists=${detectedCompilerJar?.let { Files.exists(it) }}")
         if (detectedCompilerJar != null) {
             log.info("Found installation at $detectedCompilerJar")
+            ensureCompilerAgentDocs(detectedCompilerJar)
             status = InstallationStatus.INSTALLED_UNKNOWN
             try {
                 if (!Files.isWritable(detectedCompilerJar)) {
@@ -94,9 +98,11 @@ object InstallationManager {
             log.info("\t📦 Extracting..")
 			ZipArchiveExtractor.extractArchive(it, installDir)
 			Files.delete(it)
-            if (detectCompilerJar() == null) {
+            val compilerJar = detectCompilerJar()
+            if (compilerJar == null) {
                 log.error("❌ Compiler not found after extraction.")
             } else {
+                ensureCompilerAgentDocs(compilerJar)
                 if (isFreshInstall) { wurstConfig = WurstConfigData() }
                 ensureGrillJarInstalled()
                 setLaunchersExecutable()
@@ -190,6 +196,25 @@ object InstallationManager {
             Files.exists(compilerJar) -> compilerJar
             Files.exists(legacyCompilerJar) -> legacyCompilerJar
             else -> null
+        }
+    }
+
+    private fun ensureCompilerAgentDocs(compilerJar: Path) {
+        try {
+            JarFile(compilerJar.toFile()).use { jar ->
+                val entry = jar.getJarEntry(LANGUAGE_AGENT_DOC_ENTRY) ?: return
+                val docsDir = compilerDir.resolve("agent-docs")
+                Files.createDirectories(docsDir)
+                jar.getInputStream(entry).use { input ->
+                    Files.copy(
+                        input,
+                        docsDir.resolve("WURST_LANGUAGE.md"),
+                        StandardCopyOption.REPLACE_EXISTING
+                    )
+                }
+            }
+        } catch (e: Exception) {
+            log.warn("Could not extract compiler agent docs: ${e.message}")
         }
     }
 
