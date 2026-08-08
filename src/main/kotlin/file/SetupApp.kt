@@ -32,7 +32,7 @@ object SetupApp {
 
     private data class WurstProcessResult(val exitCode: Int, val output: List<String>)
 
-    internal const val AGENTS_TEMPLATE_VERSION = "2026-08-05"
+    internal const val AGENTS_TEMPLATE_VERSION = "2026-08-08"
     private const val AGENTS_TEMPLATE_MARKER_PREFIX = "<!-- WURST_AGENTS_TEMPLATE_VERSION:"
     private const val AGENTS_TEMPLATE_MARKER = "<!-- WURST_AGENTS_TEMPLATE_VERSION: $AGENTS_TEMPLATE_VERSION -->"
     private const val AGENTS_TEMPLATE_SOURCE_HINT = "WurstScript Warcraft III map project notes"
@@ -935,6 +935,17 @@ object SetupApp {
         val markerLine = content.lineSequence().firstOrNull { it.startsWith(AGENTS_TEMPLATE_MARKER_PREFIX) }
         if (markerLine == AGENTS_TEMPLATE_MARKER) {
             return null
+        }
+        if (markerLine != null) {
+            val markerVersion = markerLine
+                .removePrefix(AGENTS_TEMPLATE_MARKER_PREFIX)
+                .removeSuffix("-->")
+                .trim()
+            // Template versions are ISO dates, so lexical ordering is chronological. A newer
+            // downloaded template is valid even when this older Grill binary cannot recognize it.
+            if (markerVersion > AGENTS_TEMPLATE_VERSION) {
+                return null
+            }
         }
         if (markerLine != null) {
             return "AGENTS.md was generated from an older WurstSetup template ($markerLine). Consider refreshing it from templates/AGENTS.md and re-applying project-local notes."
