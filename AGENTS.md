@@ -15,6 +15,7 @@ This repo builds the Grill CLI and project setup tooling. The generated map-proj
 - Local helpers in `config/ProjectConfigModels.kt` should stay thin: typealiases plus immutable copy helpers for shared records.
 - `YamlHelper.dumpProjectConfig` intentionally serializes a pruned YAML map instead of the shared records directly. This preserves the old user-facing `wurst.build` behavior by omitting null/default nested fields.
 - `wbschema.json` should stay lenient and aligned with the shared config parser, especially for `scriptMode`, `wc3Patch`, and nullable legacy fields.
+- Compiler-owned agent references belong in `~/.wurst/wurst-compiler/agent-docs/`. Generated project notes should prefer those version-matched local files when present and retain an online fallback until compiler releases ship them.
 
 ## WC3 Patch And Core JASS
 

@@ -15,7 +15,7 @@ object Download {
     private val log = KotlinLogging.logger {}
 
 	private const val compilerReleaseBaseUrl = "https://github.com/wurstscript/WurstScript/releases/download/nightly/"
-	private const val bareboneUrl = "github.com/wurstscript/wurst-project-template/archive/master.zip"
+	private const val bareboneBaseUrl = "github.com/wurstscript/wurst-project-template/archive"
 
     @Throws(IOException::class)
     fun downloadSetup(callback: (Path) -> Unit) {
@@ -28,13 +28,13 @@ object Download {
     }
 
     @Throws(IOException::class)
-    fun downloadBareboneProject(callback: (Path) -> Unit) {
+    fun downloadBareboneProject(templateBranch: String = "master", callback: (Path) -> Unit) {
         try {
-            downloadDirect("https://$bareboneUrl", callback)
+            downloadDirect("https://${bareboneBaseUrl}/${templateBranch}.zip", callback)
         } catch (e: Exception) {
             log.warn("downloadBareboneProject Exception caught", e)
             Log.println("Https error, falling back to unsafe http.")
-            downloadDirect("http://$bareboneUrl", callback)
+            downloadDirect("http://${bareboneBaseUrl}/${templateBranch}.zip", callback)
         }
     }
 

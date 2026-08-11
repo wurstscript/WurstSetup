@@ -27,9 +27,9 @@ object WurstProjectConfig {
     private val schema by lazy { javaClass.classLoader.getResource("wbschema.json") }
     private val log = KotlinLogging.logger {}
 
-    fun handleCreate(projectRoot: Path, gameRoot: Path?, projectConfig: WurstProjectConfigData) {
+    fun handleCreate(projectRoot: Path, gameRoot: Path?, projectConfig: WurstProjectConfigData, templateBranch: String = "master") {
         try {
-            createProject(projectRoot, gameRoot, projectConfig)
+            createProject(projectRoot, gameRoot, projectConfig, templateBranch)
         } catch (e: Exception) {
             if (DependencyManager.debug) {
                 e.printStackTrace()
@@ -60,7 +60,7 @@ object WurstProjectConfig {
     }
 
     @Throws(Exception::class)
-    private fun createProject(projectRoot: Path, gameRoot: Path?, projectConfig: WurstProjectConfigData) {
+    private fun createProject(projectRoot: Path, gameRoot: Path?, projectConfig: WurstProjectConfigData, templateBranch: String) {
         Log.print("Creating project root..")
         if (Files.exists(projectRoot) && Files.list(projectRoot).filter { !Files.isDirectory(it) }.findAny().isPresent) {
             log.error("Project root already exists and contains files")
@@ -71,13 +71,13 @@ object WurstProjectConfig {
 
             Log.print("Download template..")
             log.info("⏬ Downloading template..")
-            Download.downloadBareboneProject {
-				extractDownload(it, projectRoot, gameRoot, projectConfig)
+			Download.downloadBareboneProject(templateBranch) {
+				extractDownload(it, projectRoot, gameRoot, projectConfig, templateBranch)
 			}
         }
     }
 
-	private fun extractDownload(it: Path, projectRoot: Path, gameRoot: Path?, projectConfig: WurstProjectConfigData) {
+	private fun extractDownload(it: Path, projectRoot: Path, gameRoot: Path?, projectConfig: WurstProjectConfigData, templateBranch: String) {
 		Log.println(" done.")
 
 		Log.print("Extracting template..")
@@ -85,7 +85,7 @@ object WurstProjectConfig {
 		Files.delete(it)
 		if (extractSuccess) {
 			Log.print("done\n")
-			cleanupDownload(projectRoot)
+			cleanupDownload(projectRoot, templateBranch)
             normalizeGeneratedTemplate(projectRoot)
 		} else {
 			Log.print("error\n")
@@ -97,9 +97,9 @@ object WurstProjectConfig {
         log.info("✔ Project generated.")
 	}
 
-	private fun cleanupDownload(projectRoot: Path) {
+	private fun cleanupDownload(projectRoot: Path, templateBranch: String) {
 		Log.print("Clean up..")
-		val folder = projectRoot.resolve("wurst-project-template-master")
+		val folder = projectRoot.resolve("wurst-project-template-$templateBranch")
 		copyFolder(folder, projectRoot)
 		Files.walk(folder).sorted { a, b -> b.compareTo(a) }.forEach { p ->
 			try {

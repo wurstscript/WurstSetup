@@ -31,11 +31,13 @@ class SetupMain {
 
     var debug = false
 
-    // Generate wizard options (defaults: non-interactive, Lua, Reforged, no extras)
+    // Generate wizard options (defaults: non-interactive, Lua, Reforged, Reforged folder, no extras)
     var addAgents: Boolean = false
     var addGithubWorkflow: Boolean = false
     var scriptMode: ScriptMode = ScriptMode.LUA
     var wc3Patch: String = CoreJassProvider.DEFAULT_PATCH
+    var mapFormat: MapFormat = MapFormat.FOLDER
+    var mapFormatExplicit: Boolean = false
 
     /** Ids of curated dependencies (see [CuratedDependencies]) to seed into the generated project. */
     var curatedDependencyIds: MutableList<String> = mutableListOf()
