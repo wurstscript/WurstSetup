@@ -202,13 +202,20 @@ object InstallationManager {
     private fun ensureCompilerAgentDocs(compilerJar: Path) {
         try {
             JarFile(compilerJar.toFile()).use { jar ->
-                val entry = jar.getJarEntry(LANGUAGE_AGENT_DOC_ENTRY) ?: return
                 val docsDir = compilerDir.resolve("agent-docs")
+                val docsFile = docsDir.resolve("WURST_LANGUAGE.md")
+                val entry = jar.getJarEntry(LANGUAGE_AGENT_DOC_ENTRY)
+                if (entry == null) {
+                    // A compiler downgrade may remove the resource. Do not leave docs from the old compiler
+                    // in place, or generated projects could use language guidance for the wrong version.
+                    Files.deleteIfExists(docsFile)
+                    return
+                }
                 Files.createDirectories(docsDir)
                 jar.getInputStream(entry).use { input ->
                     Files.copy(
                         input,
-                        docsDir.resolve("WURST_LANGUAGE.md"),
+                        docsFile,
                         StandardCopyOption.REPLACE_EXISTING
                     )
                 }
