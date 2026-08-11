@@ -85,6 +85,18 @@ enum class GlobalOptions(val optionName: String = "", val argCount: Int = 0) {
             setupMain.wc3Patch = CoreJassProvider.normalizePatchInput(args[0])
         }
     },
+    MAP_FORMAT("--map-format", 1) {
+        override fun runOption(setupMain: SetupMain, args: List<String>) {
+            val format = MapFormat.parse(args[0])
+            if (format == null) {
+                log.error("❌ Unknown map format: ${args[0]}. Use archive or folder.")
+                ExitHandler.exit(1)
+            } else {
+                setupMain.mapFormat = format
+                setupMain.mapFormatExplicit = true
+            }
+        }
+    },
     WC3_PATH("--wc3-path", 1) {
         override fun runOption(setupMain: SetupMain, args: List<String>) {
             setupMain.gamePath = java.nio.file.Paths.get(args[0])

@@ -149,7 +149,7 @@ object SetupApp {
                     |  test [filter]                    Run unit tests, optionally filtered by package/function name
                     |  typecheck                        Typecheck the project without building a map
                     |  outdated                         Check whether project dependencies are up to date
-                    |  build <mapfile>                  Build the project using the given input map
+                    |  build <mapfile|map-folder>        Build the project using the given map archive or folder
                     |  exportobjects <mapfile|folder>   Export object editor data to Wurst source
                     |
                     |Global options:
@@ -162,6 +162,7 @@ object SetupApp {
                     |Generate options:
                     |  --script-mode lua|jass           Script mode (default: lua)
                     |  --wc3-patch <patch>              WC3 patch target: reforged, pre1.29, or jass-history version
+                    |  --map-format archive|folder     Starter map storage (default: folder for Reforged)
                     |  --wc3-path <dir>                 Warcraft III install folder for VS Code/run
                     |  --with-agents / --no-agents      Include AGENTS.md (default: no)
                     |  --with-ci / --no-ci              Include GitHub Actions workflow (default: no)
@@ -220,12 +221,12 @@ object SetupApp {
                     wc3Patch = setup.wc3Patch
                 )
                 val gameRoot = resolveGenerateGamePath(setup, projectConfig.wc3Patch)
-                WurstProjectConfig.handleCreate(projectDir, gameRoot, projectConfig)
+                WurstProjectConfig.handleCreate(projectDir, gameRoot, projectConfig, setup.mapFormat.templateBranch)
                 ensureCoreJassFiles(projectDir, projectConfig.wc3Patch)
                 if (Files.exists(projectDir)) {
                     if (setup.addAgents) downloadAgentsMd(projectDir)
                     if (setup.addGithubWorkflow) writeCiWorkflow(projectDir)
-                    printGenerateNextSteps(projectDir, projectConfig, setup.addAgents, setup.addGithubWorkflow, gameRoot)
+                    printGenerateNextSteps(projectDir, projectConfig, setup.mapFormat, setup.addAgents, setup.addGithubWorkflow, gameRoot)
                 }
 			}
             setup.command == CLICommand.TEST -> {
@@ -315,7 +316,7 @@ object SetupApp {
 
     private fun missingMap(requestedMap: String? = null): Nothing {
         if (requestedMap == null) {
-            log.error("❌ No input map specified and no .w3x/.w3m file was found in the project root.")
+            log.error("❌ No input map specified and no .w3x/.w3m archive or map folder was found in the project root.")
             log.info("Try: put a map in the project root, or run `grill build YourMap.w3x`.")
         } else {
             log.error("❌ Map not found: $requestedMap")
@@ -343,6 +344,7 @@ object SetupApp {
     private fun printGenerateNextSteps(
         projectDir: Path,
         projectConfig: WurstProjectConfigData,
+        mapFormat: MapFormat,
         addAgents: Boolean,
         addGithubWorkflow: Boolean,
         gameRoot: Path?
@@ -355,6 +357,7 @@ object SetupApp {
             |Choices:
             |  Script mode: ${(projectConfig.scriptMode ?: ScriptMode.LUA).name.lowercase()}
             |  WC3 patch: ${CoreJassProvider.describePatch(projectConfig.wc3Patch ?: CoreJassProvider.DEFAULT_PATCH)}
+            |  Map storage: ${if (mapFormat == MapFormat.FOLDER) "folder (.w3x directory)" else "archive (.w3x file)"}
             |  Warcraft III: ${gameRoot?.toAbsolutePath()?.normalize() ?: "not configured"}
             |  Stdlib: ${if (projectConfig.dependencies.any { it.endsWith(":pre1.29") }) "pre1.29" else "current"}
             |  Curated dependencies: $curatedSummary
@@ -365,6 +368,7 @@ object SetupApp {
             |  code ./${projectDir.fileName}
         """.trimMargin())
     }
+
 
     private fun resolveGenerateGamePath(setup: SetupMain, wc3Patch: String?): Path? {
         if (setup.gamePathOptedOut) {
@@ -595,6 +599,10 @@ object SetupApp {
             useInteractiveMenus = useInteractiveMenus,
             currentPatch = setup.wc3Patch
         )
+        if (!setup.mapFormatExplicit) {
+            setup.mapFormat = recommendedMapFormat(setup.wc3Patch)
+        }
+        setup.mapFormat = selectMapFormat(prompt, setup.mapFormat, useInteractiveMenus)
         setup.gamePathOptedOut = false
         setup.gamePath = selectGamePath(setup, prompt, setup.wc3Patch, setup.gamePath)
 
@@ -607,6 +615,24 @@ object SetupApp {
         setup.addGithubWorkflow = ciInput.lowercase() == "y"
 
         setup.curatedDependencyIds = selectCuratedDependencies(prompt, setup.curatedDependencyIds).toMutableList()
+    }
+    internal fun recommendedMapFormat(wc3Patch: String?): MapFormat =
+        if (CoreJassProvider.isReforgedPatch(wc3Patch)) MapFormat.FOLDER else MapFormat.ARCHIVE
+
+    private fun selectMapFormat(
+        prompt: (String, String?) -> String?,
+        current: MapFormat,
+        useInteractiveMenus: Boolean,
+    ): MapFormat {
+        val choices = listOf(
+            TerminalMenu.Choice(MapFormat.FOLDER, "${MapFormat.FOLDER.label} (recommended for Reforged)"),
+            TerminalMenu.Choice(MapFormat.ARCHIVE, "${MapFormat.ARCHIVE.label} (recommended for classic/legacy)"),
+        )
+        if (useInteractiveMenus) {
+            TerminalMenu.choose("Map storage format:", choices, choices.indexOfFirst { it.value == current })?.let { return it }
+        }
+        val answer = prompt("Map storage (archive/folder)", current.cliName)?.lowercase()
+        return MapFormat.parse(answer.orEmpty()) ?: current
     }
 
     private fun selectCuratedDependencies(

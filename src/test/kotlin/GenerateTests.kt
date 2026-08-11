@@ -3,6 +3,7 @@ import file.CLICommand
 import file.CoreJassProvider
 import file.CuratedDependencies
 import file.ExitHandler
+import file.MapFormat
 import file.SetupApp
 import file.SetupMain
 import org.testng.Assert
@@ -44,6 +45,7 @@ class GenerateTests {
         Assert.assertEquals(setup.commandArg, "myproject")
         Assert.assertEquals(setup.scriptMode, ScriptMode.LUA)
         Assert.assertEquals(setup.wc3Patch, CoreJassProvider.DEFAULT_PATCH)
+        Assert.assertEquals(setup.mapFormat, MapFormat.FOLDER)
         Assert.assertFalse(setup.addAgents)
         Assert.assertFalse(setup.addGithubWorkflow)
     }
@@ -62,6 +64,16 @@ class GenerateTests {
         setup.parseArgs(listOf("generate", "myproject", "--wc3-patch", "pre1.29"))
         Assert.assertEquals(setup.scriptMode, ScriptMode.LUA)
         Assert.assertEquals(setup.wc3Patch, CoreJassProvider.PRE_129_PATCH)
+    }
+
+    @Test(priority = 10)
+    fun testMapFormatFlagAndPatchRecommendations() {
+        val archive = SetupMain()
+        archive.parseArgs(listOf("generate", "myproject", "--map-format", "archive"))
+        Assert.assertEquals(archive.mapFormat, MapFormat.ARCHIVE)
+        Assert.assertTrue(archive.mapFormatExplicit)
+        Assert.assertEquals(SetupApp.recommendedMapFormat("v1.31"), MapFormat.ARCHIVE)
+        Assert.assertEquals(SetupApp.recommendedMapFormat("v1.36"), MapFormat.FOLDER)
     }
 
     @Test(priority = 10)
@@ -376,10 +388,18 @@ class GenerateTests {
     }
 
     @Test(priority = 10)
+    fun testExportObjectsCommandParsesMapOrFolderArg() {
+        val setup = SetupMain()
+        setup.parseArgs(listOf("exportobjects", "ExampleMap.w3x"))
+        Assert.assertEquals(setup.command, CLICommand.EXPORTOBJECTS)
+        Assert.assertEquals(setup.commandArg, "ExampleMap.w3x")
+    }
+
+    @Test(priority = 10)
     fun testGenerateWithoutNameUsesWizardPrompt() {
         val setup = SetupMain()
         setup.parseArgs(listOf("generate"))
-        val answers = java.util.ArrayDeque(listOf("wizardproject", "jass", "pre1.29", "none", "y", "y", "n"))
+        val answers = java.util.ArrayDeque(listOf("wizardproject", "jass", "pre1.29", "archive", "none", "y", "y", "n"))
         val prevPrompt = SetupApp.generatePrompt
         try {
             SetupApp.generatePrompt = { _, _ -> answers.removeFirst() }
@@ -400,7 +420,7 @@ class GenerateTests {
     fun testGenerateWithNameUsesWizardPrompt() {
         val setup = SetupMain()
         setup.parseArgs(listOf("generate", "wizardproject"))
-        val answers = java.util.ArrayDeque(listOf("jass", "pre1.29", "none", "y", "y", "n"))
+        val answers = java.util.ArrayDeque(listOf("jass", "pre1.29", "archive", "none", "y", "y", "n"))
         val prevPrompt = SetupApp.generatePrompt
         try {
             SetupApp.generatePrompt = { _, _ -> answers.removeFirst() }
@@ -448,7 +468,7 @@ class GenerateTests {
     fun testGenerateWizardRejectsUnsupportedScriptModeAndPatchInput() {
         val setup = SetupMain()
         setup.parseArgs(listOf("generate"))
-        val answers = java.util.ArrayDeque(listOf("wizardproject", "t", "jass", "t", "2", "none", "n", "n", "n"))
+        val answers = java.util.ArrayDeque(listOf("wizardproject", "t", "jass", "t", "2", "archive", "none", "n", "n", "n"))
         val prevPrompt = SetupApp.generatePrompt
         try {
             SetupApp.generatePrompt = { _, _ -> answers.removeFirst() }
@@ -468,7 +488,7 @@ class GenerateTests {
     fun testGenerateWizardPreservesCliPatchDefault() {
         val setup = SetupMain()
         setup.parseArgs(listOf("generate", "--wc3-patch", "pre1.29"))
-        val answers = java.util.ArrayDeque(listOf("wizardproject", "", "", "none", "n", "n", "n"))
+        val answers = java.util.ArrayDeque(listOf("wizardproject", "", "", "archive", "none", "n", "n", "n"))
         val prevPrompt = SetupApp.generatePrompt
         try {
             SetupApp.generatePrompt = { _, _ -> answers.removeFirst() }
@@ -539,7 +559,7 @@ class GenerateTests {
     fun testGenerateWizardSelectsCuratedDependency() {
         val setup = SetupMain()
         setup.parseArgs(listOf("generate"))
-        val answers = java.util.ArrayDeque(listOf("wizardproject", "lua", "", "none", "n", "n", "y"))
+        val answers = java.util.ArrayDeque(listOf("wizardproject", "lua", "", "archive", "none", "n", "n", "y"))
         val prevPrompt = SetupApp.generatePrompt
         try {
             SetupApp.generatePrompt = { _, _ -> answers.removeFirst() }

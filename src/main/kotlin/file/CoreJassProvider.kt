@@ -171,6 +171,13 @@ object CoreJassProvider {
             .orElse(false)
     }
 
+    fun isReforgedPatch(input: String?): Boolean {
+        val patch = normalizePatchInput(input)
+        return Wc3PatchTarget.parse(patch)
+            .map { it.kind() == Wc3PatchTarget.Kind.REFORGED }
+            .orElse(false)
+    }
+
     fun ensureFiles(projectRoot: Path, wc3Patch: String?): List<Path> {
         val buildFolder = projectRoot.resolve("_build")
         Files.createDirectories(buildFolder)
