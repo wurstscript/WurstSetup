@@ -22,6 +22,7 @@ import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.Paths
 import java.util.*
+import java.util.concurrent.TimeUnit
 import javax.swing.JOptionPane
 
 
@@ -1124,15 +1125,17 @@ object SetupApp {
     }
 
     private fun runWurstProcess(args: ArrayList<String>, compactFallback: Boolean): WurstProcessResult {
+        var process: Process? = null
         return try {
             val pb = ProcessBuilder(args)
             val outputDir = compilerOutputDir()
             Files.createDirectories(outputDir)
             pb.directory(outputDir.toFile())
             pb.redirectErrorStream(true)
-            val p = pb.start()
+            val startedProcess = pb.start()
+            process = startedProcess
             val output = ArrayList<String>()
-            p.inputStream.bufferedReader().forEachLine { line ->
+            startedProcess.inputStream.bufferedReader().forEachLine { line ->
                 output.add(line)
                 if (!setup.debug && isNoisyCompilerVersionLine(line)) {
                     return@forEachLine
@@ -1141,13 +1144,32 @@ object SetupApp {
                     println(line)
                 }
             }
-            val exitCode = p.waitFor()
+            val exitCode = startedProcess.waitFor()
             WurstProcessResult(exitCode, output)
         } catch (e: Exception) {
+            process?.let(::terminateWurstProcess)
+            if (e is InterruptedException) {
+                Thread.currentThread().interrupt()
+            }
             WurstProcessResult(
                 1,
                 listOf("Could not start Wurst compiler: ${e.message ?: e.javaClass.simpleName}")
             )
+        }
+    }
+
+    private fun terminateWurstProcess(process: Process) {
+        if (!process.isAlive) {
+            return
+        }
+        process.destroy()
+        try {
+            if (process.isAlive && !process.waitFor(1, TimeUnit.SECONDS)) {
+                process.destroyForcibly()
+            }
+        } catch (_: InterruptedException) {
+            process.destroyForcibly()
+            Thread.currentThread().interrupt()
         }
     }
 
