@@ -22,6 +22,7 @@ import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.Paths
 import java.util.*
+import java.util.concurrent.TimeUnit
 import javax.swing.JOptionPane
 
 
@@ -231,18 +232,22 @@ object SetupApp {
 			}
             setup.command == CLICommand.TEST -> {
                 progress("⚗️ Running tests...")
-                if (InstallationManager.status != InstallationManager.InstallationStatus.NOT_INSTALLED && configData != null) {
-                    testProject(configData)
-                } else if (configData == null) {
+                if (configData == null) {
                     missingProject()
+                } else if (InstallationManager.status == InstallationManager.InstallationStatus.NOT_INSTALLED) {
+                    missingCompiler()
+                } else {
+                    testProject(configData)
                 }
             }
             setup.command == CLICommand.TYPECHECK -> {
                 progress("🔍 Typechecking project...")
-                if (InstallationManager.status != InstallationManager.InstallationStatus.NOT_INSTALLED && configData != null) {
-                    typecheckProject(configData)
-                } else if (configData == null) {
+                if (configData == null) {
                     missingProject()
+                } else if (InstallationManager.status == InstallationManager.InstallationStatus.NOT_INSTALLED) {
+                    missingCompiler()
+                } else {
+                    typecheckProject(configData)
                 }
             }
             setup.command == CLICommand.OUTDATED -> {
@@ -266,11 +271,13 @@ object SetupApp {
                 if (mapArg != null) {
                     if (!Files.exists(setup.projectRoot.resolve(mapArg))) {
                         missingMap(mapArg)
-                    } else if (InstallationManager.status != InstallationManager.InstallationStatus.NOT_INSTALLED && configData != null) {
-                        setup.commandArg = mapArg
-                        buildProject(configData)
                     } else if (configData == null) {
                         missingProject()
+                    } else if (InstallationManager.status == InstallationManager.InstallationStatus.NOT_INSTALLED) {
+                        missingCompiler()
+                    } else {
+                        setup.commandArg = mapArg
+                        buildProject(configData)
                     }
                 }
             }
@@ -288,7 +295,9 @@ object SetupApp {
                     val mapPath = setup.projectRoot.resolve(mapArg)
                     if (!Files.exists(mapPath)) {
                         missingMap(mapArg)
-                    } else if (InstallationManager.status != InstallationManager.InstallationStatus.NOT_INSTALLED) {
+                    } else if (InstallationManager.status == InstallationManager.InstallationStatus.NOT_INSTALLED) {
+                        missingCompiler()
+                    } else {
                         exportObjects(mapPath)
                     }
                 }
@@ -300,9 +309,13 @@ object SetupApp {
 	                    InstallationManager.ensureGrillJarInstalled()
                     ExitHandler.exit(0)
                 } catch(e: Exception) {
-                    log.error("Grill update failed. Original files might still be in use.")
+                    fail("❌ Grill update failed. Original files might still be in use.")
+                    if (setup.debug) {
+                        e.printStackTrace()
+                    }
+                    ExitHandler.exit(1)
                 }
-            }
+			}
 		}
 
 	}
@@ -326,6 +339,12 @@ object SetupApp {
                 log.info("Available maps: ${maps.joinToString { it.fileName.toString() }}")
             }
         }
+        ExitHandler.exit(1)
+    }
+
+    private fun missingCompiler(): Nothing {
+        fail("❌ WurstScript compiler is not installed.")
+        detail("Try: grill install wurstscript")
         ExitHandler.exit(1)
     }
 
@@ -1106,24 +1125,52 @@ object SetupApp {
     }
 
     private fun runWurstProcess(args: ArrayList<String>, compactFallback: Boolean): WurstProcessResult {
-        val pb = ProcessBuilder(args)
-        val outputDir = compilerOutputDir()
-        Files.createDirectories(outputDir)
-        pb.directory(outputDir.toFile())
-        pb.redirectErrorStream(true)
-        val p = pb.start()
-        val output = ArrayList<String>()
-        p.inputStream.bufferedReader().forEachLine { line ->
-            output.add(line)
-            if (!setup.debug && isNoisyCompilerVersionLine(line)) {
-                return@forEachLine
+        var process: Process? = null
+        return try {
+            val pb = ProcessBuilder(args)
+            val outputDir = compilerOutputDir()
+            Files.createDirectories(outputDir)
+            pb.directory(outputDir.toFile())
+            pb.redirectErrorStream(true)
+            val startedProcess = pb.start()
+            process = startedProcess
+            val output = ArrayList<String>()
+            startedProcess.inputStream.bufferedReader().forEachLine { line ->
+                output.add(line)
+                if (!setup.debug && isNoisyCompilerVersionLine(line)) {
+                    return@forEachLine
+                }
+                if (!setup.quiet) {
+                    println(line)
+                }
             }
-            if (!setup.quiet) {
-                println(line)
+            val exitCode = startedProcess.waitFor()
+            WurstProcessResult(exitCode, output)
+        } catch (e: Exception) {
+            process?.let(::terminateWurstProcess)
+            if (e is InterruptedException) {
+                Thread.currentThread().interrupt()
             }
+            WurstProcessResult(
+                1,
+                listOf("Could not start Wurst compiler: ${e.message ?: e.javaClass.simpleName}")
+            )
         }
-        val exitCode = p.waitFor()
-        return WurstProcessResult(exitCode, output)
+    }
+
+    private fun terminateWurstProcess(process: Process) {
+        if (!process.isAlive) {
+            return
+        }
+        process.destroy()
+        try {
+            if (process.isAlive && !process.waitFor(1, TimeUnit.SECONDS)) {
+                process.destroyForcibly()
+            }
+        } catch (_: InterruptedException) {
+            process.destroyForcibly()
+            Thread.currentThread().interrupt()
+        }
     }
 
 	    private fun commonArgs(configData: WurstProjectConfigData): ArrayList<String> {
@@ -1193,13 +1240,16 @@ object SetupApp {
             return configData.withRemovedDependency(setup.commandArg)
 		} else {
 			log.error("❌ Dependency is not listed in wurst.build: ${setup.commandArg}")
+			ExitHandler.exit(1)
 		}
         return configData
 	}
 
 	private fun handleRemoveWurst() {
 		if (!setup.requireConfirmation) {
-			InstallationManager.handleRemove()
+			if (!InstallationManager.handleRemove()) {
+                ExitHandler.exit(1)
+            }
 		}
 	}
 
@@ -1259,10 +1309,18 @@ object SetupApp {
                 val sc = Scanner(System.`in`)
                 val line = sc.nextLine()
                 if (line == "y") {
-                    InstallationManager.handleUpdate()
+                    if (!InstallationManager.handleUpdate()) {
+                        fail("❌ WurstScript installation failed.")
+                        detail("Try again, or rerun with --debug for more details.")
+                        ExitHandler.exit(1)
+                    }
                 }
 			} else {
-				InstallationManager.handleUpdate()
+				if (!InstallationManager.handleUpdate()) {
+                    fail("❌ WurstScript installation failed.")
+                    detail("Try again, or rerun with --debug for more details.")
+                    ExitHandler.exit(1)
+                }
 			}
 		} else {
 			log.info("✅ Already up to date.")
