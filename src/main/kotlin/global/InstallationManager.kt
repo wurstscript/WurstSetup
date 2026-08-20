@@ -80,35 +80,43 @@ object InstallationManager {
     }
 
 
-    fun handleUpdate() {
+    fun handleUpdate(): Boolean {
         val isFreshInstall = status == InstallationStatus.NOT_INSTALLED
         try {
             log.debug(if (isFreshInstall) "isInstall" else "isUpdate")
             log.info("⏬ Downloading WurstScript..")
 
-			downloadCompiler(isFreshInstall)
+			return downloadCompiler(isFreshInstall)
         } catch (e: Exception) {
             log.error("Exception: ", e)
             Log.print("\n===ERROR COMPILER UPDATE===\n" + e.message + "\nPlease report here: github.com/wurstscript/WurstScript/issues\n")
+            return false
         }
     }
 
-	private fun downloadCompiler(isFreshInstall: Boolean) {
+	private fun downloadCompiler(isFreshInstall: Boolean): Boolean {
+		var installed = false
 		Download.downloadCompiler {
-            log.info("\t📦 Extracting..")
-			ZipArchiveExtractor.extractArchive(it, installDir)
+			log.info("\t📦 Extracting..")
+			val extractionSucceeded = ZipArchiveExtractor.extractArchive(it, installDir)
 			Files.delete(it)
-            val compilerJar = detectCompilerJar()
-            if (compilerJar == null) {
-                log.error("❌ Compiler not found after extraction.")
-            } else {
-                ensureCompilerAgentDocs(compilerJar)
-                if (isFreshInstall) { wurstConfig = WurstConfigData() }
-                ensureGrillJarInstalled()
-                setLaunchersExecutable()
-                log.info("✔ Installed WurstScript to $installDir")
-            }
+			if (!extractionSucceeded) {
+				log.error("❌ Compiler archive could not be extracted.")
+			} else {
+				val compilerJar = detectCompilerJar()
+				if (compilerJar == null) {
+					log.error("❌ Compiler not found after extraction.")
+				} else {
+					ensureCompilerAgentDocs(compilerJar)
+					if (isFreshInstall) { wurstConfig = WurstConfigData() }
+					ensureGrillJarInstalled()
+					setLaunchersExecutable()
+					log.info("✔ Installed WurstScript to $installDir")
+					installed = true
+				}
+			}
 		}
+		return installed
 	}
 
     private fun setLaunchersExecutable() {
@@ -146,16 +154,21 @@ object InstallationManager {
         return 0
     }
 
-    fun handleRemove() {
-        val jarInUse = detectCompilerJar()?.let { !Files.isWritable(it) } ?: false
-        if (jarInUse) {
-            log.error("❌ Cannot remove WurstScript: compiler jar is in use. Close VSCode and any running Wurst instances first.")
-            return
-        }
-        removeCompilerInstall()
-        verifyInstallation()
-        log.info("WurstScript has been removed.")
-    }
+	fun handleRemove(): Boolean {
+		val jarInUse = detectCompilerJar()?.let { !Files.isWritable(it) } ?: false
+		if (jarInUse) {
+			log.error("❌ Cannot remove WurstScript: compiler jar is in use. Close VSCode and any running Wurst instances first.")
+			return false
+		}
+		removeCompilerInstall()
+		verifyInstallation()
+		if (status != InstallationStatus.NOT_INSTALLED) {
+			log.error("❌ WurstScript could not be completely removed.")
+			return false
+		}
+		log.info("WurstScript has been removed.")
+		return true
+	}
 
     private fun removeCompilerInstall() {
         clearFolder(compilerDir)

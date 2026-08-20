@@ -237,6 +237,39 @@ class CMDTests {
 
     }
 
+    @Test(priority = 10)
+    fun testCompilerDependentCommandsFailWhenCompilerIsMissingEvenInQuietMode() {
+        val project = Files.createTempDirectory("grill-missing-compiler")
+        Files.writeString(project.resolve("wurst.build"), "projectName: missing-compiler\n")
+        Files.createDirectories(project.resolve("ExampleMap.w3x"))
+
+        val previousInstallDir = System.getProperty("wurst.install.dir")
+        val emptyInstallDir = Files.createTempDirectory("grill-empty-install")
+        try {
+            System.setProperty("wurst.install.dir", emptyInstallDir.toString())
+
+            val commands = listOf(
+                arrayOf(TEST, "--quiet"),
+                arrayOf("typecheck", "--quiet"),
+                arrayOf(BUILD, "ExampleMap.w3x", "--quiet"),
+                arrayOf("exportobjects", "ExampleMap.w3x", "--quiet")
+            )
+            commands.forEach { args ->
+                val setup = SetupMain().apply { projectRoot = project }
+                val status = catchExit { setup.doMain(args) }
+                Assert.assertEquals(status, 1, "${args[0]} must fail when the compiler is missing")
+            }
+        } finally {
+            if (previousInstallDir == null) {
+                System.clearProperty("wurst.install.dir")
+            } else {
+                System.setProperty("wurst.install.dir", previousInstallDir)
+            }
+            tryDeleteRecursively(project)
+            tryDeleteRecursively(emptyInstallDir)
+        }
+    }
+
     @AfterClass(alwaysRun = true)
     fun cleanupGeneratedProject() {
         tryDeleteRecursively(generatedProjectDir)

@@ -63,8 +63,8 @@ object WurstProjectConfig {
     private fun createProject(projectRoot: Path, gameRoot: Path?, projectConfig: WurstProjectConfigData, templateBranch: String) {
         Log.print("Creating project root..")
         if (Files.exists(projectRoot) && Files.list(projectRoot).filter { !Files.isDirectory(it) }.findAny().isPresent) {
-            log.error("Project root already exists and contains files")
-            Log.print("\nError: Project root already exists!\n")
+            log.error("❌ Project root already exists and contains files.")
+            ExitHandler.exit(1)
         } else {
             Files.createDirectories(projectRoot)
             Log.print("done\n")
@@ -90,6 +90,7 @@ object WurstProjectConfig {
 		} else {
 			Log.print("error\n")
 			log.error("❌ Cannot extract template files. Close any Wurst, VSCode or Eclipse instances and try again.")
+			ExitHandler.exit(1)
 		}
 
 		setupEnvironment(projectRoot, gameRoot, projectConfig)
@@ -230,4 +231,3 @@ object WurstProjectConfig {
                 "    },\n" +
                 "\t\"search.useIgnoreFiles\": false }"
 }
-
