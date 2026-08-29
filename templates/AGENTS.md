@@ -1,4 +1,4 @@
-<!-- WURST_AGENTS_TEMPLATE_VERSION: 2026-08-08 -->
+<!-- WURST_AGENTS_TEMPLATE_VERSION: 2026-08-29 -->
 # AGENTS.md - WurstScript Map Project Notes
 
 WurstScript Warcraft III map project notes for editing `.wurst` code, dependencies, generated objects, tests, or map build logic.
@@ -42,7 +42,19 @@ Read `scriptMode` before adding or removing `execute()` or timer chunking. Do no
 
 ## High-Risk Wurst Semantics
 
-- Closures capture locals by value. Assigning inside a callback does not update the captured outer local. Keep creation and follow-up handlers in the same closure, store shared mutable state on an owning class, or use `reference(value)` and destroy it when finished.
+- Prefer null-safe access (`?.`) when a missing receiver means no-op: the receiver is evaluated once and call arguments only when non-null. Keep an explicit check for null handling, primitive-valued results, or assignments. Example: `findTarget()?.damage(50.)`.
+- Closures capture locals by value; callback assignments do not update the outer local. Inside a closure, `it` is that closure object, so use it for self-cancellation or cleanup instead of a temporary or `reference` used only to reach it:
+
+  ```wurst
+  doPeriodically(0.25) ->
+  	if isFinished()
+  		destroy it
+  		return
+  ```
+
+  `it` is not shared state; use an owning class or `reference(value)` for shared mutation, and destroy the reference when finished.
+- Use `public readonly` for API fields callers may read but only the declaring class, module, or package may update, e.g. `public readonly int charges`. Unlike `constant`/`let`, the owner may update it repeatedly; visibility and write access are independent (`private readonly` hides reads).
+
 - Wurst class lifetime remains explicit for Lua output. Objects created with `new`, stored closures/listeners, references, and owned collections usually need `destroy`; owners should clear stale references after destruction and must avoid double-destroy.
 - WC3 `int` is signed 32-bit and overflows silently. Promote before multiplication (`worth.toReal() * count`), never after an integer expression has already overflowed.
 - Lambdas require a known target type. Lambdas used as `code` cannot accept parameters or capture locals.
