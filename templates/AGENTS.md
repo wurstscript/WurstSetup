@@ -1,74 +1,50 @@
-<!-- WURST_AGENTS_TEMPLATE_VERSION: 2026-08-29 -->
+<!-- WURST_AGENTS_TEMPLATE_VERSION: 2026-09-06 -->
 # AGENTS.md - WurstScript Map Project Notes
 
 WurstScript Warcraft III map project notes for editing `.wurst` code, dependencies, generated objects, tests, or map build logic.
 
 ## Read On Demand
 
-Keep this file in context. Read deeper references only when the task needs them:
+Keep this file as the baseline; load deeper material only when the task needs it:
 
-- **Language semantics**: read `~/.wurst/wurst-compiler/agent-docs/WURST_LANGUAGE.md` when installed so the reference matches the local compiler; otherwise use https://wurstlang.org/manual.html.
-- **Stdlib APIs**: search `_build/dependencies/wurstStdlib2/wurst/` before writing a native call or new infrastructure. Read its `AGENTS.md` when present.
-- **Other dependencies**: before changing code that uses one, inspect `_build/dependencies/<dep>/` and read its `AGENTS.md` or usage guides first.
-- **Project conventions**: inspect nearby working code and project-local notes before guessing syntax, APIs, or style.
+- **Language semantics**: prefer the compiler-matched `~/.wurst/wurst-compiler/agent-docs/WURST_LANGUAGE.md`; otherwise use https://wurstlang.org/manual.html.
+- **Stdlib APIs**: search `_build/dependencies/wurstStdlib2/wurst/` and read its `AGENTS.md` when present.
+- **Other dependencies**: inspect their source and guidance under `_build/dependencies/<dep>/` before using or changing them.
+- **Project conventions**: inspect nearby working code and project-local notes before choosing syntax, APIs, or style.
 
-## Source And Scope
+## Working Rules
 
-- Change source packages, configuration, and tests; never treat `_build/` or downloaded dependencies as source-of-truth. Patch an upstream dependency repository instead of its installed copy.
-- Prefer small, maintainable changes that address the root cause. Avoid unrelated refactors, duplicated branches, and special-case patches.
-- Keep packages focused and below roughly 500 lines; split by feature, responsibility, or data type when useful.
-- Add or update narrow tests for changed behavior, parsing, compiletime generation, or shared utilities.
-- Fix relevant compiler warnings unless intentionally suppressed and explained.
+- Edit source, configuration, and tests; never treat `_build/`, generated output, or downloaded dependencies as source-of-truth. Patch upstream dependencies at their source.
+- Fix root causes with small, focused changes. Avoid duplicated branches, special-case workarounds, and unrelated refactors.
+- Add narrow tests for changed behavior. Fix relevant compiler warnings unless a warning is intentionally suppressed and explained.
+- Search declarations and existing usages instead of guessing APIs or signatures.
 
-## Stdlib First
+## Idiomatic Wurst
 
-Use Wurst stdlib and dependency APIs instead of ported JASS or hand-built engine infrastructure. Search the stdlib before calling a raw `common.j`/`Blizzard.j` native; if no wrapper exists, add a one-line comment recording that search. The normal `CreateTrigger()..register...()..addAction() ->` cascade is an accepted Wurst idiom.
+Write semantic Wurst, not translated JASS or hand-built data plumbing.
 
-Do not reimplement systems already provided by packages such as `ClosureTimers`, `ClosureEvents`, `ClosureForGroups`, `GroupUtils`, `DummyCaster`, `DamageEvent`, `Fx`, `SoundUtils`, `Orders`, or the stdlib collections. If an API nearly fits, prefer a thin wrapper and document the remaining mismatch.
+- Prefer stdlib and dependency APIs over raw `common.j`/`Blizzard.j` natives. Never use Blizzard `BJ` wrappers. Search first; use a native only when no maintained wrapper exists.
+- Do not recreate timers, events, group enumeration, dummy casting, damage, effects, orders, or collections already covered by packages such as `ClosureTimers`, `ClosureEvents`, `ClosureForGroups`, `GroupUtils`, `DummyCaster`, `DamageEvent`, `Fx`, `Orders`, and the stdlib collections.
+- String concatenation invokes `toString()` implicitly: write `"Kills: " + kills`; explicit `.toString()` there is redundant and warns.
+- Use zero-overhead `vec2`/`vec3` tuples for coordinate values, not parallel reals/arrays or `location` handles.
+- Use `ArrayList<T>` or another suitable stdlib collection for growable state, not a global array plus size, capacity, shifting, or removal bookkeeping. Reserve raw arrays for deliberately fixed-size or direct-indexed storage.
+- New generic declarations always use colon syntax (`class Box<T:>`, `function map<T:>(...)`). Plain `<T>` declarations are deprecated; generic uses remain `Box<int>`.
+- Prefer null-safe access (`?.`) when null means no-op: `findTarget()?.damage(50.)`. Use an explicit check when null needs handling, for assignment, or when a primitive-valued result cannot represent null.
+- Prefer `let`, type inference, small functions, extension functions, cascades, and intentionally small public APIs. Every source belongs to a package; exports require `public`.
 
-## Project Configuration
+## Warcraft III Basics
 
-`wurst.build` is the authoritative project YAML:
+- WC3 simulation is synchronized lockstep. Local UI, input, camera, and `GetLocalPlayer()` must remain presentation-only; never gate RNG, orders, object creation, or synchronized state on local data.
+- Make ownership explicit. Destroy or release temporary effects, groups, locations, listeners, class instances, references, and owned collections through their stdlib lifecycle APIs. Avoid double-destroy and clear stale owner references.
+- WC3 `int` is signed 32-bit and overflows silently. Promote before multiplication (`worth.toReal() * count`), not after the integer expression has overflowed.
+- Closures capture locals by value; callback assignments do not update the outer local. Put shared mutable state on an owning class or use `reference(value)` and destroy it when finished.
+- Use compiletime generation and stable ID helpers for object-editor data. Start generated objects from real melee bases and intentionally clear inherited abilities, costs, requirements, stock, food, race, art, sound, and tooltip fields that do not belong.
 
-- `scriptMode` (`LUA` or `JASS`) selects compiler output.
-- `wc3Patch` selects compatible core JASS and the stdlib era.
-- `dependencies` lists Git URLs managed by `grill`; the default is usually `wurstStdlib2`.
-- `buildMapData` controls metadata written to the output `.w3x`.
+## Project And Backend
 
-Read `scriptMode` before adding or removing `execute()` or timer chunking. Do not infer the build/typecheck target from the locally installed Warcraft III client; client compatibility is a separate launch concern.
+`wurst.build` is authoritative: `scriptMode` selects `LUA` or `JASS`; `wc3Patch` selects compatible core JASS and stdlib; `dependencies` are managed by `grill`; `buildMapData` controls output map metadata.
 
-- **Lua**: no practical op-limit. Do not add `execute()` as an op-limit workaround; use timers for actual asynchronous delay.
-- **Jass**: the VM has an operation limit per thread. Heavy work may require `execute()` or chunking across ticks.
-
-## High-Risk Wurst Semantics
-
-- Prefer null-safe access (`?.`) when a missing receiver means no-op: the receiver is evaluated once and call arguments only when non-null. Keep an explicit check for null handling, primitive-valued results, or assignments. Example: `findTarget()?.damage(50.)`.
-- Closures capture locals by value; callback assignments do not update the outer local. Inside a closure, `it` is that closure object, so use it for self-cancellation or cleanup instead of a temporary or `reference` used only to reach it:
-
-  ```wurst
-  doPeriodically(0.25) ->
-  	if isFinished()
-  		destroy it
-  		return
-  ```
-
-  `it` is not shared state; use an owning class or `reference(value)` for shared mutation, and destroy the reference when finished.
-- Use `public readonly` for API fields callers may read but only the declaring class, module, or package may update, e.g. `public readonly int charges`. Unlike `constant`/`let`, the owner may update it repeatedly; visibility and write access are independent (`private readonly` hides reads).
-
-- Wurst class lifetime remains explicit for Lua output. Objects created with `new`, stored closures/listeners, references, and owned collections usually need `destroy`; owners should clear stale references after destruction and must avoid double-destroy.
-- WC3 `int` is signed 32-bit and overflows silently. Promote before multiplication (`worth.toReal() * count`), never after an integer expression has already overflowed.
-- Lambdas require a known target type. Lambdas used as `code` cannot accept parameters or capture locals.
-- Every `.wurst` source belongs to a package and uses indentation-defined blocks. Package exports require `public`; imports are not re-exported unless declared `import public`.
-
-## Compiletime Objects
-
-Use compiletime generation and stable ID helpers for object-editor data. New generated objects must use real melee objects as bases, never other custom objects. Melee bases carry abilities, costs, upgrades, requirements, stock, food, race, classification, art, sound, and tooltip fields; explicitly clear inherited side effects for the object family. Regression tests should assert dangerous fields are absent as well as intended fields being present.
-
-## Task-Specific References
-
-- For custom UI, read the UI dependency's guides before editing. In particular, `wurst-table-layout` provides `AGENTS.md`, `AI_USAGE.md`, and `WC3_FRAMEHANDLE_GUIDE.md`; its rules own frame lifecycle, parenting, safe-area, and multiplayer behavior.
-- For unfamiliar stdlib or dependency APIs, search declarations and nearby usage rather than inventing signatures.
-- For map object data, determine the authoritative compiletime source before changing generated output.
+Read `scriptMode` before adding `execute()` or timer chunking. Lua has no practical operation limit, so timers should represent real asynchronous delay. Jass has a per-thread operation limit, so genuinely heavy work may require `execute()` or chunking. The installed WC3 client affects launch compatibility, not the build/typecheck target.
 
 ## Validate
 
@@ -78,8 +54,6 @@ grill typecheck --quiet
 grill test --quiet
 ```
 
-If a quiet check fails, rerun the smallest relevant package, file, or test without `--quiet`. Avoid broad noisy reruns when the failure supplies a useful target.
+If a quiet check fails, rerun the smallest relevant target without `--quiet`. For map build changes, run `grill build ExampleMap.w3x --quiet`; add `--dev` only for behavior requiring `isProductionBuild() == false`.
 
-For map build changes, run `grill build ExampleMap.w3x --quiet`. Builds are production mode by default; add `--dev` only when validating code that requires `isProductionBuild() == false`. Use `grill exportobjects <mapfile|folder>` to dump object-editor data to Wurst source.
-
-Done means the focused checks pass and relevant errors or warnings are fixed or explicitly explained. Runtime/UI behavior that static checks cannot prove still requires the smallest suitable Warcraft III or e2e verification.
+Done means focused checks pass and relevant warnings are resolved or explained. Runtime/UI behavior that static checks cannot prove requires the smallest suitable WC3 or e2e verification.

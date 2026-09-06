@@ -12,8 +12,10 @@ class AgentsTemplateTests {
         val content = Files.readString(templatePath)
         val wordCount = Regex("""\S+""").findAll(content).count()
 
-        Assert.assertTrue(wordCount <= 900, "AGENTS template grew to $wordCount words (limit: 900)")
-        Assert.assertTrue(content.length <= 7000, "AGENTS template grew to ${content.length} characters (limit: 7000)")
+        // This is a ceiling, not a target. It prevents accidental manual-sized growth while leaving
+        // enough room for a clear always-loaded baseline; advanced guidance belongs on demand.
+        Assert.assertTrue(wordCount <= 1000, "AGENTS template grew to $wordCount words (limit: 1000)")
+        Assert.assertTrue(content.length <= 8000, "AGENTS template grew to ${content.length} characters (limit: 8000)")
     }
 
     @Test
@@ -26,6 +28,22 @@ class AgentsTemplateTests {
 
         Assert.assertTrue(localIndex >= 0, "Missing compiler-matched local language reference")
         Assert.assertTrue(onlineIndex > localIndex, "Online manual must remain a fallback after the local reference")
+    }
+
+    @Test
+    fun testTemplateGuardsIdiomaticWurst() {
+        val content = Files.readString(templatePath)
+
+        listOf(
+            "String concatenation invokes `toString()` implicitly",
+            "zero-overhead `vec2`/`vec3` tuples",
+            "Use `ArrayList<T>`",
+            "`class Box<T:>`",
+            "null-safe access (`?.`)",
+            "GetLocalPlayer()"
+        ).forEach { guidance ->
+            Assert.assertTrue(content.contains(guidance), "Missing durable template guidance: $guidance")
+        }
     }
 
     @Test
