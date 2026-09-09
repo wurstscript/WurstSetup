@@ -345,6 +345,28 @@ class GenerateTests {
     }
 
     @Test(priority = 10)
+    fun testWurstTestSummarySupportsCompactAndLegacyOutput() {
+        Assert.assertEquals(
+            SetupApp.wurstTestSummary(listOf("Tests: 7/8 passed")),
+            SetupApp.WurstTestSummary(7, 8)
+        )
+        Assert.assertEquals(
+            SetupApp.wurstTestSummary(listOf("Tests succeeded: 3/3")),
+            SetupApp.WurstTestSummary(3, 3)
+        )
+        Assert.assertEquals(SetupApp.wurstTestSummary(listOf("Finished running tests")), null)
+    }
+
+    @Test(priority = 10)
+    fun testSuccessfulWurstTestRunRequiresExecutedPassingTests() {
+        Assert.assertTrue(SetupApp.isSuccessfulTestRun(0, listOf("Tests: 2/2 passed")))
+        Assert.assertFalse(SetupApp.isSuccessfulTestRun(1, listOf("Tests: 2/2 passed")))
+        Assert.assertFalse(SetupApp.isSuccessfulTestRun(0, listOf("Tests: 1/2 passed")))
+        Assert.assertFalse(SetupApp.isSuccessfulTestRun(0, listOf("Tests: 0/0 passed")))
+        Assert.assertFalse(SetupApp.isSuccessfulTestRun(0, listOf("Finished running tests")))
+    }
+
+    @Test(priority = 10)
     fun testQuietCompilerDiagnosticsNormalizeVerboseFallbackErrors() {
         val output = listOf(
             "Error in File Broken.wurst:12:",
