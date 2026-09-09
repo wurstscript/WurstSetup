@@ -33,6 +33,11 @@ object SetupApp {
 
     private data class WurstProcessResult(val exitCode: Int, val output: List<String>)
 
+    internal data class WurstTestSummary(val passed: Int, val total: Int) {
+        val condensed: String
+            get() = "Tests: $passed/$total passed"
+    }
+
     internal const val AGENTS_TEMPLATE_VERSION = "2026-09-06"
     private const val AGENTS_TEMPLATE_MARKER_PREFIX = "<!-- WURST_AGENTS_TEMPLATE_VERSION:"
     private const val AGENTS_TEMPLATE_MARKER = "<!-- WURST_AGENTS_TEMPLATE_VERSION: $AGENTS_TEMPLATE_VERSION -->"
@@ -517,6 +522,27 @@ object SetupApp {
                 it.contains(" exception", ignoreCase = true) ||
                 it.contains("Pjass", ignoreCase = true)
         }.coerceAtLeast(1)
+    }
+
+    internal fun wurstTestSummary(output: List<String>): WurstTestSummary? {
+        val patterns = listOf(
+            Regex("""^Tests:\s*(\d+)/(\d+)\s+passed\s*$""", RegexOption.IGNORE_CASE),
+            Regex("""^Tests succeeded:\s*(\d+)/(\d+)\s*$""", RegexOption.IGNORE_CASE)
+        )
+        return output.asReversed().asSequence()
+            .map { it.trim() }
+            .mapNotNull { line -> patterns.firstNotNullOfOrNull { it.matchEntire(line) } }
+            .mapNotNull { match ->
+                val passed = match.groupValues[1].toIntOrNull() ?: return@mapNotNull null
+                val total = match.groupValues[2].toIntOrNull() ?: return@mapNotNull null
+                WurstTestSummary(passed, total)
+            }
+            .firstOrNull()
+    }
+
+    internal fun isSuccessfulTestRun(exitCode: Int, output: List<String>): Boolean {
+        val summary = wurstTestSummary(output) ?: return false
+        return exitCode == 0 && summary.total > 0 && summary.passed == summary.total
     }
 
     private fun isQuietCompilerDiagnosticLine(line: String): Boolean {
@@ -1079,13 +1105,25 @@ object SetupApp {
         }
 
         val result = startWurstProcess(args)
-        when (result.exitCode) {
-            0 -> { pass("✅ All tests succeeded."); ExitHandler.exit(0) }
-            else -> {
-                printCompilerFailure("test", result)
-                ExitHandler.exit(1)
-            }
+        val summary = wurstTestSummary(result.output)
+        if (setup.quiet && summary != null) {
+            println(summary.condensed)
         }
+
+        if (isSuccessfulTestRun(result.exitCode, result.output)) {
+            if (!setup.quiet) {
+                pass("✅ All tests succeeded.")
+            }
+            ExitHandler.exit(0)
+        }
+
+        when {
+            result.exitCode != 0 -> printCompilerFailure("test", result)
+            summary == null -> fail("❌ Wurst test failed: the compiler did not report any test results.")
+            summary.total == 0 -> fail("❌ Wurst test failed: no tests were found.")
+            else -> printCompilerFailure("test", result)
+        }
+        ExitHandler.exit(1)
     }
 
     private fun typecheckProject(configData: WurstProjectConfigData) {
