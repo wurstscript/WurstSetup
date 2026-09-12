@@ -165,6 +165,21 @@ object CoreJassProvider {
         return withPrefix
     }
 
+    fun patchTargetForClientVersion(version: String?): String? {
+        val parts = version?.trim()?.split('.') ?: return null
+        if (parts.size < 2 || parts[0].toIntOrNull() == null || parts[1].toIntOrNull() == null) {
+            return null
+        }
+        val target = "v${parts[0].toInt()}.${parts[1].toInt()}"
+        return target.takeIf(PATCH_TO_JASS_HISTORY_FOLDER::containsKey)
+    }
+
+    fun patchLine(patch: String?): String? {
+        val normalized = normalizePatchInput(patch)
+        val version = Wc3PatchTarget.parse(normalized).orElse(null)?.gameVersion() ?: return null
+        return patchTargetForClientVersion(version)
+    }
+
     fun isPre129Patch(input: String?): Boolean {
         val patch = normalizePatchInput(input)
         return Wc3PatchTarget.parse(patch)

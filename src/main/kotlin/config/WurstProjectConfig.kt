@@ -145,6 +145,22 @@ object WurstProjectConfig {
         Files.write(projectRoot.resolve(CONFIG_FILE_NAME), projectYaml.toByteArray())
     }
 
+    fun configuredGamePath(projectRoot: Path): Path? {
+        val settings = projectRoot.resolve(".vscode").resolve("settings.json")
+        if (!Files.isRegularFile(settings)) {
+            return null
+        }
+        return try {
+            MAPPER.readTree(Files.readString(settings))
+                ?.get("wurst.wc3path")
+                ?.asText()
+                ?.takeIf(String::isNotBlank)
+                ?.let(Paths::get)
+        } catch (_: Exception) {
+            null
+        }
+    }
+
 
     @Throws(IOException::class)
     private fun setupVSCode(projectRoot: Path?, gamePath: Path?) {

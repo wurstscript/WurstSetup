@@ -17,11 +17,15 @@ object Wc3ClientDetector {
         val root: Path,
         val executable: Path,
         val kind: ClientKind?,
+        val version: String?,
+        val patchTarget: String?,
     )
 
     private val exeCandidates = listOf(
         Paths.get("_retail_", "x86_64", "Warcraft III.exe"),
         Paths.get("_retail_", "x86", "Warcraft III.exe"),
+        Paths.get("_ptr_", "x86_64", "Warcraft III.exe"),
+        Paths.get("_ptr_", "x86", "Warcraft III.exe"),
         Paths.get("x86_64", "Warcraft III.exe"),
         Paths.get("x86", "Warcraft III.exe"),
         Paths.get("Warcraft III.exe"),
@@ -42,12 +46,15 @@ object Wc3ClientDetector {
         }
         val normalizedRoot = root.toAbsolutePath().normalize()
         val executable = findExecutable(normalizedRoot) ?: return null
-        val installRoot = if (Files.isRegularFile(normalizedRoot)) {
-            installationRootForExecutable(executable)
-        } else {
-            normalizedRoot
-        }
-        return ClientInfo(installRoot, executable, classifyExecutable(executable))
+        val installRoot = installationRootForExecutable(executable)
+        val version = readBuildInfoVersion(installRoot)
+        return ClientInfo(
+            installRoot,
+            executable,
+            classifyExecutable(executable),
+            version,
+            CoreJassProvider.patchTargetForClientVersion(version)
+        )
     }
 
     fun describe(info: ClientInfo?): String {
@@ -55,7 +62,8 @@ object Wc3ClientDetector {
             return "not found"
         }
         val kind = info.kind?.let { describeKind(it) } ?: "unknown patch family"
-        return "${info.root} ($kind)"
+        val version = info.version?.let { ", version $it" }.orEmpty()
+        return "${info.root} ($kind$version)"
     }
 
     fun projectKind(patch: String?): ClientKind? {
@@ -70,6 +78,11 @@ object Wc3ClientDetector {
     fun mismatchMessage(projectPatch: String?, clientInfo: ClientInfo?): String? {
         val projectKind = projectKind(projectPatch) ?: return null
         val clientKind = clientInfo?.kind ?: return null
+        val projectPatchTarget = CoreJassProvider.patchLine(projectPatch)
+        val clientPatchTarget = clientInfo.patchTarget
+        if (projectPatchTarget != null && clientPatchTarget != null && projectPatchTarget != clientPatchTarget) {
+            return "Selected Warcraft III client is $clientPatchTarget (${clientInfo.version}), but the project targets $projectPatchTarget. Run `grill patch align` to migrate the project."
+        }
         if (projectKind == clientKind) {
             return null
         }
@@ -119,6 +132,34 @@ object Wc3ClientDetector {
             return maybeRetail ?: parent
         }
         return parent
+    }
+
+    private fun readBuildInfoVersion(root: Path): String? {
+        val buildInfo = root.resolve(".build.info")
+        if (!Files.isRegularFile(buildInfo)) {
+            return null
+        }
+        return try {
+            val lines = Files.readAllLines(buildInfo).filter(String::isNotBlank)
+            val headers = lines.firstOrNull()?.split('|')?.map { it.substringBefore('!') } ?: return null
+            val versionIndex = headers.indexOf("Version")
+            val productIndex = headers.indexOf("Product")
+            val activeIndex = headers.indexOf("Active")
+            if (versionIndex < 0) return null
+
+            lines.drop(1)
+                .map { it.split('|') }
+                .firstOrNull { values ->
+                    values.size > versionIndex &&
+                        (productIndex < 0 || values.getOrNull(productIndex).equals("w3", ignoreCase = true)) &&
+                        (activeIndex < 0 || values.getOrNull(activeIndex) == "1")
+                }
+                ?.getOrNull(versionIndex)
+                ?.trim()
+                ?.takeIf(String::isNotBlank)
+        } catch (_: Exception) {
+            null
+        }
     }
 
     private fun describeKind(kind: ClientKind): String {

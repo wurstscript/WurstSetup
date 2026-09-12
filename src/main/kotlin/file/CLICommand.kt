@@ -10,7 +10,8 @@ enum class CLICommand {
 	GENERATE,
 	TEST,
     TYPECHECK,
-    OUTDATED,
+	OUTDATED,
+	PATCH,
     BUILD,
     EXPORTOBJECTS,
     SELF_UPDATE

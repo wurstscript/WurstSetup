@@ -148,6 +148,7 @@ class GenerateTests {
     fun testStdlibDependencyFollowsPatchEra() {
         val pre124Stdlib = "https://github.com/wurstscript/wurstStdlib2:pre1.24"
         val legacyStdlib = "https://github.com/wurstscript/wurstStdlib2:pre1.29"
+        val preV3Stdlib = "https://github.com/wurstscript/wurstStdlib2:v2.0"
         val currentStdlib = "https://github.com/wurstscript/wurstStdlib2"
 
         for (patch in CoreJassProvider.supportedPatches) {
@@ -155,7 +156,8 @@ class GenerateTests {
             val expected = when {
                 minor != null && minor < 24 -> pre124Stdlib
                 minor != null && minor < 29 -> legacyStdlib
-                else -> currentStdlib
+                patch == "v3.0" -> currentStdlib
+                else -> preV3Stdlib
             }
             Assert.assertEquals(SetupApp.stdlibDependencyForPatch(patch), expected, "stdlib dependency for $patch")
         }
@@ -163,7 +165,7 @@ class GenerateTests {
         Assert.assertEquals(SetupApp.stdlibDependencyForPatch("v1.23a"), pre124Stdlib)
         Assert.assertEquals(SetupApp.stdlibDependencyForPatch("TFT-v1.27b-ru"), legacyStdlib)
         Assert.assertEquals(SetupApp.stdlibDependencyForPatch("pre1.29"), legacyStdlib)
-        Assert.assertEquals(SetupApp.stdlibDependencyForPatch("v1.29"), currentStdlib)
+        Assert.assertEquals(SetupApp.stdlibDependencyForPatch("v1.29"), preV3Stdlib)
     }
 
     @Test(priority = 10)

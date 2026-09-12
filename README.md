@@ -70,6 +70,24 @@ The command exits with code `0` when dependencies are up to date and `1` when up
 > grill outdated
 ```
 
+### Aligning with the installed Warcraft III patch
+
+Use `patch` to compare the project target with the exact installed Warcraft III version. This is read-only:
+
+```cmd
+> grill patch
+```
+
+When Grill reports a mismatch, migrate the project configuration, official stdlib branch, and cached core JASS together:
+
+```cmd
+> grill patch align
+```
+
+Grill reads the configured VS Code game path first and falls back to automatic detection. Pass `--wc3-path <dir>` to select a different installation. Alignment creates `wurst.build.bak` and makes no changes if an exact supported client patch cannot be detected.
+
+`grill install` also keeps the official stdlib dependency pinned to the branch required by the project's existing `wc3Patch`, and only suggests migration when it detects a different client patch.
+
 
 ### Building the project
 

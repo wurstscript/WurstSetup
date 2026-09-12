@@ -71,4 +71,59 @@ class Wc3ClientDetectorTests {
         Assert.assertNotNull(warning)
         Assert.assertTrue(warning!!.contains("project targets Reforged"))
     }
+
+    @Test
+    fun testReadsExactReforgedVersionFromBuildInfo() {
+        val root = Files.createTempDirectory("wc3-versioned-reforged")
+        val exe = Files.createDirectories(root.resolve("_retail_").resolve("x86_64")).resolve("Warcraft III.exe")
+        Files.writeString(exe, "")
+        Files.writeString(
+            root.resolve(".build.info"),
+            "Branch!STRING:0|Active!DEC:1|Version!STRING:0|Product!STRING:0\n" +
+                "eu|1|3.0.0.24268|w3\n"
+        )
+
+        val info = Wc3ClientDetector.inspectGameRoot(root)!!
+
+        Assert.assertEquals(info.version, "3.0.0.24268")
+        Assert.assertEquals(info.patchTarget, "v3.0")
+        Assert.assertNull(Wc3ClientDetector.mismatchMessage("v3.0", info))
+        Assert.assertTrue(Wc3ClientDetector.mismatchMessage("v2.0", info)!!.contains("grill patch align"))
+    }
+
+    @Test
+    fun testFindsBuildInfoWhenConfiguredPathIsExecutableDirectory() {
+        val root = Files.createTempDirectory("wc3-configured-bin")
+        val executableDirectory = Files.createDirectories(root.resolve("_retail_").resolve("x86_64"))
+        Files.writeString(executableDirectory.resolve("Warcraft III.exe"), "")
+        Files.writeString(
+            root.resolve(".build.info"),
+            "Active!DEC:1|Version!STRING:0|Product!STRING:0\n" +
+                "1|3.0.0.24268|w3\n"
+        )
+
+        val info = Wc3ClientDetector.inspectGameRoot(executableDirectory)!!
+
+        Assert.assertEquals(info.root, root.toAbsolutePath().normalize())
+        Assert.assertEquals(info.patchTarget, "v3.0")
+    }
+
+    @Test
+    fun testIgnoresInactiveAndNonWarcraftBuildInfoRows() {
+        val root = Files.createTempDirectory("wc3-multi-product")
+        val exe = Files.createDirectories(root.resolve("_retail_").resolve("x86_64")).resolve("Warcraft III.exe")
+        Files.writeString(exe, "")
+        Files.writeString(
+            root.resolve(".build.info"),
+            "Active!DEC:1|Version!STRING:0|Product!STRING:0\n" +
+                "1|99.0.0.1|other\n" +
+                "0|2.0.4.23745|w3\n" +
+                "1|3.0.0.24268|w3\n"
+        )
+
+        val info = Wc3ClientDetector.inspectGameRoot(root)!!
+
+        Assert.assertEquals(info.version, "3.0.0.24268")
+        Assert.assertEquals(info.patchTarget, "v3.0")
+    }
 }
