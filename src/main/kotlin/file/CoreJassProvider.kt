@@ -10,7 +10,7 @@ import java.nio.file.StandardCopyOption
 import java.util.jar.JarFile
 
 object CoreJassProvider {
-    const val DEFAULT_PATCH = "v2.0"
+    const val DEFAULT_PATCH = "v3.0"
     const val PRE_129_PATCH = "v1.28"
 
     private const val JASS_HISTORY_RAW = "https://raw.githubusercontent.com/wurstscript/jass-history"
@@ -19,6 +19,7 @@ object CoreJassProvider {
     private val log = KotlinLogging.logger {}
 
     private val PATCH_TO_JASS_HISTORY_FOLDER = linkedMapOf(
+        "v3.0" to "Reforged-v3.0.0.24268-w3-3a9d8f2",
         "v2.0" to "Reforged-v2.0.4.23745",
         "v1.36" to "Reforged-v1.36.1.20719-w3-51d40ee",
         "v1.35" to "Reforged-v1.35.0.20093-w3-5ec1b77",
@@ -77,7 +78,7 @@ object CoreJassProvider {
     val supportedPatches: List<String> = PATCH_TO_JASS_HISTORY_FOLDER.keys.toList()
 
     private val BUNDLED_CORE_JASS_PATCH_FOLDERS = mapOf(
-        DEFAULT_PATCH to "v2.0",
+        DEFAULT_PATCH to "v3.0",
         "v1.36" to "reforged",
         PRE_129_PATCH to "pre1.29"
     )
@@ -87,7 +88,7 @@ object CoreJassProvider {
     fun describePatch(patch: String): String {
         val normalizedPatch = normalizePatchInput(patch)
         val label = when (normalizedPatch) {
-            DEFAULT_PATCH -> "latest Reforged / WC3 2.x core JASS"
+            DEFAULT_PATCH -> "latest Reforged / WC3 3.x core JASS"
             "v1.31" -> "latest classic TFT"
             PRE_129_PATCH -> "legacy pre-1.29"
             else -> {

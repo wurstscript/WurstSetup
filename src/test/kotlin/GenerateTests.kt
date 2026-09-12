@@ -90,6 +90,13 @@ class GenerateTests {
     @Test(priority = 10)
     fun testPatchAliasNormalizationAndLegacyDetection() {
         Assert.assertEquals(CoreJassProvider.normalizePatchInput("reforged"), CoreJassProvider.DEFAULT_PATCH)
+        Assert.assertEquals(CoreJassProvider.normalizePatchInput("latest"), CoreJassProvider.DEFAULT_PATCH)
+        Assert.assertEquals(CoreJassProvider.normalizePatchInput("3.0"), CoreJassProvider.DEFAULT_PATCH)
+        Assert.assertEquals(
+            CoreJassProvider.normalizePatchInput("Reforged-v3.0.0.24268-w3-3a9d8f2"),
+            CoreJassProvider.DEFAULT_PATCH
+        )
+        Assert.assertTrue(CoreJassProvider.isReforgedPatch("v3.0"))
         Assert.assertEquals(CoreJassProvider.normalizePatchInput("pre1.29"), CoreJassProvider.PRE_129_PATCH)
         Assert.assertFalse(CoreJassProvider.isSupportedPatch("v9.99"))
         Assert.assertTrue(CoreJassProvider.isPre129Patch("TFT-v1.28.2.7395"))
@@ -103,12 +110,20 @@ class GenerateTests {
             "v1.36 (Reforged)"
         )
         Assert.assertEquals(
+            CoreJassProvider.jassHistoryFolderForPatch("v3.0"),
+            "Reforged-v3.0.0.24268-w3-3a9d8f2"
+        )
+        Assert.assertEquals(
+            CoreJassProvider.describePatch("v3.0"),
+            "v3.0 (latest Reforged / WC3 3.x core JASS)"
+        )
+        Assert.assertEquals(
             CoreJassProvider.jassHistoryFolderForPatch("v2.0"),
             "Reforged-v2.0.4.23745"
         )
         Assert.assertEquals(
             CoreJassProvider.describePatch("v2.0"),
-            "v2.0 (latest Reforged / WC3 2.x core JASS)"
+            "v2.0 (Reforged)"
         )
     }
 
@@ -646,8 +661,8 @@ class GenerateTests {
     }
 
     @Test(priority = 10)
-    fun testDefaultPatchDownloadFailureUsesBundledV2CoreJass() {
-        val tmpDir = Files.createTempDirectory("grill-core-jass-v2-fallback-test")
+    fun testDefaultPatchDownloadFailureUsesBundledV3CoreJass() {
+        val tmpDir = Files.createTempDirectory("grill-core-jass-v3-fallback-test")
         val previousDownloader = CoreJassProvider.jassHistoryFileDownloader
         try {
             CoreJassProvider.jassHistoryFileDownloader = { _, _ -> throw RuntimeException("offline") }
@@ -657,13 +672,13 @@ class GenerateTests {
             val buildDir = tmpDir.resolve("_build")
             val common = Files.readString(buildDir.resolve("common.j"))
             val blizzard = Files.readString(buildDir.resolve("blizzard.j"))
-            Assert.assertEquals(common, bundledCoreJassText("v2.0", "common.j"))
-            Assert.assertEquals(blizzard, bundledCoreJassText("v2.0", "blizzard.j"))
-            Assert.assertEquals(CoreJassProvider.bundledCoreJassFolderForPatch(CoreJassProvider.DEFAULT_PATCH), "v2.0")
+            Assert.assertEquals(common, bundledCoreJassText("v3.0", "common.j"))
+            Assert.assertEquals(blizzard, bundledCoreJassText("v3.0", "blizzard.j"))
+            Assert.assertEquals(CoreJassProvider.bundledCoreJassFolderForPatch(CoreJassProvider.DEFAULT_PATCH), "v3.0")
             Assert.assertEquals(CoreJassProvider.bundledCoreJassFolderForPatch("v1.36"), "reforged")
             Assert.assertTrue(
                 Files.readString(buildDir.resolve("core-jass.provenance"))
-                    .contains("jassHistoryFolder: Reforged-v2.0.4.23745")
+                    .contains("jassHistoryFolder: Reforged-v3.0.0.24268-w3-3a9d8f2")
             )
         } finally {
             CoreJassProvider.jassHistoryFileDownloader = previousDownloader

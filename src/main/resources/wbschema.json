@@ -15,12 +15,12 @@
             "enum": ["LUA", "JASS", "lua", "jass"]
         },
         "wc3Patch": {
-            "description": "The WC3 patch target for this project. Use a friendly patch target such as v2.0, an exact wurstscript/jass-history dump folder, or a supported alias such as classic/pre1.29. Default: v2.0.",
+            "description": "The WC3 patch target for this project. Use a friendly patch target such as v3.0, an exact wurstscript/jass-history dump folder, or a supported alias such as classic/pre1.29. Default: v3.0.",
             "type": "string",
             "anyOf": [
                 {
                     "enum": [
-                        "v2.0", "v1.36", "v1.35", "v1.34", "v1.33", "v1.32", "v1.31", "v1.30", "v1.29", "v1.28",
+                        "v3.0", "v2.0", "v1.36", "v1.35", "v1.34", "v1.33", "v1.32", "v1.31", "v1.30", "v1.29", "v1.28",
                         "v1.27b", "v1.27a", "v1.26a", "v1.25b",
                         "v1.24e", "v1.24d", "v1.24c", "v1.24b", "v1.24a",
                         "v1.23a", "v1.22a",
