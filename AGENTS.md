@@ -19,14 +19,14 @@ This repo builds the Grill CLI and project setup tooling. The generated map-proj
 
 ## WC3 Patch And Core JASS
 
-- `CoreJassProvider.DEFAULT_PATCH` is `v2.0`.
+- `CoreJassProvider.DEFAULT_PATCH` is `v3.0`.
 - Core JASS is fetched from `wurstscript/jass-history`.
 - Friendly patch targets must resolve through the shared parser / `Wc3PatchTarget` style rules:
   - below `1.29` => pre-1.29 behavior and stdlib
   - `1.29` through `1.31` => classic
-  - `1.32+`, `1.36`, `2.0`, and `Reforged-*` => Reforged
+  - `1.32+`, `2.0`, `3.0`, and `Reforged-*` => Reforged
 - Do not add alias hacks for broken jass-history folder names. Fix `wurstscript/jass-history` instead.
-- Bundled core JASS fallbacks are patch-specific. Do not silently use the old `reforged` bundle as the `v2.0` fallback.
+- Bundled core JASS fallbacks are patch-specific. Never reuse another patch's bundle for a new default alias.
 - Keep provenance in `_build/core-jass.properties`; mismatched cached `common.j` / `blizzard.j` should be refreshed.
 
 ## Generate Workflow
