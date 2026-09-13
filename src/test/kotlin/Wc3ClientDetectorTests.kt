@@ -126,4 +126,46 @@ class Wc3ClientDetectorTests {
         Assert.assertEquals(info.version, "3.0.0.24268")
         Assert.assertEquals(info.patchTarget, "v3.0")
     }
+
+    @Test
+    fun testSelectsPtrBuildInfoRowForExplicitPtrPath() {
+        val root = Files.createTempDirectory("wc3-retail-ptr")
+        val retailExe = Files.createDirectories(root.resolve("_retail_").resolve("x86_64")).resolve("Warcraft III.exe")
+        val ptrDirectory = Files.createDirectories(root.resolve("_ptr_").resolve("x86_64"))
+        Files.writeString(retailExe, "")
+        Files.writeString(ptrDirectory.resolve("Warcraft III.exe"), "")
+        Files.writeString(
+            root.resolve(".build.info"),
+            "Active!DEC:1|Version!STRING:0|Product!STRING:0\n" +
+                "1|3.0.0.24268|w3\n" +
+                "1|2.0.4.23745|w3t\n"
+        )
+
+        val info = Wc3ClientDetector.inspectGameRoot(ptrDirectory)!!
+
+        Assert.assertEquals(info.executable, ptrDirectory.resolve("Warcraft III.exe"))
+        Assert.assertEquals(info.version, "2.0.4.23745")
+        Assert.assertEquals(info.patchTarget, "v2.0")
+    }
+
+    @Test
+    fun testSelectsRetailBuildInfoRowForInstallationRoot() {
+        val root = Files.createTempDirectory("wc3-retail-ptr-root")
+        val retailDirectory = Files.createDirectories(root.resolve("_retail_").resolve("x86_64"))
+        val ptrDirectory = Files.createDirectories(root.resolve("_ptr_").resolve("x86_64"))
+        Files.writeString(retailDirectory.resolve("Warcraft III.exe"), "")
+        Files.writeString(ptrDirectory.resolve("Warcraft III.exe"), "")
+        Files.writeString(
+            root.resolve(".build.info"),
+            "Active!DEC:1|Version!STRING:0|Product!STRING:0\n" +
+                "1|2.0.4.23745|w3t\n" +
+                "1|3.0.0.24268|w3\n"
+        )
+
+        val info = Wc3ClientDetector.inspectGameRoot(root)!!
+
+        Assert.assertEquals(info.executable, retailDirectory.resolve("Warcraft III.exe"))
+        Assert.assertEquals(info.version, "3.0.0.24268")
+        Assert.assertEquals(info.patchTarget, "v3.0")
+    }
 }

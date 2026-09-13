@@ -47,7 +47,7 @@ object Wc3ClientDetector {
         val normalizedRoot = root.toAbsolutePath().normalize()
         val executable = findExecutable(normalizedRoot) ?: return null
         val installRoot = installationRootForExecutable(executable)
-        val version = readBuildInfoVersion(installRoot)
+        val version = readBuildInfoVersion(installRoot, productForExecutable(executable))
         return ClientInfo(
             installRoot,
             executable,
@@ -134,7 +134,16 @@ object Wc3ClientDetector {
         return parent
     }
 
-    private fun readBuildInfoVersion(root: Path): String? {
+    private fun productForExecutable(executable: Path): String? {
+        val path = executable.toAbsolutePath().normalize().toString().replace('\\', '/').lowercase(Locale.ROOT)
+        return when {
+            path.contains("/_ptr_/") -> "w3t"
+            path.contains("/_retail_/") -> "w3"
+            else -> null
+        }
+    }
+
+    private fun readBuildInfoVersion(root: Path, selectedProduct: String?): String? {
         val buildInfo = root.resolve(".build.info")
         if (!Files.isRegularFile(buildInfo)) {
             return null
@@ -151,7 +160,7 @@ object Wc3ClientDetector {
                 .map { it.split('|') }
                 .firstOrNull { values ->
                     values.size > versionIndex &&
-                        (productIndex < 0 || values.getOrNull(productIndex).equals("w3", ignoreCase = true)) &&
+                        (productIndex < 0 || values.getOrNull(productIndex).equals(selectedProduct ?: "w3", ignoreCase = true)) &&
                         (activeIndex < 0 || values.getOrNull(activeIndex) == "1")
                 }
                 ?.getOrNull(versionIndex)
