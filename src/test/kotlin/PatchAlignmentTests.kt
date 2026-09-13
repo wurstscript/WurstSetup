@@ -84,6 +84,25 @@ class PatchAlignmentTests {
     }
 
     @Test
+    fun testAlignmentRecognizesOfficialStdlibGitUrls() {
+        val config = newProjectConfig(
+            projectName = "git-url",
+            dependencies = listOf(
+                "https://github.com/wurstscript/wurstStdlib2.git",
+                "https://github.com/wurstscript/wurstStdlib2.git:master"
+            ),
+            wc3Patch = "v3.0"
+        )
+
+        val aligned = SetupApp.alignedProjectConfig(config, "v2.0")
+
+        Assert.assertEquals(
+            aligned.dependencies,
+            listOf("https://github.com/wurstscript/wurstStdlib2:v2.0")
+        )
+    }
+
+    @Test
     fun testExistingV2TargetPinsStdlibBeforeDependencyInstall() {
         val config = newProjectConfig(
             projectName = "safe-install",

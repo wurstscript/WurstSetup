@@ -782,7 +782,8 @@ object SetupApp {
             return false
         }
         val suffix = dependency.substring(prefix.length)
-        return suffix.isBlank() || suffix.startsWith(":")
+        val normalizedSuffix = if (suffix.startsWith(".git", ignoreCase = true)) suffix.substring(4) else suffix
+        return normalizedSuffix.isBlank() || normalizedSuffix.startsWith(":")
     }
 
     private fun handlePatchAlignment(configData: WurstProjectConfigData) {
@@ -834,7 +835,7 @@ object SetupApp {
         if (configNeedsAlignment) {
             val buildFile = setup.projectRoot.resolve(CONFIG_FILE_NAME)
             Files.copy(buildFile, buildFile.resolveSibling("$CONFIG_FILE_NAME.bak"), StandardCopyOption.REPLACE_EXISTING)
-            WurstProjectConfig.handleUpdate(setup.projectRoot, clientInfo.configuredPath, alignedConfig)
+            WurstProjectConfig.handleUpdate(setup.projectRoot, clientInfo.root, alignedConfig)
             pass("Aligned project with Warcraft III $detectedPatch. Previous config: $CONFIG_FILE_NAME.bak")
         } else {
             pass("Refreshed managed core JASS for Warcraft III $detectedPatch.")

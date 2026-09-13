@@ -13,7 +13,8 @@ class Wc3ClientDetectorTests {
         val info = Wc3ClientDetector.inspectGameRoot(root)!!
 
         Assert.assertEquals(info.kind, Wc3ClientDetector.ClientKind.REFORGED)
-        Assert.assertEquals(info.root, root.toAbsolutePath().normalize())
+        Assert.assertEquals(info.root, root.resolve("_retail_").toAbsolutePath().normalize())
+        Assert.assertEquals(info.installationRoot, root.toAbsolutePath().normalize())
     }
 
     @Test
@@ -58,6 +59,7 @@ class Wc3ClientDetectorTests {
 
         Assert.assertEquals(info.kind, Wc3ClientDetector.ClientKind.PRE_129)
         Assert.assertEquals(info.root, root.toAbsolutePath().normalize())
+        Assert.assertEquals(info.installationRoot, root.toAbsolutePath().normalize())
     }
 
     @Test
@@ -104,7 +106,8 @@ class Wc3ClientDetectorTests {
 
         val info = Wc3ClientDetector.inspectGameRoot(executableDirectory)!!
 
-        Assert.assertEquals(info.root, root.toAbsolutePath().normalize())
+        Assert.assertEquals(info.root, root.resolve("_retail_").toAbsolutePath().normalize())
+        Assert.assertEquals(info.installationRoot, root.toAbsolutePath().normalize())
         Assert.assertEquals(info.patchTarget, "v3.0")
     }
 
@@ -144,7 +147,8 @@ class Wc3ClientDetectorTests {
         val info = Wc3ClientDetector.inspectGameRoot(ptrDirectory)!!
 
         Assert.assertEquals(info.executable, ptrDirectory.resolve("Warcraft III.exe"))
-        Assert.assertEquals(info.configuredPath, ptrDirectory.parent)
+        Assert.assertEquals(info.root, ptrDirectory.parent)
+        Assert.assertEquals(info.installationRoot, root.toAbsolutePath().normalize())
         Assert.assertEquals(info.version, "2.0.4.23745")
         Assert.assertEquals(info.patchTarget, "v2.0")
     }
@@ -166,7 +170,8 @@ class Wc3ClientDetectorTests {
         val info = Wc3ClientDetector.inspectGameRoot(root)!!
 
         Assert.assertEquals(info.executable, retailDirectory.resolve("Warcraft III.exe"))
-        Assert.assertEquals(info.configuredPath, retailDirectory.parent)
+        Assert.assertEquals(info.root, retailDirectory.parent)
+        Assert.assertEquals(info.installationRoot, root.toAbsolutePath().normalize())
         Assert.assertEquals(info.version, "3.0.0.24268")
         Assert.assertEquals(info.patchTarget, "v3.0")
     }
