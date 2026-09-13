@@ -138,7 +138,10 @@ object SetupApp {
 		val configFile = setup.projectRoot.resolve(CONFIG_FILE_NAME)
 		var configData: WurstProjectConfigData? = null
 		if (Files.exists(configFile)) {
-			configData = WurstProjectConfig.loadProject(configFile)!!
+			configData = WurstProjectConfig.loadProject(
+                configFile,
+                persistRecovery = setup.command != CLICommand.PATCH
+            )!!
 		}
 
 		when {

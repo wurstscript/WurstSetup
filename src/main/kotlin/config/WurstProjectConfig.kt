@@ -46,14 +46,16 @@ object WurstProjectConfig {
     }
 
     @Throws(IOException::class)
-    fun loadProject(buildFile: Path): WurstProjectConfigData? {
+    fun loadProject(buildFile: Path, persistRecovery: Boolean = true): WurstProjectConfigData? {
         Log.println("Loading project..")
         if (Files.exists(buildFile) && buildFile.fileName.toString().equals(CONFIG_FILE_NAME, ignoreCase = true)) {
-            val config = YamlHelper.loadProjectConfig(buildFile)
+            val config = YamlHelper.loadProjectConfig(buildFile, persistRecovery)
 			val projectRoot = buildFile.parent
 			if (config.projectName.isBlank()) {
                 val namedConfig = config.withProjectName(projectRoot?.fileName?.toString() ?: "unnamed")
-				saveProjectConfig(projectRoot, namedConfig)
+                if (persistRecovery) {
+				    saveProjectConfig(projectRoot, namedConfig)
+                }
                 Log.print("done\n")
                 return namedConfig
 			}

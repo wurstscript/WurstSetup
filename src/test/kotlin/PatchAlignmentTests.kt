@@ -134,4 +134,18 @@ class PatchAlignmentTests {
             Paths.get("C:\\Games\\Warcraft III")
         )
     }
+
+    @Test
+    fun testReadOnlyProjectLoadDoesNotRepairMalformedBuildFile() {
+        val projectRoot = Files.createTempDirectory("wurstsetup-read-only-patch")
+        val buildFile = projectRoot.resolve("wurst.build")
+        val malformedConfig = ":\n  - [broken"
+        Files.writeString(buildFile, malformedConfig)
+
+        val loaded = WurstProjectConfig.loadProject(buildFile, persistRecovery = false)
+
+        Assert.assertNotNull(loaded)
+        Assert.assertEquals(Files.readString(buildFile), malformedConfig)
+        Assert.assertFalse(Files.exists(projectRoot.resolve("wurst.build.bak")))
+    }
 }
