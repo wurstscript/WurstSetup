@@ -48,6 +48,8 @@ This repo builds the Grill CLI and project setup tooling. The generated map-proj
 
 - Build/typecheck should not require parsing the installed Warcraft executable when `wc3Patch` is pinned.
 - Run/launch is different: the selected WC3 executable controls launch arguments. If the client family and project patch target differ, warn and allow choosing another WC3 folder.
+- `grill patch` is a read-only exact-version check. `grill patch align` is the explicit mutation boundary: update `wc3Patch`, the official stdlib branch, and Grill-owned core JASS together, and preserve custom stdlib forks.
+- Exact Reforged patch detection comes from the active Warcraft III row in Blizzard's `.build.info`. If it is missing or cannot map to a supported target, alignment must leave the project unchanged.
 - Keep compiler-facing patch behavior tested in the WurstScript repo as well; Grill and compiler can diverge if only one side is tested.
 
 ## Test Commands

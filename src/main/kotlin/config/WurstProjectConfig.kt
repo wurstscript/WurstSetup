@@ -22,7 +22,11 @@ import java.nio.file.StandardOpenOption
  */
 
 object WurstProjectConfig {
-    private val MAPPER = JsonMapper.builder().enable(JsonReadFeature.ALLOW_TRAILING_COMMA).build()
+    private val MAPPER = JsonMapper.builder()
+        .enable(JsonReadFeature.ALLOW_TRAILING_COMMA)
+        .enable(JsonReadFeature.ALLOW_JAVA_COMMENTS)
+        .enable(JsonReadFeature.ALLOW_YAML_COMMENTS)
+        .build()
 
     private val schema by lazy { javaClass.classLoader.getResource("wbschema.json") }
     private val log = KotlinLogging.logger {}
@@ -42,14 +46,16 @@ object WurstProjectConfig {
     }
 
     @Throws(IOException::class)
-    fun loadProject(buildFile: Path): WurstProjectConfigData? {
+    fun loadProject(buildFile: Path, persistRecovery: Boolean = true): WurstProjectConfigData? {
         Log.println("Loading project..")
         if (Files.exists(buildFile) && buildFile.fileName.toString().equals(CONFIG_FILE_NAME, ignoreCase = true)) {
-            val config = YamlHelper.loadProjectConfig(buildFile)
+            val config = YamlHelper.loadProjectConfig(buildFile, persistRecovery)
 			val projectRoot = buildFile.parent
 			if (config.projectName.isBlank()) {
                 val namedConfig = config.withProjectName(projectRoot?.fileName?.toString() ?: "unnamed")
-				saveProjectConfig(projectRoot, namedConfig)
+                if (persistRecovery) {
+				    saveProjectConfig(projectRoot, namedConfig)
+                }
                 Log.print("done\n")
                 return namedConfig
 			}
@@ -143,6 +149,22 @@ object WurstProjectConfig {
     fun saveProjectConfig(projectRoot: Path, projectConfig: WurstProjectConfigData) {
         val projectYaml = YamlHelper.dumpProjectConfig(projectConfig)
         Files.write(projectRoot.resolve(CONFIG_FILE_NAME), projectYaml.toByteArray())
+    }
+
+    fun configuredGamePath(projectRoot: Path): Path? {
+        val settings = projectRoot.resolve(".vscode").resolve("settings.json")
+        if (!Files.isRegularFile(settings)) {
+            return null
+        }
+        return try {
+            MAPPER.readTree(Files.readString(settings))
+                ?.get("wurst.wc3path")
+                ?.asText()
+                ?.takeIf(String::isNotBlank)
+                ?.let(Paths::get)
+        } catch (_: Exception) {
+            null
+        }
     }
 
 

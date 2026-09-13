@@ -39,11 +39,13 @@ object YamlHelper {
     }
 
 
-    fun loadProjectConfig(path: Path): WurstProjectConfigData {
+    fun loadProjectConfig(path: Path, persistRecovery: Boolean = true): WurstProjectConfigData {
         val content = Files.readString(path)
         if (isEffectivelyEmptyYaml(content)) {
             val fallback = fallbackConfig(path)
-            persistRecoveredConfig(path, fallback, backupOriginal = false)
+            if (persistRecovery) {
+                persistRecoveredConfig(path, fallback, backupOriginal = false)
+            }
             return fallback
         }
 
@@ -54,7 +56,9 @@ object YamlHelper {
         } catch (e: Exception) {
             log.warn("The project's wurst.build file could not be read. Recovering with defaults.", e)
             val fallback = fallbackConfig(path)
-            persistRecoveredConfig(path, fallback, backupOriginal = true)
+            if (persistRecovery) {
+                persistRecoveredConfig(path, fallback, backupOriginal = true)
+            }
             fallback
         }
     }

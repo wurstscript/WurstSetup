@@ -7,6 +7,7 @@ import config.WurstProjectBuildMapData
 import config.WurstProjectConfigData
 import config.newProjectConfig
 import config.withAddedDependency
+import config.withDependencies
 import config.withRemovedDependency
 import config.withWc3Patch
 import global.InstallationManager
@@ -21,6 +22,7 @@ import java.nio.charset.StandardCharsets
 import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.Paths
+import java.nio.file.StandardCopyOption
 import java.util.*
 import java.util.concurrent.TimeUnit
 import javax.swing.JOptionPane
@@ -136,7 +138,10 @@ object SetupApp {
 		val configFile = setup.projectRoot.resolve(CONFIG_FILE_NAME)
 		var configData: WurstProjectConfigData? = null
 		if (Files.exists(configFile)) {
-			configData = WurstProjectConfig.loadProject(configFile)!!
+			configData = WurstProjectConfig.loadProject(
+                configFile,
+                persistRecovery = setup.command != CLICommand.PATCH
+            )!!
 		}
 
 		when {
@@ -155,6 +160,7 @@ object SetupApp {
                     |  test [filter]                    Run unit tests, optionally filtered by package/function name
                     |  typecheck                        Typecheck the project without building a map
                     |  outdated                         Check whether project dependencies are up to date
+                    |  patch [align]                    Compare project/client patches; align config and stdlib on request
                     |  build <mapfile|map-folder>        Build the project using the given map archive or folder
                     |  exportobjects <mapfile|folder>   Export object editor data to Wurst source
                     |
@@ -173,12 +179,16 @@ object SetupApp {
                     |  --with-agents / --no-agents      Include AGENTS.md (default: no)
                     |  --with-ci / --no-ci              Include GitHub Actions workflow (default: no)
                     |  --with-dep <id>                  Add a curated dependency (repeatable; ids: ${CuratedDependencies.ids.joinToString(", ")})
+                    |
+                    |Patch options:
+                    |  --wc3-path <dir>                 Warcraft III install folder to inspect
                 """.trimMargin())
             }
 			setup.command == CLICommand.INSTALL -> {
                 if (setup.commandArg.isBlank()) {
                     if (configData != null) {
                         configData = ensureProjectPatchRecorded(configData)
+                        suggestPatchAlignment(configData)
                         handleUpdateProject(configData)
                     } else {
                         missingProject()
@@ -191,6 +201,7 @@ object SetupApp {
 					if (configData != null) {
 						configData = handleInstallDep(configData)
                         configData = ensureProjectPatchRecorded(configData)
+						suggestPatchAlignment(configData)
 						WurstProjectConfig.saveProjectConfig(setup.projectRoot, configData)
                         handleUpdateProject(configData)
 					} else {
@@ -260,6 +271,13 @@ object SetupApp {
                     missingProject()
                 }
                 checkProjectOutdated(configData)
+            }
+            setup.command == CLICommand.PATCH -> {
+                if (configData == null) {
+                    missingProject()
+                } else {
+                    handlePatchAlignment(configData)
+                }
             }
             setup.command == CLICommand.BUILD -> {
                 progress("🔨 Building project...")
@@ -741,8 +759,94 @@ object SetupApp {
         return when {
             CoreJassProvider.isPre124(wc3Patch) -> "https://github.com/wurstscript/wurstStdlib2:pre1.24"
             CoreJassProvider.isPre129Patch(wc3Patch) -> "https://github.com/wurstscript/wurstStdlib2:pre1.29"
-            else -> "https://github.com/wurstscript/wurstStdlib2"
+            CoreJassProvider.isV3OrLaterPatch(wc3Patch) -> "https://github.com/wurstscript/wurstStdlib2"
+            else -> "https://github.com/wurstscript/wurstStdlib2:v2.0"
         }
+    }
+
+    internal fun alignedProjectConfig(configData: WurstProjectConfigData, patchTarget: String): WurstProjectConfigData {
+        return alignOfficialStdlibDependency(configData.withWc3Patch(patchTarget), patchTarget)
+    }
+
+    internal fun alignOfficialStdlibDependency(configData: WurstProjectConfigData, patchTarget: String): WurstProjectConfigData {
+        val expectedStdlib = stdlibDependencyForPatch(patchTarget)
+        val dependencies = configData.dependencies.map { dependency ->
+            if (isOfficialStdlibDependency(dependency)) expectedStdlib else dependency
+        }.distinct()
+        return configData.withDependencies(dependencies)
+    }
+
+    private fun isOfficialStdlibDependency(dependency: String): Boolean {
+        val prefix = "https://github.com/wurstscript/wurstStdlib2"
+        if (!dependency.startsWith(prefix, ignoreCase = true)) {
+            return false
+        }
+        val suffix = dependency.substring(prefix.length)
+        val normalizedSuffix = if (suffix.startsWith(".git", ignoreCase = true)) suffix.substring(4) else suffix
+        return normalizedSuffix.isBlank() || normalizedSuffix.startsWith(":")
+    }
+
+    private fun handlePatchAlignment(configData: WurstProjectConfigData) {
+        val action = setup.commandArg.trim().lowercase()
+        if (action.isNotBlank() && action != "align") {
+            fail("Unknown patch action: ${setup.commandArg}. Use `grill patch` or `grill patch align`.")
+            ExitHandler.exit(1)
+            return
+        }
+
+        val configuredPath = WurstProjectConfig.configuredGamePath(setup.projectRoot)
+        val gameRoot = setup.gamePath ?: configuredPath ?: Wc3ClientDetector.detectGameRoot()
+        val clientInfo = Wc3ClientDetector.inspectGameRoot(gameRoot)
+        if (clientInfo == null) {
+            fail("No Warcraft III installation was found. Use `grill patch --wc3-path <dir>`.")
+            ExitHandler.exit(1)
+            return
+        }
+
+        val detectedPatch = clientInfo.patchTarget
+        val currentPatch = CoreJassProvider.patchLine(configData.wc3Patch)
+        log.info("Project patch: ${currentPatch ?: configData.wc3Patch ?: "not configured"}")
+        log.info("Detected client: ${Wc3ClientDetector.describe(clientInfo)}")
+        if (detectedPatch == null) {
+            fail("The exact Warcraft III patch could not be mapped to a supported target. No files were changed.")
+            ExitHandler.exit(1)
+            return
+        }
+
+        val alignedConfig = alignedProjectConfig(configData, detectedPatch)
+        val configNeedsAlignment = alignedConfig != configData
+        val coreJassNeedsRefresh = CoreJassProvider.managedFilesNeedRefresh(setup.projectRoot, detectedPatch)
+        if (!configNeedsAlignment && !coreJassNeedsRefresh) {
+            pass("Project is already aligned with Warcraft III $detectedPatch.")
+            return
+        }
+        if (action != "align") {
+            if (configNeedsAlignment) {
+                log.info("Alignment available: ${currentPatch ?: "unconfigured"} -> $detectedPatch")
+            }
+            if (coreJassNeedsRefresh) {
+                log.info("Managed core JASS needs to be refreshed for $detectedPatch.")
+            }
+            log.info("Run `grill patch align` to update wurst.build, stdlib, and core JASS.")
+            return
+        }
+
+        ensureCoreJassFiles(setup.projectRoot, detectedPatch)
+        if (configNeedsAlignment) {
+            val buildFile = setup.projectRoot.resolve(CONFIG_FILE_NAME)
+            Files.copy(buildFile, buildFile.resolveSibling("$CONFIG_FILE_NAME.bak"), StandardCopyOption.REPLACE_EXISTING)
+            WurstProjectConfig.handleUpdate(setup.projectRoot, clientInfo.root, alignedConfig)
+            pass("Aligned project with Warcraft III $detectedPatch. Previous config: $CONFIG_FILE_NAME.bak")
+        } else {
+            pass("Refreshed managed core JASS for Warcraft III $detectedPatch.")
+        }
+    }
+
+    private fun suggestPatchAlignment(configData: WurstProjectConfigData) {
+        val configuredPath = WurstProjectConfig.configuredGamePath(setup.projectRoot)
+        val gameRoot = setup.gamePath ?: configuredPath ?: Wc3ClientDetector.detectGameRoot()
+        val clientInfo = Wc3ClientDetector.inspectGameRoot(gameRoot) ?: return
+        Wc3ClientDetector.mismatchMessage(configData.wc3Patch, clientInfo)?.let(log::warn)
     }
 
     internal fun generatedBuildMapData(projectName: String): WurstProjectBuildMapData {
@@ -805,15 +909,16 @@ object SetupApp {
         if (currentPatch.isNullOrBlank()) {
             val selectedPatch = selectPatchVersionForInstall()
             log.info("WC3 patch recorded in wurst.build: $selectedPatch")
-            return configData.withWc3Patch(selectedPatch)
+            return alignOfficialStdlibDependency(configData.withWc3Patch(selectedPatch), selectedPatch)
         }
 
         val normalizedPatch = CoreJassProvider.normalizePatchInput(currentPatch)
-        return if (normalizedPatch != currentPatch) {
+        val normalizedConfig = if (normalizedPatch != currentPatch) {
             configData.withWc3Patch(normalizedPatch)
         } else {
             configData
         }
+        return alignOfficialStdlibDependency(normalizedConfig, normalizedPatch)
     }
 
     internal fun selectPatchVersionForInstall(): String {
