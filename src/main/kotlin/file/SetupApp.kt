@@ -810,21 +810,32 @@ object SetupApp {
         }
 
         val alignedConfig = alignedProjectConfig(configData, detectedPatch)
-        if (alignedConfig == configData) {
+        val configNeedsAlignment = alignedConfig != configData
+        val coreJassNeedsRefresh = CoreJassProvider.managedFilesNeedRefresh(setup.projectRoot, detectedPatch)
+        if (!configNeedsAlignment && !coreJassNeedsRefresh) {
             pass("Project is already aligned with Warcraft III $detectedPatch.")
             return
         }
         if (action != "align") {
-            log.info("Alignment available: ${currentPatch ?: "unconfigured"} -> $detectedPatch")
+            if (configNeedsAlignment) {
+                log.info("Alignment available: ${currentPatch ?: "unconfigured"} -> $detectedPatch")
+            }
+            if (coreJassNeedsRefresh) {
+                log.info("Managed core JASS needs to be refreshed for $detectedPatch.")
+            }
             log.info("Run `grill patch align` to update wurst.build, stdlib, and core JASS.")
             return
         }
 
-        val buildFile = setup.projectRoot.resolve(CONFIG_FILE_NAME)
-        Files.copy(buildFile, buildFile.resolveSibling("$CONFIG_FILE_NAME.bak"), StandardCopyOption.REPLACE_EXISTING)
         ensureCoreJassFiles(setup.projectRoot, detectedPatch)
-        WurstProjectConfig.handleUpdate(setup.projectRoot, clientInfo.root, alignedConfig)
-        pass("Aligned project with Warcraft III $detectedPatch. Previous config: $CONFIG_FILE_NAME.bak")
+        if (configNeedsAlignment) {
+            val buildFile = setup.projectRoot.resolve(CONFIG_FILE_NAME)
+            Files.copy(buildFile, buildFile.resolveSibling("$CONFIG_FILE_NAME.bak"), StandardCopyOption.REPLACE_EXISTING)
+            WurstProjectConfig.handleUpdate(setup.projectRoot, clientInfo.root, alignedConfig)
+            pass("Aligned project with Warcraft III $detectedPatch. Previous config: $CONFIG_FILE_NAME.bak")
+        } else {
+            pass("Refreshed managed core JASS for Warcraft III $detectedPatch.")
+        }
     }
 
     private fun suggestPatchAlignment(configData: WurstProjectConfigData) {

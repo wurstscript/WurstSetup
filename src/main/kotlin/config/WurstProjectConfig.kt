@@ -22,7 +22,11 @@ import java.nio.file.StandardOpenOption
  */
 
 object WurstProjectConfig {
-    private val MAPPER = JsonMapper.builder().enable(JsonReadFeature.ALLOW_TRAILING_COMMA).build()
+    private val MAPPER = JsonMapper.builder()
+        .enable(JsonReadFeature.ALLOW_TRAILING_COMMA)
+        .enable(JsonReadFeature.ALLOW_JAVA_COMMENTS)
+        .enable(JsonReadFeature.ALLOW_YAML_COMMENTS)
+        .build()
 
     private val schema by lazy { javaClass.classLoader.getResource("wbschema.json") }
     private val log = KotlinLogging.logger {}

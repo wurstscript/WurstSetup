@@ -1,10 +1,12 @@
 import config.newProjectConfig
+import config.WurstProjectConfig
 import file.CoreJassProvider
 import file.CLICommand
 import file.SetupApp
 import file.SetupMain
 import org.testng.Assert
 import org.testng.annotations.Test
+import java.nio.file.Files
 import java.nio.file.Paths
 
 class PatchAlignmentTests {
@@ -95,6 +97,41 @@ class PatchAlignmentTests {
         Assert.assertEquals(
             aligned.dependencies,
             listOf("https://github.com/wurstscript/wurstStdlib2:v2.0")
+        )
+    }
+
+    @Test
+    fun testManagedCoreJassDetectsStalePatchAndInvalidFiles() {
+        val projectRoot = Files.createTempDirectory("wurstsetup-core-jass-alignment")
+        val buildFolder = Files.createDirectories(projectRoot.resolve("_build"))
+        Files.writeString(buildFolder.resolve("core-jass.provenance"), "wc3Patch: v2.0\n")
+        Files.writeString(buildFolder.resolve("common.j"), "x".repeat(2048))
+        Files.writeString(buildFolder.resolve("blizzard.j"), "x".repeat(2048))
+
+        Assert.assertTrue(CoreJassProvider.managedFilesNeedRefresh(projectRoot, "v3.0"))
+        Assert.assertFalse(CoreJassProvider.managedFilesNeedRefresh(projectRoot, "v2.0"))
+
+        Files.writeString(buildFolder.resolve("common.j"), "invalid")
+        Assert.assertTrue(CoreJassProvider.managedFilesNeedRefresh(projectRoot, "v2.0"))
+    }
+
+    @Test
+    fun testConfiguredGamePathSupportsJsonc() {
+        val projectRoot = Files.createTempDirectory("wurstsetup-jsonc-settings")
+        val vscodeFolder = Files.createDirectories(projectRoot.resolve(".vscode"))
+        Files.writeString(
+            vscodeFolder.resolve("settings.json"),
+            """
+            {
+              // Warcraft III installation used by the Wurst extension.
+              "wurst.wc3path": "C:\\Games\\Warcraft III",
+            }
+            """.trimIndent()
+        )
+
+        Assert.assertEquals(
+            WurstProjectConfig.configuredGamePath(projectRoot),
+            Paths.get("C:\\Games\\Warcraft III")
         )
     }
 }

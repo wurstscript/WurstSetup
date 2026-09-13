@@ -224,6 +224,15 @@ object CoreJassProvider {
         return materializedFiles.map { it.path }
     }
 
+    fun managedFilesNeedRefresh(projectRoot: Path, wc3Patch: String?): Boolean {
+        val buildFolder = projectRoot.resolve("_build")
+        val previousPatch = readProvenance(buildFolder) ?: return false
+        val patch = resolveSupportedPatch(wc3Patch)
+        return previousPatch != patch ||
+            !isValidCoreJassFile(buildFolder.resolve("common.j")) ||
+            !isValidCoreJassFile(buildFolder.resolve("blizzard.j"))
+    }
+
     fun fetchJassHistoryVersions(): List<String> {
         val versionListUrl = "$JASS_HISTORY_RAW/$JASS_HISTORY_REF/$VERSION_LIST_FILE"
         return try {
