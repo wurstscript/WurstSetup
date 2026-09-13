@@ -194,6 +194,13 @@ object CoreJassProvider {
             .orElse(false)
     }
 
+    fun isV3OrLaterPatch(input: String?): Boolean {
+        val patch = normalizePatchInput(input)
+        val target = Wc3PatchTarget.parse(patch).orElse(null) ?: return false
+        return target.kind() == Wc3PatchTarget.Kind.REFORGED &&
+            compareVersionStrings(target.gameVersion(), "3.0") >= 0
+    }
+
     fun ensureFiles(projectRoot: Path, wc3Patch: String?): List<Path> {
         val buildFolder = projectRoot.resolve("_build")
         Files.createDirectories(buildFolder)

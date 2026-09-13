@@ -166,6 +166,14 @@ class GenerateTests {
         Assert.assertEquals(SetupApp.stdlibDependencyForPatch("TFT-v1.27b-ru"), legacyStdlib)
         Assert.assertEquals(SetupApp.stdlibDependencyForPatch("pre1.29"), legacyStdlib)
         Assert.assertEquals(SetupApp.stdlibDependencyForPatch("v1.29"), preV3Stdlib)
+        Assert.assertEquals(
+            SetupApp.stdlibDependencyForPatch("Reforged-v3.1.0.25000-w3-deadbeef"),
+            currentStdlib
+        )
+        Assert.assertEquals(
+            SetupApp.stdlibDependencyForPatch("Reforged-v2.0.4.23745-w3-deadbeef"),
+            preV3Stdlib
+        )
     }
 
     @Test(priority = 10)

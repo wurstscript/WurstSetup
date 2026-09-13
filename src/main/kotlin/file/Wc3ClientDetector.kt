@@ -172,14 +172,14 @@ object Wc3ClientDetector {
             val versionIndex = headers.indexOf("Version")
             val productIndex = headers.indexOf("Product")
             val activeIndex = headers.indexOf("Active")
-            if (versionIndex < 0) return null
+            if (versionIndex < 0 || productIndex < 0 || activeIndex < 0) return null
 
             lines.drop(1)
                 .map { it.split('|') }
                 .firstOrNull { values ->
                     values.size > versionIndex &&
-                        (productIndex < 0 || values.getOrNull(productIndex).equals(selectedProduct ?: "w3", ignoreCase = true)) &&
-                        (activeIndex < 0 || values.getOrNull(activeIndex) == "1")
+                        values.getOrNull(productIndex).equals(selectedProduct ?: "w3", ignoreCase = true) &&
+                        values.getOrNull(activeIndex) == "1"
                 }
                 ?.getOrNull(versionIndex)
                 ?.trim()

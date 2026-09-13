@@ -759,7 +759,7 @@ object SetupApp {
         return when {
             CoreJassProvider.isPre124(wc3Patch) -> "https://github.com/wurstscript/wurstStdlib2:pre1.24"
             CoreJassProvider.isPre129Patch(wc3Patch) -> "https://github.com/wurstscript/wurstStdlib2:pre1.29"
-            CoreJassProvider.patchLine(wc3Patch) == "v3.0" -> "https://github.com/wurstscript/wurstStdlib2"
+            CoreJassProvider.isV3OrLaterPatch(wc3Patch) -> "https://github.com/wurstscript/wurstStdlib2"
             else -> "https://github.com/wurstscript/wurstStdlib2:v2.0"
         }
     }

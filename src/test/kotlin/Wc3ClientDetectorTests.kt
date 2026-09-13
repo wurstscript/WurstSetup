@@ -131,6 +131,40 @@ class Wc3ClientDetectorTests {
     }
 
     @Test
+    fun testRejectsBuildInfoWithoutProductHeader() {
+        val root = Files.createTempDirectory("wc3-build-info-no-product")
+        val exe = Files.createDirectories(root.resolve("_retail_").resolve("x86_64")).resolve("Warcraft III.exe")
+        Files.writeString(exe, "")
+        Files.writeString(
+            root.resolve(".build.info"),
+            "Active!DEC:1|Version!STRING:0\n" +
+                "1|3.0.0.24268\n"
+        )
+
+        val info = Wc3ClientDetector.inspectGameRoot(root)!!
+
+        Assert.assertNull(info.version)
+        Assert.assertNull(info.patchTarget)
+    }
+
+    @Test
+    fun testRejectsBuildInfoWithoutActiveHeader() {
+        val root = Files.createTempDirectory("wc3-build-info-no-active")
+        val exe = Files.createDirectories(root.resolve("_retail_").resolve("x86_64")).resolve("Warcraft III.exe")
+        Files.writeString(exe, "")
+        Files.writeString(
+            root.resolve(".build.info"),
+            "Version!STRING:0|Product!STRING:0\n" +
+                "3.0.0.24268|w3\n"
+        )
+
+        val info = Wc3ClientDetector.inspectGameRoot(root)!!
+
+        Assert.assertNull(info.version)
+        Assert.assertNull(info.patchTarget)
+    }
+
+    @Test
     fun testSelectsPtrBuildInfoRowForExplicitPtrPath() {
         val root = Files.createTempDirectory("wc3-retail-ptr")
         val retailExe = Files.createDirectories(root.resolve("_retail_").resolve("x86_64")).resolve("Warcraft III.exe")
