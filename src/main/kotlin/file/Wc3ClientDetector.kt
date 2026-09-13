@@ -15,6 +15,7 @@ object Wc3ClientDetector {
 
     data class ClientInfo(
         val root: Path,
+        val configuredPath: Path,
         val executable: Path,
         val kind: ClientKind?,
         val version: String?,
@@ -50,6 +51,7 @@ object Wc3ClientDetector {
         val version = readBuildInfoVersion(installRoot, productForExecutable(executable))
         return ClientInfo(
             installRoot,
+            configuredPathForExecutable(executable, installRoot),
             executable,
             classifyExecutable(executable),
             version,
@@ -132,6 +134,22 @@ object Wc3ClientDetector {
             return maybeRetail ?: parent
         }
         return parent
+    }
+
+    private fun configuredPathForExecutable(executable: Path, installRoot: Path): Path {
+        val executableDirectory = executable.toAbsolutePath().normalize().parent ?: return installRoot
+        val channelDirectory = if (
+            executableDirectory.fileName?.toString()?.equals("x86", ignoreCase = true) == true ||
+            executableDirectory.fileName?.toString()?.equals("x86_64", ignoreCase = true) == true
+        ) {
+            executableDirectory.parent
+        } else {
+            executableDirectory
+        }
+        return channelDirectory?.takeIf {
+            it.fileName?.toString()?.equals("_retail_", ignoreCase = true) == true ||
+                it.fileName?.toString()?.equals("_ptr_", ignoreCase = true) == true
+        } ?: installRoot
     }
 
     private fun productForExecutable(executable: Path): String? {

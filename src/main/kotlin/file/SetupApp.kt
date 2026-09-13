@@ -834,7 +834,7 @@ object SetupApp {
         if (configNeedsAlignment) {
             val buildFile = setup.projectRoot.resolve(CONFIG_FILE_NAME)
             Files.copy(buildFile, buildFile.resolveSibling("$CONFIG_FILE_NAME.bak"), StandardCopyOption.REPLACE_EXISTING)
-            WurstProjectConfig.handleUpdate(setup.projectRoot, clientInfo.root, alignedConfig)
+            WurstProjectConfig.handleUpdate(setup.projectRoot, clientInfo.configuredPath, alignedConfig)
             pass("Aligned project with Warcraft III $detectedPatch. Previous config: $CONFIG_FILE_NAME.bak")
         } else {
             pass("Refreshed managed core JASS for Warcraft III $detectedPatch.")

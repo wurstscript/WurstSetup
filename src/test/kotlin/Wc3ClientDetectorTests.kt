@@ -144,6 +144,7 @@ class Wc3ClientDetectorTests {
         val info = Wc3ClientDetector.inspectGameRoot(ptrDirectory)!!
 
         Assert.assertEquals(info.executable, ptrDirectory.resolve("Warcraft III.exe"))
+        Assert.assertEquals(info.configuredPath, ptrDirectory.parent)
         Assert.assertEquals(info.version, "2.0.4.23745")
         Assert.assertEquals(info.patchTarget, "v2.0")
     }
@@ -165,6 +166,7 @@ class Wc3ClientDetectorTests {
         val info = Wc3ClientDetector.inspectGameRoot(root)!!
 
         Assert.assertEquals(info.executable, retailDirectory.resolve("Warcraft III.exe"))
+        Assert.assertEquals(info.configuredPath, retailDirectory.parent)
         Assert.assertEquals(info.version, "3.0.0.24268")
         Assert.assertEquals(info.patchTarget, "v3.0")
     }
