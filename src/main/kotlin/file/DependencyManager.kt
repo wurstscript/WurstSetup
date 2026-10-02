@@ -11,6 +11,7 @@ import org.eclipse.jgit.lib.Constants
 import java.io.File
 import java.io.ByteArrayOutputStream
 import java.io.IOException
+import java.net.URI
 import java.nio.file.Files
 import java.nio.file.Path
 import java.util.Comparator
@@ -22,17 +23,104 @@ object DependencyManager {
     private val log = KotlinLogging.logger {}
     var debug = false
 
-    fun updateDependencies(projectRoot: Path, projectConfig: WurstProjectConfigData) {
+    fun isLocalDependency(dependency: String): Boolean =
+        runCatching { URI(dependency).scheme.equals("file", ignoreCase = true) }.getOrDefault(false)
+
+    private fun localDependencyPath(dependency: String): Path {
+        val uri = URI(dependency)
+        require(uri.scheme.equals("file", ignoreCase = true)) { "Local dependencies must use a file: URL." }
+        require(uri.query == null && uri.fragment == null) { "Local dependency URLs cannot contain a query or fragment." }
+        return Path.of(uri).toAbsolutePath().normalize()
+    }
+
+    private fun hasSymbolicLinkComponent(path: Path): Boolean {
+        val normalized = path.toAbsolutePath().normalize()
+        var current = normalized.root ?: return Files.isSymbolicLink(normalized)
+        for (component in normalized) {
+            current = current.resolve(component)
+            if (Files.isSymbolicLink(current)) return true
+        }
+        return false
+    }
+
+    private fun dependencyFiles(root: Path): List<Path> {
+        require(!hasSymbolicLinkComponent(root)) {
+            "Local dependency paths cannot contain symbolic links: $root"
+        }
+        require(Files.isDirectory(root)) { "Local dependency directory does not exist: $root" }
+        val entries = Files.walk(root).use { paths ->
+            paths.filter { path ->
+                path != root && path.none { it.toString() == ".git" }
+            }.toList()
+        }
+        require(entries.none(Files::isSymbolicLink)) {
+            "Local dependency directories cannot contain symbolic links: $root"
+        }
+        return entries.sorted()
+    }
+
+    private fun localDependencyMatches(dependency: String, destination: Path): Boolean = try {
+        val source = localDependencyPath(dependency)
+        if (!Files.isDirectory(source) || !Files.isDirectory(destination) || source == destination ||
+            destination.startsWith(source) || source.startsWith(destination)) {
+            false
+        } else {
+            val sourceFiles = dependencyFiles(source)
+            val destinationFiles = dependencyFiles(destination)
+            sourceFiles.map { source.relativize(it) } == destinationFiles.map { destination.relativize(it) } &&
+                sourceFiles.zip(destinationFiles).all { (left, right) ->
+                    Files.isDirectory(left) && Files.isDirectory(right) ||
+                        (Files.isRegularFile(left) && Files.isRegularFile(right) && Files.mismatch(left, right) == -1L)
+                }
+        }
+    } catch (_: Exception) {
+        false
+    }
+
+    private fun copyLocalDependency(dependency: String, destination: Path) {
+        val source = localDependencyPath(dependency)
+        require(Files.isDirectory(source)) { "Local dependency directory does not exist: $source" }
+        val normalizedDestination = destination.toAbsolutePath().normalize()
+        require(source != normalizedDestination && !normalizedDestination.startsWith(source) && !source.startsWith(normalizedDestination)) {
+            "A local dependency cannot contain its _build destination."
+        }
+        val sourceEntries = dependencyFiles(source)
+        if (Files.exists(destination)) deleteDirectoryStream(destination)
+        Files.createDirectories(destination)
+        for (sourcePath in sourceEntries) {
+            val relative = source.relativize(sourcePath)
+            val target = destination.resolve(relative)
+            if (Files.isDirectory(sourcePath)) {
+                Files.createDirectories(target)
+            } else if (Files.isRegularFile(sourcePath)) {
+                Files.createDirectories(target.parent)
+                Files.copy(sourcePath, target)
+            }
+        }
+    }
+
+    fun updateDependencies(
+        projectRoot: Path,
+        projectConfig: WurstProjectConfigData,
+        localDependenciesOnly: Boolean = false
+    ) {
         cleanupLegacyDependencyFile(projectRoot)
         log.info("\uD83D\uDD37 Installing dependencies..")
         Log.print("Updating dependencies...\n")
         for (dependency in projectConfig.dependencies) {
             val (depUri, dependencyName, requestedBranch) = resolveName(dependency)
+            val isLocal = isLocalDependency(depUri)
+            if (localDependenciesOnly && !isLocal) continue
+            val depFolder = projectRoot.resolve("_build/dependencies/$dependencyName")
+            if (isLocal) {
+                copyLocalDependency(depUri, depFolder)
+                Log.print("Updated local dependency - $dependencyName\n")
+                continue
+            }
             val branch = resolveBranch(depUri, requestedBranch)
             log.info("\t\uD83D\uDD39 Pulling <$dependencyName:$branch>")
             Log.print("Updating dependency - $dependencyName ..")
 
-            val depFolder = projectRoot.resolve("_build/dependencies/$dependencyName")
             if (Files.exists(depFolder)) {
                 log.debug("dependency exists locally")
                 if (!refreshRepo(depFolder, depUri, branch)) {
@@ -59,11 +147,15 @@ object DependencyManager {
     }
 
     fun resolveName(dependency: String): Triple<String, String, String> {
-        var dependencyName = dependency.substring(dependency.lastIndexOf("/") + 1)
+        var dependencyName = if (isLocalDependency(dependency)) {
+            localDependencyPath(dependency).fileName?.toString().orEmpty()
+        } else {
+            dependency.substring(dependency.lastIndexOf("/") + 1)
+        }
         var branch = ""
         var depURI = dependency
 
-        if (dependencyName.contains(":")) {
+        if (!isLocalDependency(dependency) && dependencyName.contains(":")) {
             depURI = depURI.substring(0, depURI.lastIndexOf(":"))
             branch = dependencyName.substring(dependencyName.lastIndexOf(":") + 1)
             dependencyName = dependencyName.substring(0, dependencyName.lastIndexOf(":"))
@@ -77,6 +169,10 @@ object DependencyManager {
             val (_, dependencyName, _) = resolveName(dependency)
             Log.print("Checking dependency - $dependencyName ..")
             val depFolder = projectRoot.resolve("_build/dependencies/$dependencyName")
+            if (isLocalDependency(resolveName(dependency).first)) {
+                if (!localDependencyMatches(dependency, depFolder)) return true
+                continue
+            }
             if (Files.exists(depFolder)) {
                 isGitRepoUpToDate(depFolder)
             } else {
@@ -90,9 +186,17 @@ object DependencyManager {
         Log.print("Checking dependencies...\n")
         for (dependency in projectConfig.dependencies) {
             val (depUri, dependencyName, requestedBranch) = resolveName(dependency)
+            val depFolder = projectRoot.resolve("_build/dependencies/$dependencyName")
+            if (isLocalDependency(depUri)) {
+                if (!localDependencyMatches(depUri, depFolder)) {
+                    Log.print("outdated\n")
+                    return true
+                }
+                Log.print("ok\n")
+                continue
+            }
             val branch = resolveBranch(depUri, requestedBranch)
             Log.print("Checking dependency - $dependencyName ..")
-            val depFolder = projectRoot.resolve("_build/dependencies/$dependencyName")
 
             if (!Files.exists(depFolder.resolve(".git"))) {
                 Log.print("missing\n")
@@ -126,6 +230,7 @@ object DependencyManager {
                 .setURI(depURI)
                 .setBranch(branch)
                 .setDirectory(depFolder.toFile())
+                .setCredentialsProvider(GitCredentialProvider)
                 .call()
                 .use { Log.print("done\n") }
         } catch (e: Exception) {
@@ -153,6 +258,7 @@ object DependencyManager {
                         git.fetch()
                             .setRemote("origin")
                             .setRemoveDeletedRefs(true)
+                            .setCredentialsProvider(GitCredentialProvider)
                             .call()
                         if (!prepareRepo(git, branch)) {
                             return false
@@ -227,6 +333,7 @@ object DependencyManager {
                 .setRemote(depUri)
                 .setHeads(true)
                 .setTags(false)
+                .setCredentialsProvider(GitCredentialProvider)
                 .call()
 
             val branchNames = refs.mapNotNull { ref ->
@@ -272,7 +379,10 @@ object DependencyManager {
                 FileRepository(depFolder.resolve(".git").toFile()).use { repository ->
                     try {
                         Git(repository).use { git ->
-                            git.lsRemote().setHeads(true).call()
+                            git.lsRemote()
+                                .setHeads(true)
+                                .setCredentialsProvider(GitCredentialProvider)
+                                .call()
                             val status = git.status().call()
                             if (status.hasUncommittedChanges()) {
                                 Log.print("You have modified files in your dependencies folder.")
@@ -311,6 +421,7 @@ object DependencyManager {
                     git.fetch()
                         .setRemote("origin")
                         .setRemoveDeletedRefs(true)
+                        .setCredentialsProvider(GitCredentialProvider)
                         .call()
                 }
                 val localHead = repository.resolve(Constants.HEAD)
@@ -339,7 +450,7 @@ object DependencyManager {
             }
             message.contains("Authentication", true) || message.contains("not authorized", true) -> {
                 log.info("Reason: authentication failed.")
-                log.info("Try: check that the repo is public or that git credentials are available.")
+                log.info("Try: check that your installed Git can access this repo and has a credential helper configured.")
             }
             else -> {
                 log.info("Reason: $message")
@@ -357,6 +468,7 @@ object DependencyManager {
                 .setRemote(depURI)
                 .setHeads(true)
                 .setTags(false)
+                .setCredentialsProvider(GitCredentialProvider)
                 .call()
                 .mapNotNull { ref ->
                     ref.name.takeIf { it.startsWith(Constants.R_HEADS) }?.removePrefix(Constants.R_HEADS)
