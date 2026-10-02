@@ -33,7 +33,20 @@ object DependencyManager {
         return Path.of(uri).toAbsolutePath().normalize()
     }
 
+    private fun hasSymbolicLinkComponent(path: Path): Boolean {
+        val normalized = path.toAbsolutePath().normalize()
+        var current = normalized.root ?: return Files.isSymbolicLink(normalized)
+        for (component in normalized) {
+            current = current.resolve(component)
+            if (Files.isSymbolicLink(current)) return true
+        }
+        return false
+    }
+
     private fun dependencyFiles(root: Path): List<Path> {
+        require(!hasSymbolicLinkComponent(root)) {
+            "Local dependency paths cannot contain symbolic links: $root"
+        }
         require(Files.isDirectory(root)) { "Local dependency directory does not exist: $root" }
         val entries = Files.walk(root).use { paths ->
             paths.filter { path ->

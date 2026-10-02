@@ -50,4 +50,35 @@ class DependencyManagerTests {
         Assert.assertTrue(rejected, "A local dependency containing a symbolic link should be rejected.")
         Assert.assertTrue(Files.exists(existingCopy.resolve("PreviouslyInstalled.wurst")))
     }
+
+    @Test
+    fun localDependencyRootSymlinkIsRejectedBeforeReplacingExistingCopy() {
+        val project = Files.createTempDirectory("grill-root-symlink-project")
+        val target = Files.createTempDirectory("grill-root-symlink-target")
+        Files.writeString(target.resolve("Dependency.wurst"), "package Dependency\n")
+        val parent = Files.createTempDirectory("grill-root-symlink-source")
+        val source = parent.resolve("dependency-link")
+        try {
+            Files.createSymbolicLink(source, target)
+        } catch (_: Exception) {
+            throw SkipException("The current environment does not allow creating symbolic links.")
+        }
+
+        val existingCopy = project.resolve("_build/dependencies/${source.fileName}")
+        Files.createDirectories(existingCopy)
+        Files.writeString(existingCopy.resolve("PreviouslyInstalled.wurst"), "package PreviouslyInstalled\n")
+
+        var rejected = false
+        try {
+            DependencyManager.updateDependencies(
+                project,
+                newProjectConfig(dependencies = listOf(source.toUri().toString()))
+            )
+        } catch (_: IllegalArgumentException) {
+            rejected = true
+        }
+
+        Assert.assertTrue(rejected, "A local dependency root that is a symbolic link should be rejected.")
+        Assert.assertTrue(Files.exists(existingCopy.resolve("PreviouslyInstalled.wurst")))
+    }
 }
