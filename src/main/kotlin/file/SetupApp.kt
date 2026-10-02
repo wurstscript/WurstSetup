@@ -1406,12 +1406,25 @@ object SetupApp {
 
 	private fun handleInstallDep(configData: WurstProjectConfigData): WurstProjectConfigData {
         val resolvedName = DependencyManager.resolveName(setup.commandArg)
+        if (DependencyManager.isLocalDependency(resolvedName.first)) {
+            val source = runCatching { java.nio.file.Path.of(java.net.URI(resolvedName.first)) }.getOrNull()
+            if (source == null || !java.nio.file.Files.isDirectory(source) || resolvedName.second.isBlank()) {
+                log.error("❌ Local dependency directory does not exist: ${resolvedName.first}")
+                ExitHandler.exit(1)
+            }
+            if (configData.dependencies.contains(setup.commandArg)) {
+                log.info("✅ Dependency is already listed.")
+                return configData
+            }
+            log.info("🔹 Adding local dependency ${resolvedName.second}")
+            return configData.withAddedDependency(setup.commandArg)
+        }
         if (!REPO_REGEX.matches(resolvedName.first)) {
             log.error("❌ Unsupported dependency URL: ${setup.commandArg}")
             log.info("Accepted forms:")
-            log.info("  https://github.com/user/repo")
-            log.info("  https://github.com/user/repo:branch")
-            log.info("SSH repo URLs are not bundled in the slim CLI.")
+			log.info("  https://github.com/user/repo")
+			log.info("  https://github.com/user/repo:branch")
+			log.info("  file:///absolute/path/to/local-repo")
             ExitHandler.exit(1)
         }
 		log.info("🔹 Installing ${resolvedName.second}")
@@ -1422,6 +1435,7 @@ object SetupApp {
 		try {
 			val result = Git.lsRemoteRepository()
 				.setRemote(resolvedName.first)
+				.setCredentialsProvider(GitCredentialProvider)
 				.call()
 			if (!result.isEmpty()) {
 				Log.print("valid!\n")

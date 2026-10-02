@@ -44,7 +44,7 @@
             ]
         },
         "dependencies": {
-            "description": "Git repository urls of this project's dependencies",
+            "description": "Git repository URLs or file: URLs to local dependency directories",
             "type": "array",
             "items": {
                 "type": "string"

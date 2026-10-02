@@ -43,6 +43,14 @@ To add a new dependency to your project, use:
 > grill install <git_url>
 ```
 
+For an offline dependency, pass an absolute `file:` URL to a local directory. Grill copies its contents into `_build/dependencies/<directory-name>` each time you run `grill install` (the source `.git` directory is excluded):
+
+```cmd
+> grill install file:///C:/Users/me/wurst/MyDependency
+```
+
+Private HTTPS repositories use the credential helpers configured for your installed Git, including Git Credential Manager. If sign-in is needed, the helper can open its normal interactive flow. Grill does not store credentials itself.
+
 ### Testing a project
 
 Use `test` to compile the project at the current location and run unit tests.
