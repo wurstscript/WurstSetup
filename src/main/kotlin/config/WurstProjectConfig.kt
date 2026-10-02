@@ -227,12 +227,17 @@ object WurstProjectConfig {
         }
     }
 
-	fun handleUpdate(projectRoot: Path, gamePath: Path?, config: WurstProjectConfigData) {
+	fun handleUpdate(
+        projectRoot: Path,
+        gamePath: Path?,
+        config: WurstProjectConfigData,
+        localDependenciesOnly: Boolean = false
+    ) {
         Log.print("Updating project...\n")
         try {
             setupVSCode(projectRoot, gamePath)
             saveProjectConfig(projectRoot, config)
-            DependencyManager.updateDependencies(projectRoot, config)
+            DependencyManager.updateDependencies(projectRoot, config, localDependenciesOnly)
 
             Log.print("Project successfully updated!\nReload vscode to apply the changed dependencies.\n")
         } catch (e: Exception) {

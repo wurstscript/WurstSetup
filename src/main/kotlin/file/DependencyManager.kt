@@ -35,11 +35,15 @@ object DependencyManager {
 
     private fun dependencyFiles(root: Path): List<Path> {
         require(Files.isDirectory(root)) { "Local dependency directory does not exist: $root" }
-        return Files.walk(root).use { paths ->
+        val entries = Files.walk(root).use { paths ->
             paths.filter { path ->
                 path != root && path.none { it.toString() == ".git" }
-            }.sorted().toList()
+            }.toList()
         }
+        require(entries.none(Files::isSymbolicLink)) {
+            "Local dependency directories cannot contain symbolic links: $root"
+        }
+        return entries.sorted()
     }
 
     private fun localDependencyMatches(dependency: String, destination: Path): Boolean = try {
@@ -67,9 +71,10 @@ object DependencyManager {
         require(source != normalizedDestination && !normalizedDestination.startsWith(source) && !source.startsWith(normalizedDestination)) {
             "A local dependency cannot contain its _build destination."
         }
+        val sourceEntries = dependencyFiles(source)
         if (Files.exists(destination)) deleteDirectoryStream(destination)
         Files.createDirectories(destination)
-        for (sourcePath in dependencyFiles(source)) {
+        for (sourcePath in sourceEntries) {
             val relative = source.relativize(sourcePath)
             val target = destination.resolve(relative)
             if (Files.isDirectory(sourcePath)) {
@@ -81,14 +86,20 @@ object DependencyManager {
         }
     }
 
-    fun updateDependencies(projectRoot: Path, projectConfig: WurstProjectConfigData) {
+    fun updateDependencies(
+        projectRoot: Path,
+        projectConfig: WurstProjectConfigData,
+        localDependenciesOnly: Boolean = false
+    ) {
         cleanupLegacyDependencyFile(projectRoot)
         log.info("\uD83D\uDD37 Installing dependencies..")
         Log.print("Updating dependencies...\n")
         for (dependency in projectConfig.dependencies) {
             val (depUri, dependencyName, requestedBranch) = resolveName(dependency)
+            val isLocal = isLocalDependency(depUri)
+            if (localDependenciesOnly && !isLocal) continue
             val depFolder = projectRoot.resolve("_build/dependencies/$dependencyName")
-            if (isLocalDependency(depUri)) {
+            if (isLocal) {
                 copyLocalDependency(depUri, depFolder)
                 Log.print("Updated local dependency - $dependencyName\n")
                 continue

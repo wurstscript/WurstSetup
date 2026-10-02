@@ -200,10 +200,15 @@ object SetupApp {
 				} else {
 					if (configData != null) {
 						configData = handleInstallDep(configData)
-                        configData = ensureProjectPatchRecorded(configData)
+						configData = ensureProjectPatchRecorded(configData)
 						suggestPatchAlignment(configData)
 						WurstProjectConfig.saveProjectConfig(setup.projectRoot, configData)
-                        handleUpdateProject(configData)
+						handleUpdateProject(
+                            configData,
+                            localDependenciesOnly = DependencyManager.isLocalDependency(
+                                DependencyManager.resolveName(setup.commandArg).first
+                            )
+                        )
 					} else {
                         missingProject()
 					}
@@ -1396,9 +1401,11 @@ object SetupApp {
 		}
 	}
 
-	private fun handleUpdateProject(configData: WurstProjectConfigData) {
-		WurstProjectConfig.handleUpdate(setup.projectRoot, null, configData)
-        ensureCoreJassFiles(setup.projectRoot, configData.wc3Patch)
+	private fun handleUpdateProject(configData: WurstProjectConfigData, localDependenciesOnly: Boolean = false) {
+		WurstProjectConfig.handleUpdate(setup.projectRoot, null, configData, localDependenciesOnly)
+        if (!localDependenciesOnly) {
+            ensureCoreJassFiles(setup.projectRoot, configData.wc3Patch)
+        }
         warnIfAgentsTemplateStale(setup.projectRoot)
 	}
 
