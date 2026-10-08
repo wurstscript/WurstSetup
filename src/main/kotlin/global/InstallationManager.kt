@@ -24,6 +24,7 @@ object InstallationManager {
     private const val LANGUAGE_AGENT_DOC_ENTRY = "agent-docs/WURST_LANGUAGE.md"
     private const val GRILL_JAR_NAME = "grill.jar"
     private const val LEGACY_GRILL_JAR_NAME = "WurstSetup.jar"
+    private const val COMPACT_OBJECT_HEADERS = "-XX:+UseCompactObjectHeaders"
 
     val installDir: Path get() = configuredInstallDir()
     val compilerDir: Path get() = installDir.resolve("wurst-compiler")
@@ -193,7 +194,9 @@ object InstallationManager {
     fun compilerLaunchCommand(vararg extraArgs: String): Array<String> {
         val compiler = detectCompilerJar() ?: compilerJar
         val java = bundledJavaCommand()
-        return arrayOf(java, "-jar", compiler.toAbsolutePath().toString(), *extraArgs)
+        // The compiler holds millions of small objects, and the runtime of the distribution carries the base class
+        // data sharing archive for compact object headers, which a JVM uses only in the header mode it runs with.
+        return arrayOf(java, COMPACT_OBJECT_HEADERS, "-jar", compiler.toAbsolutePath().toString(), *extraArgs)
     }
 
     private fun bundledJavaCommand(): String {
