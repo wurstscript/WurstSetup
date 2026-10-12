@@ -13,7 +13,9 @@ public class RunCompilerFixture {
             System.exit(1);
         }
         var map = root.resolve("_build/Actual output.w3x");
-        Files.writeString(map, "fixture map");
+        if (!Files.exists(root.resolve("omit-output"))) {
+            Files.writeString(map, "fixture map");
+        }
         System.out.println("Build succeeded. Output file: <" + map + ">");
     }
 }

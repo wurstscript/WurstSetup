@@ -38,6 +38,7 @@ class RunTests {
         val client = Files.createDirectories(project.resolve("Game/_retail_/x86_64"))
         Files.writeString(client.resolve("Warcraft III.exe"), "invalid executable")
         if (failBuild) Files.writeString(project.resolve("fail-build"), "")
+        else Files.writeString(project.resolve("omit-output"), "")
         val previousInstall = System.getProperty("wurst.install.dir")
         val previousExit = ExitHandler.handler
         val previousErr = System.err
@@ -74,11 +75,11 @@ class RunTests {
     }
 
     @Test
-    fun launchFailureAfterSuccessfulBuildIsReported() {
+    fun missingOutputAfterSuccessfulBuildPreventsLaunch() {
         val (code, errors) = runWithCompilerFixture(failBuild = false)
         Assert.assertEquals(code, 1)
         Assert.assertTrue(errors.contains("Could not launch Warcraft III"), errors)
-        Assert.assertFalse(errors.contains("Built map was not found"), errors)
+        Assert.assertTrue(errors.contains("Built map was not found"), errors)
         Assert.assertTrue(errors.contains("--wc3-path"), errors)
     }
 
@@ -115,7 +116,7 @@ class RunTests {
         val exe = Files.createDirectories(root.resolve("_retail_/x86_64")).resolve("Warcraft III.exe")
         Files.writeString(exe, "")
         val map = root.resolve("Map with spaces.w3x")
-        val command = Wc3MapRunner.launchCommand(Wc3ClientDetector.inspectGameRoot(root)!!, map)
+        val command = Wc3MapRunner.launchCommand(Wc3ClientDetector.inspectGameRoot(root)!!, map, "Windows 11")
         Assert.assertEquals(command, listOf(exe.toString(), "-launch", "-editor", "-windowmode", "windowed", "-loadfile", map.toString()))
     }
 
@@ -125,8 +126,72 @@ class RunTests {
         val exe = root.resolve("war3.exe")
         Files.writeString(exe, "")
         val map = root.resolve("map.w3x")
-        Assert.assertEquals(Wc3MapRunner.launchCommand(Wc3ClientDetector.inspectGameRoot(root)!!, map),
+        Assert.assertEquals(Wc3MapRunner.launchCommand(Wc3ClientDetector.inspectGameRoot(root)!!, map, "Windows 11"),
             listOf(exe.toString(), "-window", "-loadfile", map.toString()))
+    }
+
+    @Test
+    fun staleConfiguredClientFallsBackButExplicitInvalidClientDoesNot() {
+        val project = Files.createTempDirectory("grill-run-stale-client")
+        Files.createDirectories(project.resolve(".vscode"))
+        Files.writeString(project.resolve(".vscode/settings.json"), "{\"wurst.wc3path\":\"missing-client\"}")
+        val root = Files.createDirectories(project.resolve("Game"))
+        val exe = Files.writeString(root.resolve("war3.exe"), "")
+        val setup = SetupMain().apply { projectRoot = project }
+        Assert.assertEquals(Wc3MapRunner.resolveClient(setup) { root }?.executable, exe)
+        setup.gamePath = project.resolve("explicit-missing-client")
+        Assert.assertNull(Wc3MapRunner.resolveClient(setup) { Assert.fail("Explicit selection must not auto-detect"); root })
+    }
+
+    @Test
+    fun linuxLaunchPrefixesWineAndKeepsPathsWithSpacesIntact() {
+        val root = Files.createTempDirectory("grill-run-wine")
+        val exe = Files.writeString(Files.createDirectories(root.resolve("_retail_/x86_64")).resolve("Warcraft III.exe"), "")
+        val map = root.resolve("Map with spaces.w3x")
+        Assert.assertEquals(Wc3MapRunner.launchCommand(Wc3ClientDetector.inspectGameRoot(root)!!, map, "Linux"),
+            listOf("wine", exe.toString(), "-launch", "-editor", "-windowmode", "windowed", "-loadfile", map.toString()))
+    }
+
+    @Test
+    fun stagesOldClientsInInstallationAndNewerClassicClientsInDocuments() {
+        val root = Files.createTempDirectory("grill-run-legacy-stage")
+        Files.writeString(root.resolve("war3.exe"), "")
+        val client = Wc3ClientDetector.inspectGameRoot(root)!!
+        val map = Files.writeString(root.resolve("built.w3x"), "compiled map")
+        val documents = Files.createDirectories(root.resolve("documents/Warcraft III"))
+        val oldTarget = Wc3MapRunner.stageMap(client.copy(version = "1.27.1"), map) { Assert.fail("Old clients use installation Maps"); documents }
+        Assert.assertEquals(oldTarget, root.resolve("Maps/Test/GrillRunMap.w3x"))
+        Assert.assertEquals(Files.readString(oldTarget), "compiled map")
+        for (version in listOf("1.28.5", "1.29.2", "1.31.1")) {
+            val target = Wc3MapRunner.stageMap(client.copy(version = version), map) { documents }
+            Assert.assertEquals(target, documents.resolve("Maps/Test/GrillRunMap.w3x"))
+            Assert.assertEquals(Files.readString(target), "compiled map")
+            Assert.assertFalse(Files.exists(oldTarget), "A stale installation copy must not shadow the documents copy")
+        }
+        Files.writeString(map, "rebuilt map")
+        Wc3MapRunner.stageMap(client.copy(version = "1.31.1"), map) { documents }
+        Assert.assertEquals(Files.readString(documents.resolve("Maps/Test/GrillRunMap.w3x")), "rebuilt map")
+    }
+
+    @Test
+    fun reforgedLaunchUsesBuildArtifactWithoutStaging() {
+        val root = Files.createTempDirectory("grill-run-reforged-stage")
+        Files.writeString(Files.createDirectories(root.resolve("_retail_/x86_64")).resolve("Warcraft III.exe"), "")
+        val map = Files.writeString(root.resolve("built.w3x"), "compiled map")
+        val client = Wc3ClientDetector.inspectGameRoot(root)!!
+        Assert.assertEquals(Wc3MapRunner.stageMap(client, map) { Assert.fail("Reforged does not access documents"); root }, map)
+    }
+
+    @Test
+    fun launchWindowFlagFollowsSelectedClientVersion() {
+        val root = Files.createTempDirectory("grill-run-window")
+        val exe = Files.writeString(root.resolve("Warcraft III.exe"), "")
+        val client = Wc3ClientDetector.inspectGameRoot(root)!!
+        val map = root.resolve("built.w3x")
+        Assert.assertEquals(Wc3MapRunner.launchCommand(client.copy(version = "1.30.4"), map, "Windows"),
+            listOf(exe.toString(), "-window", "-loadfile", map.toString()))
+        Assert.assertEquals(Wc3MapRunner.launchCommand(client.copy(version = "1.31.1"), map, "Windows"),
+            listOf(exe.toString(), "-windowmode", "windowed", "-loadfile", map.toString()))
     }
 
     @Test

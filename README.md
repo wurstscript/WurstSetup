@@ -123,7 +123,7 @@ Use `run` to build a map using `wurst.build` and launch the resulting map in War
 
 Like `build`, `run` accepts map archives or folders and auto-detects the input when the project root contains exactly one map. It uses the same build defaults and flags, including `--dev`, `--noPJass`, `--measure`, `--quiet`, and `-projectDir`.
 
-Grill selects Warcraft III from `--wc3-path`, then `.vscode/settings.json` (`wurst.wc3path`), then automatic detection. It warns about project/client patch mismatches; use `--wc3-path` to choose another client. The built map is passed via `-loadfile`; Reforged also receives `-launch` and `-editor` to preserve the authentication session. Build failures prevent launch. The command returns after starting Warcraft III.
+Grill selects Warcraft III from `--wc3-path`, then a valid `.vscode/settings.json` path (`wurst.wc3path`), then automatic detection. It warns about project/client patch mismatches; use `--wc3-path` to choose another client. The built map is passed via `-loadfile`; Reforged also receives `-launch` and `-editor` to preserve the authentication session. Older clients receive a copy in `Maps/Test/GrillRunMap.w3x`, under the installation for 1.27 and older or the Warcraft III documents folder for 1.28–1.31. Linux launches through Wine and respects `WINEPREFIX` for the documents location. Build failures prevent launch. The command returns after starting Warcraft III.
 
 ## How it works
 
