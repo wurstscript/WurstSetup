@@ -112,6 +112,19 @@ Use `--dev` to build the output map in run/development mode. This makes compilet
 > grill build ExampleMap.w3x --dev
 ```
 
+### Running the project in Warcraft III
+
+Use `run` to build a map using `wurst.build` and launch the resulting map in Warcraft III:
+
+```cmd
+> grill run ExampleMap.w3x
+> grill run ExampleMap.w3x --dev --wc3-path "C:\Program Files (x86)\Warcraft III"
+```
+
+Like `build`, `run` accepts map archives or folders and auto-detects the input when the project root contains exactly one map. It uses the same build defaults and flags, including `--dev`, `--noPJass`, `--measure`, `--quiet`, and `-projectDir`.
+
+Grill selects Warcraft III from `--wc3-path`, then `.vscode/settings.json` (`wurst.wc3path`), then automatic detection. It warns about project/client patch mismatches; use `--wc3-path` to choose another client. The built map is passed via `-loadfile`; Reforged also receives `-launch` and `-editor` to preserve the authentication session. Build failures prevent launch. The command returns after starting Warcraft III.
+
 ## How it works
 
 ### Wurst Installation

@@ -13,6 +13,7 @@ enum class CLICommand {
 	OUTDATED,
 	PATCH,
     BUILD,
+    RUN,
     EXPORTOBJECTS,
     SELF_UPDATE
 }
