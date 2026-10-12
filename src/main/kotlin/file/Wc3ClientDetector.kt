@@ -34,6 +34,13 @@ object Wc3ClientDetector {
         Paths.get("war3.exe"),
     )
 
+    private val nativeCandidates = listOf(
+        Paths.get("_retail_", "Warcraft III.app", "Contents", "MacOS", "Warcraft III"),
+        Paths.get("_ptr_", "Warcraft III.app", "Contents", "MacOS", "Warcraft III"),
+        Paths.get("Warcraft III.app", "Contents", "MacOS", "Warcraft III"),
+        Paths.get("Contents", "MacOS", "Warcraft III"),
+    )
+
     fun detectGameRoot(): Path? {
         return candidateRoots()
             .map { it.toAbsolutePath().normalize() }
@@ -95,7 +102,12 @@ object Wc3ClientDetector {
         if (Files.isRegularFile(root)) {
             return root.takeIf { classifyExecutable(it) != null }
         }
-        return exeCandidates
+        val candidates = if (System.getProperty("os.name").startsWith("Mac", ignoreCase = true)) {
+            nativeCandidates + exeCandidates
+        } else {
+            exeCandidates + nativeCandidates
+        }
+        return candidates
             .map { root.resolve(it) }
             .firstOrNull(Files::isRegularFile)
     }
@@ -103,6 +115,9 @@ object Wc3ClientDetector {
     private fun classifyExecutable(executable: Path): ClientKind? {
         val path = executable.toAbsolutePath().normalize().toString().replace('\\', '/').lowercase(Locale.ROOT)
         val fileName = executable.fileName.toString().lowercase(Locale.ROOT)
+        if (nativeAppBundle(executable) != null) {
+            return ClientKind.REFORGED
+        }
         if (path.contains("/_retail_/") || path.contains("/_ptr_/")) {
             return ClientKind.REFORGED
         }
@@ -120,6 +135,9 @@ object Wc3ClientDetector {
     }
 
     private fun installationRootForExecutable(executable: Path): Path {
+        nativeAppBundle(executable)?.parent?.let { appRoot ->
+            return if (isChannelDirectory(appRoot)) appRoot.parent ?: appRoot else appRoot
+        }
         val parts = executable.toAbsolutePath().normalize()
         val parent = parts.parent ?: return parts
         if (parent.fileName?.toString()?.equals("x86", ignoreCase = true) == true ||
@@ -137,6 +155,9 @@ object Wc3ClientDetector {
     }
 
     private fun clientRootForExecutable(executable: Path, installRoot: Path): Path {
+        nativeAppBundle(executable)?.parent?.let { appRoot ->
+            return if (isChannelDirectory(appRoot)) appRoot else installRoot
+        }
         val executableDirectory = executable.toAbsolutePath().normalize().parent ?: return installRoot
         val channelDirectory = if (
             executableDirectory.fileName?.toString()?.equals("x86", ignoreCase = true) == true ||
@@ -159,6 +180,23 @@ object Wc3ClientDetector {
             path.contains("/_retail_/") -> "w3"
             else -> null
         }
+    }
+
+    private fun nativeAppBundle(executable: Path): Path? {
+        if (executable.fileName?.toString() != "Warcraft III") return null
+        val macOs = executable.parent ?: return null
+        val contents = macOs.parent ?: return null
+        val bundle = contents.parent ?: return null
+        return bundle.takeIf {
+            macOs.fileName.toString() == "MacOS" && contents.fileName.toString() == "Contents" &&
+                it.fileName.toString().equals("Warcraft III.app", ignoreCase = true)
+        }
+    }
+
+    private fun isChannelDirectory(path: Path): Boolean {
+        return path.fileName?.toString()?.let {
+            it.equals("_retail_", ignoreCase = true) || it.equals("_ptr_", ignoreCase = true)
+        } == true
     }
 
     private fun readBuildInfoVersion(root: Path, selectedProduct: String?): String? {
@@ -206,6 +244,9 @@ object Wc3ClientDetector {
             "C:\\Program Files",
             "C:\\Program Files (x86)",
         ).map { Paths.get(it, "Warcraft III") }
-        return envRoots + programRoots
+        val macRoots = if (System.getProperty("os.name").startsWith("Mac", ignoreCase = true)) {
+            listOf(Paths.get("/Applications/Warcraft III"), Paths.get("/Applications/Warcraft III.app"))
+        } else emptyList()
+        return envRoots + macRoots + programRoots
     }
 }

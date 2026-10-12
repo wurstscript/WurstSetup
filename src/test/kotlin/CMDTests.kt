@@ -252,6 +252,7 @@ class CMDTests {
                 arrayOf(TEST, "--quiet"),
                 arrayOf("typecheck", "--quiet"),
                 arrayOf(BUILD, "ExampleMap.w3x", "--quiet"),
+                arrayOf("run", "ExampleMap.w3x", "--quiet"),
                 arrayOf("exportobjects", "ExampleMap.w3x", "--quiet")
             )
             commands.forEach { args ->

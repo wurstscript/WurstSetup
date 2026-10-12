@@ -125,6 +125,7 @@ object SetupApp {
 	            setup.command == CLICommand.TEST ||
 	                setup.command == CLICommand.TYPECHECK ||
 	                setup.command == CLICommand.BUILD ||
+                    setup.command == CLICommand.RUN ||
                     setup.command == CLICommand.EXPORTOBJECTS -> {
 	                // Only needs to know a compiler is present; skip the version subprocess and update check.
 	                InstallationManager.verifyInstallation(probeVersion = false)
@@ -152,6 +153,7 @@ object SetupApp {
                     |  grill install
                     |  grill test
                     |  grill build ExampleMap.w3x
+                    |  grill run ExampleMap.w3x
                     |
                     |Project commands:
                     |  install [dep|wurstscript|grill]  Install/update dependencies, WurstScript compiler, or Grill itself
@@ -162,6 +164,7 @@ object SetupApp {
                     |  outdated                         Check whether project dependencies are up to date
                     |  patch [align]                    Compare project/client patches; align config and stdlib on request
                     |  build <mapfile|map-folder>        Build the project using the given map archive or folder
+                    |  run [mapfile|map-folder]          Build and launch the map in Warcraft III
                     |  exportobjects <mapfile|folder>   Export object editor data to Wurst source
                     |
                     |Global options:
@@ -170,6 +173,9 @@ object SetupApp {
                     |
                     |Build options:
                     |  --dev                            Build with compiletime isProductionBuild() = false
+                    |
+                    |Run options (also accepts build options):
+                    |  --wc3-path <dir>                 Override the configured/detected Warcraft III installation
                     |
                     |Generate options:
                     |  --script-mode lua|jass           Script mode (default: lua)
@@ -284,7 +290,7 @@ object SetupApp {
                     handlePatchAlignment(configData)
                 }
             }
-            setup.command == CLICommand.BUILD -> {
+            setup.command == CLICommand.BUILD || setup.command == CLICommand.RUN -> {
                 progress("🔨 Building project...")
                 val mapArg = if (setup.commandArg.isBlank()) {
                     val maps = Files.list(setup.projectRoot).use { stream ->
@@ -305,7 +311,8 @@ object SetupApp {
                         missingCompiler()
                     } else {
                         setup.commandArg = mapArg
-                        buildProject(configData)
+                        val client = if (setup.command == CLICommand.RUN) resolveRunClient(configData) else null
+                        buildProject(configData, client)
                     }
                 }
             }
@@ -1161,7 +1168,20 @@ object SetupApp {
 	        log.info("Grill was refreshed from the running binary.")
 	    }
 
-    private fun buildProject(configData: WurstProjectConfigData) {
+    private fun resolveRunClient(configData: WurstProjectConfigData): Wc3ClientDetector.ClientInfo {
+        val client = Wc3MapRunner.resolveClient(setup)
+        if (client == null) {
+            fail("No supported Warcraft III executable found. Use `grill run --wc3-path <dir>` to select an installation.")
+            ExitHandler.exit(1)
+        }
+        progress("Warcraft III: ${Wc3ClientDetector.describe(client)}")
+        Wc3ClientDetector.mismatchMessage(configData.wc3Patch, client)?.let {
+            log.warn("$it Choose another client with --wc3-path <dir>.")
+        }
+        return client
+    }
+
+    private fun buildProject(configData: WurstProjectConfigData, client: Wc3ClientDetector.ClientInfo? = null) {
         val args = commonArgs(configData)
 
         args.add("-build")
@@ -1182,7 +1202,21 @@ object SetupApp {
 
         val result = startWurstProcess(args)
         when (result.exitCode) {
-            0 -> { pass("✅ Map built."); ExitHandler.exit(0) }
+            0 -> {
+                pass("✅ Map built.")
+                if (client != null) {
+                    try {
+                        val map = Wc3MapRunner.builtMap(setup.projectRoot, configData, result.output)
+                        Wc3MapRunner.launch(client, map)
+                        pass("Warcraft III launched.")
+                    } catch (e: Exception) {
+                        fail("Could not launch Warcraft III: ${e.message}. Select another installation with --wc3-path <dir>.")
+                        if (setup.debug) e.printStackTrace()
+                        ExitHandler.exit(1)
+                    }
+                }
+                ExitHandler.exit(0)
+            }
             else -> {
                 printCompilerFailure("build", result)
                 ExitHandler.exit(1)
