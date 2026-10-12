@@ -5,6 +5,34 @@ import java.nio.file.Files
 
 class Wc3ClientDetectorTests {
     @Test
+    fun testRecognizesNativeMacAppFromInstallationBundleOrBinary() {
+        val root = Files.createTempDirectory("wc3-mac-native")
+        val bundle = root.resolve("Warcraft III.app")
+        val exe = Files.writeString(Files.createDirectories(bundle.resolve("Contents/MacOS")).resolve("Warcraft III"), "")
+        for (selected in listOf(root, bundle, exe)) {
+            val info = Wc3ClientDetector.inspectGameRoot(selected)!!
+            Assert.assertEquals(info.executable, exe)
+            Assert.assertEquals(info.kind, Wc3ClientDetector.ClientKind.REFORGED)
+            Assert.assertEquals(info.installationRoot, root)
+            Assert.assertEquals(info.root, root)
+        }
+    }
+
+    @Test
+    fun testNativeMacChannelLayoutPreservesInstallationAndClientRoots() {
+        val root = Files.createTempDirectory("wc3-mac-channel")
+        Files.writeString(root.resolve(".build.info"), "Product!STRING:0|Active!DEC:1|Version!STRING:0\nw3|1|3.0.0.12345\n")
+        val channel = root.resolve("_retail_")
+        val exe = Files.writeString(Files.createDirectories(channel.resolve("Warcraft III.app/Contents/MacOS")).resolve("Warcraft III"), "")
+        val info = Wc3ClientDetector.inspectGameRoot(root)!!
+        Assert.assertEquals(info.executable, exe)
+        Assert.assertEquals(info.installationRoot, root)
+        Assert.assertEquals(info.root, channel)
+        Assert.assertEquals(info.version, "3.0.0.12345")
+        Assert.assertEquals(info.patchTarget, "v3.0")
+    }
+
+    @Test
     fun testClassifiesReforgedLayout() {
         val root = Files.createTempDirectory("wc3-reforged")
         val exe = Files.createDirectories(root.resolve("_retail_").resolve("x86_64")).resolve("Warcraft III.exe")

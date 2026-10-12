@@ -15,6 +15,18 @@ import java.util.jar.JarOutputStream
 import java.util.jar.Manifest
 
 class RunTests {
+    @Test
+    fun launchesNativeMacClientWithoutWine() {
+        val root = Files.createTempDirectory("grill-run-mac")
+        val bundle = root.resolve("Warcraft III.app")
+        val exe = Files.writeString(Files.createDirectories(bundle.resolve("Contents/MacOS")).resolve("Warcraft III"), "")
+        val setup = SetupMain().apply { gamePath = bundle }
+        val client = Wc3MapRunner.resolveClient(setup)!!
+        val map = root.resolve("Map with spaces.w3x")
+        Assert.assertEquals(Wc3MapRunner.launchCommand(client, map, "Mac OS X"),
+            listOf(exe.toString(), "-launch", "-editor", "-windowmode", "windowed", "-loadfile", map.toString()))
+    }
+
     private class TestExit(val code: Int) : RuntimeException()
 
     private fun runWithCompilerFixture(failBuild: Boolean): Pair<Int, String> {
