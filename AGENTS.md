@@ -19,7 +19,7 @@ This repo builds the Grill CLI and project setup tooling. The generated map-proj
 
 ## WC3 Patch And Core JASS
 
-- `CoreJassProvider.DEFAULT_PATCH` is `v3.0`.
+- `CoreJassProvider.DEFAULT_PATCH` is `v3.0.1`.
 - Core JASS is fetched from `wurstscript/jass-history`.
 - Friendly patch targets must resolve through the shared parser / `Wc3PatchTarget` style rules:
   - below `1.29` => pre-1.29 behavior and stdlib

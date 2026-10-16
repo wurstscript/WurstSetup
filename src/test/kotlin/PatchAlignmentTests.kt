@@ -24,6 +24,8 @@ class PatchAlignmentTests {
 
     @Test
     fun testMapsClientVersionsToSupportedPatchLines() {
+        Assert.assertEquals(CoreJassProvider.patchTargetForClientVersion("3.0.1.24360"), "v3.0.1")
+        Assert.assertEquals(CoreJassProvider.patchLine("Reforged-v3.0.1.24360-w3t"), "v3.0.1")
         Assert.assertEquals(CoreJassProvider.patchTargetForClientVersion("3.0.0.24268"), "v3.0")
         Assert.assertEquals(CoreJassProvider.patchTargetForClientVersion("2.0.4.23745"), "v2.0")
         Assert.assertEquals(CoreJassProvider.patchTargetForClientVersion("1.36.1.20719"), "v1.36")

@@ -89,12 +89,15 @@ class GenerateTests {
 
     @Test(priority = 10)
     fun testPatchAliasNormalizationAndLegacyDetection() {
+        Assert.assertEquals(CoreJassProvider.DEFAULT_PATCH, "v3.0.1")
+        Assert.assertEquals(CoreJassProvider.normalizePatchInput("3.0.1"), CoreJassProvider.DEFAULT_PATCH)
+        Assert.assertEquals(CoreJassProvider.jassHistoryFolderForPatch("3.0.1"), "Reforged-v3.0.1.24360-w3t")
         Assert.assertEquals(CoreJassProvider.normalizePatchInput("reforged"), CoreJassProvider.DEFAULT_PATCH)
         Assert.assertEquals(CoreJassProvider.normalizePatchInput("latest"), CoreJassProvider.DEFAULT_PATCH)
-        Assert.assertEquals(CoreJassProvider.normalizePatchInput("3.0"), CoreJassProvider.DEFAULT_PATCH)
+        Assert.assertEquals(CoreJassProvider.normalizePatchInput("3.0"), "v3.0")
         Assert.assertEquals(
             CoreJassProvider.normalizePatchInput("Reforged-v3.0.0.24268-w3-3a9d8f2"),
-            CoreJassProvider.DEFAULT_PATCH
+            "v3.0"
         )
         Assert.assertTrue(CoreJassProvider.isReforgedPatch("v3.0"))
         Assert.assertEquals(CoreJassProvider.normalizePatchInput("pre1.29"), CoreJassProvider.PRE_129_PATCH)
@@ -115,7 +118,7 @@ class GenerateTests {
         )
         Assert.assertEquals(
             CoreJassProvider.describePatch("v3.0"),
-            "v3.0 (latest Reforged / WC3 3.x core JASS)"
+            "v3.0 (Reforged)"
         )
         Assert.assertEquals(
             CoreJassProvider.jassHistoryFolderForPatch("v2.0"),
@@ -156,7 +159,7 @@ class GenerateTests {
             val expected = when {
                 minor != null && minor < 24 -> pre124Stdlib
                 minor != null && minor < 29 -> legacyStdlib
-                patch == "v3.0" -> currentStdlib
+                CoreJassProvider.isV3OrLaterPatch(patch) -> currentStdlib
                 else -> preV3Stdlib
             }
             Assert.assertEquals(SetupApp.stdlibDependencyForPatch(patch), expected, "stdlib dependency for $patch")
@@ -682,13 +685,15 @@ class GenerateTests {
             val buildDir = tmpDir.resolve("_build")
             val common = Files.readString(buildDir.resolve("common.j"))
             val blizzard = Files.readString(buildDir.resolve("blizzard.j"))
-            Assert.assertEquals(common, bundledCoreJassText("v3.0", "common.j"))
-            Assert.assertEquals(blizzard, bundledCoreJassText("v3.0", "blizzard.j"))
-            Assert.assertEquals(CoreJassProvider.bundledCoreJassFolderForPatch(CoreJassProvider.DEFAULT_PATCH), "v3.0")
+            Assert.assertEquals(common, bundledCoreJassText("v3.0.1", "common.j"))
+            Assert.assertTrue(common.contains("native BlzUnitIsAlive"))
+            Assert.assertTrue(blizzard.contains("function UnitIsAliveBJ"))
+            Assert.assertEquals(blizzard, bundledCoreJassText("v3.0.1", "blizzard.j"))
+            Assert.assertEquals(CoreJassProvider.bundledCoreJassFolderForPatch(CoreJassProvider.DEFAULT_PATCH), "v3.0.1")
             Assert.assertEquals(CoreJassProvider.bundledCoreJassFolderForPatch("v1.36"), "reforged")
             Assert.assertTrue(
                 Files.readString(buildDir.resolve("core-jass.provenance"))
-                    .contains("jassHistoryFolder: Reforged-v3.0.0.24268-w3-3a9d8f2")
+                    .contains("jassHistoryFolder: Reforged-v3.0.1.24360-w3t")
             )
         } finally {
             CoreJassProvider.jassHistoryFileDownloader = previousDownloader

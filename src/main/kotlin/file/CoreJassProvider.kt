@@ -10,7 +10,7 @@ import java.nio.file.StandardCopyOption
 import java.util.jar.JarFile
 
 object CoreJassProvider {
-    const val DEFAULT_PATCH = "v3.0"
+    const val DEFAULT_PATCH = "v3.0.1"
     const val PRE_129_PATCH = "v1.28"
 
     private const val JASS_HISTORY_RAW = "https://raw.githubusercontent.com/wurstscript/jass-history"
@@ -19,6 +19,7 @@ object CoreJassProvider {
     private val log = KotlinLogging.logger {}
 
     private val PATCH_TO_JASS_HISTORY_FOLDER = linkedMapOf(
+        "v3.0.1" to "Reforged-v3.0.1.24360-w3t",
         "v3.0" to "Reforged-v3.0.0.24268-w3-3a9d8f2",
         "v2.0" to "Reforged-v2.0.4.23745",
         "v1.36" to "Reforged-v1.36.1.20719-w3-51d40ee",
@@ -78,7 +79,8 @@ object CoreJassProvider {
     val supportedPatches: List<String> = PATCH_TO_JASS_HISTORY_FOLDER.keys.toList()
 
     private val BUNDLED_CORE_JASS_PATCH_FOLDERS = mapOf(
-        DEFAULT_PATCH to "v3.0",
+        DEFAULT_PATCH to "v3.0.1",
+        "v3.0" to "v3.0",
         "v1.36" to "reforged",
         PRE_129_PATCH to "pre1.29"
     )
@@ -170,12 +172,22 @@ object CoreJassProvider {
         if (parts.size < 2 || parts[0].toIntOrNull() == null || parts[1].toIntOrNull() == null) {
             return null
         }
+        // Prefer a supported maintenance patch before falling back to its major/minor line.
+        val maintenance = parts.getOrNull(2)?.toIntOrNull()?.let {
+            "v${parts[0].toInt()}.${parts[1].toInt()}.$it"
+        }
+        if (maintenance != null && PATCH_TO_JASS_HISTORY_FOLDER.containsKey(maintenance)) {
+            return maintenance
+        }
         val target = "v${parts[0].toInt()}.${parts[1].toInt()}"
         return target.takeIf(PATCH_TO_JASS_HISTORY_FOLDER::containsKey)
     }
 
     fun patchLine(patch: String?): String? {
         val normalized = normalizePatchInput(patch)
+        if (PATCH_TO_JASS_HISTORY_FOLDER.containsKey(normalized)) {
+            return normalized
+        }
         val version = Wc3PatchTarget.parse(normalized).orElse(null)?.gameVersion() ?: return null
         return patchTargetForClientVersion(version)
     }
