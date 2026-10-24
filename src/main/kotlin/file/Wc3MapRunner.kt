@@ -66,6 +66,16 @@ internal object Wc3MapRunner {
         return target.toAbsolutePath().normalize()
     }
 
+    /**
+     * Where a hot reload writes its payloads for the running map to read: `--custom-map-data`, then the VS Code setting
+     * `wurst.customMapDataPath`, then `CustomMapData` in the Warcraft III documents folder (as the language server).
+     */
+    fun customMapDataPath(setup: SetupMain, documentsRoot: () -> Path = ::warcraftDocumentsRoot): Path {
+        setup.customMapDataPath?.let { return it }
+        WurstProjectConfig.configuredCustomMapDataPath(setup.projectRoot)?.let { return it }
+        return documentsRoot().resolve("CustomMapData")
+    }
+
     private fun warcraftDocumentsRoot(): Path {
         return when {
             System.getProperty("os.name").startsWith("Linux", ignoreCase = true) -> {

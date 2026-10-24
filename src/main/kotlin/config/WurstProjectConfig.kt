@@ -151,14 +151,19 @@ object WurstProjectConfig {
         Files.write(projectRoot.resolve(CONFIG_FILE_NAME), projectYaml.toByteArray())
     }
 
-    fun configuredGamePath(projectRoot: Path): Path? {
+    fun configuredGamePath(projectRoot: Path): Path? = configuredPath(projectRoot, "wurst.wc3path")
+
+    /** The VS Code extension's `wurst.customMapDataPath`, which the language server's hot reload also uses. */
+    fun configuredCustomMapDataPath(projectRoot: Path): Path? = configuredPath(projectRoot, "wurst.customMapDataPath")
+
+    private fun configuredPath(projectRoot: Path, setting: String): Path? {
         val settings = projectRoot.resolve(".vscode").resolve("settings.json")
         if (!Files.isRegularFile(settings)) {
             return null
         }
         return try {
             MAPPER.readTree(Files.readString(settings))
-                ?.get("wurst.wc3path")
+                ?.get(setting)
                 ?.asText()
                 ?.takeIf(String::isNotBlank)
                 ?.let(Paths::get)

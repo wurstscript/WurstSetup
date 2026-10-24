@@ -17,6 +17,12 @@ class SetupMain {
 
     var devBuild = false
 
+    /** `run --hot`: build for Lua hot reload and start a hot reload session before launching. */
+    var hotReload = false
+
+    /** Overrides the Warcraft III CustomMapData folder that hot reload payloads are written to. */
+    var customMapDataPath: Path? = null
+
 	var projectRoot: Path = SetupApp.DEFAULT_DIR
 
     var gamePath: Path? = null
@@ -101,12 +107,18 @@ class SetupMain {
 				opt.runOption(this, argsList.subList(i + 1, argEnd))
 				i += 1 + opt.argCount
 			} else {
+				// A map may follow the flags (`grill run --hot Map.w3x`).
+				if (commandArg.isEmpty() && command in MAP_COMMANDS && !argsList[i].startsWith("-")) {
+					commandArg = argsList[i]
+				}
 				i++
 			}
 		}
 	}
 
 	companion object {
+		private val MAP_COMMANDS = setOf(CLICommand.BUILD, CLICommand.RUN, CLICommand.RELOAD)
+
         @JvmStatic
         fun main(args: Array<String>) {
             SetupMain().doMain(args)

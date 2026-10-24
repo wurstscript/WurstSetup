@@ -17,6 +17,7 @@ import net.ConnectionManager
 import org.slf4j.LoggerFactory
 import org.eclipse.jgit.api.Git
 import java.awt.GraphicsEnvironment
+import java.io.IOException
 import java.net.URL
 import java.nio.charset.StandardCharsets
 import java.nio.file.Files
@@ -126,6 +127,7 @@ object SetupApp {
 	                setup.command == CLICommand.TYPECHECK ||
 	                setup.command == CLICommand.BUILD ||
                     setup.command == CLICommand.RUN ||
+                    setup.command == CLICommand.RELOAD ||
                     setup.command == CLICommand.EXPORTOBJECTS -> {
 	                // Only needs to know a compiler is present; skip the version subprocess and update check.
 	                InstallationManager.verifyInstallation(probeVersion = false)
@@ -154,6 +156,7 @@ object SetupApp {
                     |  grill test
                     |  grill build ExampleMap.w3x
                     |  grill run ExampleMap.w3x
+                    |  grill run --hot ExampleMap.w3x, then grill reload after each edit (Lua)
                     |
                     |Project commands:
                     |  install [dep|wurstscript|grill]  Install/update dependencies, WurstScript compiler, or Grill itself
@@ -165,6 +168,7 @@ object SetupApp {
                     |  patch [align]                    Compare project/client patches; align config and stdlib on request
                     |  build <mapfile|map-folder>        Build the project using the given map archive or folder
                     |  run [mapfile|map-folder]          Build and launch the map in Warcraft III
+                    |  reload [mapfile|map-folder]       Rebuild and send the edit to the map started by `run --hot` (Lua)
                     |  exportobjects <mapfile|folder>   Export object editor data to Wurst source
                     |
                     |Global options:
@@ -176,6 +180,10 @@ object SetupApp {
                     |
                     |Run options (also accepts build options):
                     |  --wc3-path <dir>                 Override the configured/detected Warcraft III installation
+                    |  --hot                            Build for Lua hot reload and start a session for `grill reload`
+                    |
+                    |Run --hot and reload options:
+                    |  --custom-map-data <dir>          Warcraft III CustomMapData folder that payloads are written to
                     |
                     |Generate options:
                     |  --script-mode lua|jass           Script mode (default: lua)
@@ -290,7 +298,16 @@ object SetupApp {
                     handlePatchAlignment(configData)
                 }
             }
-            setup.command == CLICommand.BUILD || setup.command == CLICommand.RUN -> {
+            setup.command == CLICommand.BUILD || setup.command == CLICommand.RUN || setup.command == CLICommand.RELOAD -> {
+                val hot = setup.command == CLICommand.RELOAD || (setup.command == CLICommand.RUN && setup.hotReload)
+                if (hot && configData != null && configData.scriptMode != ScriptMode.LUA) {
+                    fail("❌ Hot reload needs a Lua project (`scriptMode: lua` in wurst.build). " +
+                        "For Jass maps use Jass Hot Code Reload (JHCR), a separate tool.")
+                    ExitHandler.exit(1)
+                }
+                if (setup.command == CLICommand.RELOAD) {
+                    applyHotRunBuildArgs()
+                }
                 progress("🔨 Building project...")
                 val mapArg = if (setup.commandArg.isBlank()) {
                     val maps = Files.list(setup.projectRoot).use { stream ->
@@ -312,7 +329,7 @@ object SetupApp {
                     } else {
                         setup.commandArg = mapArg
                         val client = if (setup.command == CLICommand.RUN) resolveRunClient(configData) else null
-                        buildProject(configData, client)
+                        buildProject(configData, client, hot)
                     }
                 }
             }
@@ -1181,10 +1198,89 @@ object SetupApp {
         return client
     }
 
-    private fun buildProject(configData: WurstProjectConfigData, client: Wc3ClientDetector.ClientInfo? = null) {
+    /** The compiler's command line entry point for hot reload sessions (`start`, `send`). */
+    private const val HOT_RELOAD_SESSION_CLASS = "de.peeeq.wurstio.languageserver.requests.LuaHotReloadSession"
+
+    /** Starts Warcraft III with a built map; replaced in tests, which must never launch the game. */
+    internal var launchMap: (Wc3ClientDetector.ClientInfo, Path) -> Unit = Wc3MapRunner::launch
+
+    /** What `run --hot` built with, so that `reload` builds the same script. */
+    private fun hotRunRecord(): Path = compilerOutputDir().resolve("hot-run.properties")
+
+    private fun recordHotRunBuildArgs() {
+        val properties = Properties()
+        properties.setProperty("map", setup.commandArg)
+        properties.setProperty("dev", setup.devBuild.toString())
+        Files.createDirectories(compilerOutputDir())
+        Files.newBufferedWriter(hotRunRecord()).use { properties.store(it, "Written by grill run --hot") }
+    }
+
+    /** `reload` builds with the map and `--dev` of the hot run, unless the command names another map. */
+    private fun applyHotRunBuildArgs() {
+        val record = hotRunRecord()
+        if (!Files.isRegularFile(record)) return
+        val properties = Properties()
+        Files.newBufferedReader(record).use { properties.load(it) }
+        val map = properties.getProperty("map").orEmpty()
+        if (setup.commandArg.isBlank() && map.isNotBlank()) {
+            setup.commandArg = map
+        }
+        if (properties.getProperty("dev").toBoolean() && setup.commandArg == map) {
+            setup.devBuild = true
+        }
+    }
+
+    private fun runHotReloadSession(action: String): WurstProcessResult {
+        val command = InstallationManager.compilerClassCommand(HOT_RELOAD_SESSION_CLASS, action,
+            setup.projectRoot.resolve("_build").toAbsolutePath().toString(),
+            Wc3MapRunner.customMapDataPath(setup).toAbsolutePath().toString())
+        val result = runWurstProcess(ArrayList(command), compactFallback = false)
+        if (setup.quiet) {
+            // The session prints only what the user needs: the payload and its warnings, or why it was refused.
+            val stream = if (result.exitCode == 0) System.out else System.err
+            result.output.forEach(stream::println)
+        }
+        if (result.exitCode != 0 && result.output.any { it.contains("Could not find or load main class") }) {
+            detail("The installed compiler has no Lua hot reload. Try: grill install wurstscript")
+        }
+        return result
+    }
+
+    private fun startHotReloadSession(): Boolean {
+        val result = runHotReloadSession("start")
+        if (result.exitCode != 0) {
+            fail("❌ Could not start the hot reload session; Warcraft III was not launched.")
+            return false
+        }
+        recordHotRunBuildArgs()
+        progress("Hot reload session started. After an edit, run `grill reload`.")
+        return true
+    }
+
+    private fun sendHotReloadPayload(): Nothing {
+        val result = runHotReloadSession("send")
+        if (result.exitCode == 0) {
+            pass("✅ Hot reload payload written.")
+            ExitHandler.exit(0)
+        }
+        fail("❌ Hot reload refused; no payload was written.")
+        if (result.output.any { it.contains("no map was started with hot run") }) {
+            detail("Try: start the map with `grill run --hot` first.")
+        } else {
+            detail("Try: rebuild and restart the map with `grill run --hot`.")
+        }
+        ExitHandler.exit(1)
+    }
+
+    private fun buildProject(configData: WurstProjectConfigData, client: Wc3ClientDetector.ClientInfo? = null,
+                             hot: Boolean = false) {
         val args = commonArgs(configData)
 
         args.add("-build")
+
+        if (hot) {
+            args.add("-luaHotReload")
+        }
 
         if (setup.devBuild) {
             args.add("-dev")
@@ -1204,15 +1300,25 @@ object SetupApp {
         when (result.exitCode) {
             0 -> {
                 pass("✅ Map built.")
+                if (setup.command == CLICommand.RELOAD) {
+                    sendHotReloadPayload()
+                }
                 if (client != null) {
+                    val built = try {
+                        Wc3MapRunner.builtMap(setup.projectRoot, configData, result.output)
+                    } catch (e: Exception) {
+                        launchFailed(e)
+                    }
+                    val map = if (hot) hotRunMap(built) else built
+                    // The session goes first: it deletes an earlier session's payloads, which the new map would read.
+                    if (hot && !startHotReloadSession()) {
+                        ExitHandler.exit(1)
+                    }
                     try {
-                        val map = Wc3MapRunner.builtMap(setup.projectRoot, configData, result.output)
-                        Wc3MapRunner.launch(client, map)
+                        launchMap(client, map)
                         pass("Warcraft III launched.")
                     } catch (e: Exception) {
-                        fail("Could not launch Warcraft III: ${e.message}. Select another installation with --wc3-path <dir>.")
-                        if (setup.debug) e.printStackTrace()
-                        ExitHandler.exit(1)
+                        launchFailed(e)
                     }
                 }
                 ExitHandler.exit(0)
@@ -1222,6 +1328,29 @@ object SetupApp {
                 ExitHandler.exit(1)
             }
         }
+    }
+
+    /**
+     * The map a hot run launches: a copy of the built map, because the game keeps the map it runs open and each
+     * `reload` builds the map again.
+     */
+    private fun hotRunMap(built: Path): Path {
+        val target = compilerOutputDir().resolve("hot-run").resolve(built.fileName)
+        try {
+            Files.createDirectories(target.parent)
+            Files.copy(built, target, StandardCopyOption.REPLACE_EXISTING)
+        } catch (e: IOException) {
+            fail("❌ Could not copy the map for the hot run: ${e.message}. Close Warcraft III if it still runs an earlier hot run.")
+            if (setup.debug) e.printStackTrace()
+            ExitHandler.exit(1)
+        }
+        return target.toAbsolutePath().normalize()
+    }
+
+    private fun launchFailed(e: Exception): Nothing {
+        fail("Could not launch Warcraft III: ${e.message}. Select another installation with --wc3-path <dir>.")
+        if (setup.debug) e.printStackTrace()
+        ExitHandler.exit(1)
     }
 
     private fun exportObjects(mapPath: Path) {
