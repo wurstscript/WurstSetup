@@ -125,6 +125,20 @@ Like `build`, `run` accepts map archives or folders and auto-detects the input w
 
 Grill selects Warcraft III from `--wc3-path`, then a valid `.vscode/settings.json` path (`wurst.wc3path`), then automatic detection. It warns about project/client patch mismatches; use `--wc3-path` to choose another client. The built map is passed via `-loadfile`; Reforged also receives `-launch` and `-editor` to preserve the authentication session. Older clients receive a copy in `Maps/Test/GrillRunMap.w3x`, under the installation for 1.27 and older or the Warcraft III documents folder for 1.28–1.31. Linux launches through Wine and respects `WINEPREFIX` for the documents location. Build failures prevent launch. The command returns after starting Warcraft III.
 
+### Hot reloading a Lua map
+
+A Lua project (`scriptMode: lua`) can change the code of a running single-player game without restarting it:
+
+```cmd
+> grill run --hot ExampleMap.w3x
+  ... edit the Wurst code ...
+> grill reload
+```
+
+`run --hot` builds the map with the compiler's `-luaHotReload` flag, starts a hot reload session for `_build`, and then launches Warcraft III. After each edit, `reload` builds the project again, with the map and `--dev` setting of the hot run unless you name another map, and writes the next payload for the running map to pick up. It prints the payload and any warnings. When the edit cannot be hot reloaded (for example a field's type changed), or no map was started with `run --hot` (or a hot run from VS Code), it prints the reasons, writes nothing and exits with 1; rebuild and restart with `run --hot`.
+
+Payloads go to the `CustomMapData` folder of the Warcraft III documents folder (the same documents folder `run` uses), unless `--custom-map-data <dir>` or the VS Code setting `wurst.customMapDataPath` names another folder. Hot reload is Lua only: Jass projects are rejected; use Jass Hot Code Reload (JHCR) for them. What can be reloaded is described in the compiler's `docs/LUA_HOT_RELOAD.md`.
+
 ## How it works
 
 ### Wurst Installation

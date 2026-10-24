@@ -14,6 +14,7 @@ enum class CLICommand {
 	PATCH,
     BUILD,
     RUN,
+    RELOAD,
     EXPORTOBJECTS,
     SELF_UPDATE
 }
@@ -97,6 +98,16 @@ enum class GlobalOptions(val optionName: String = "", val argCount: Int = 0) {
                 setupMain.mapFormat = format
                 setupMain.mapFormatExplicit = true
             }
+        }
+    },
+    HOT("--hot") {
+        override fun runOption(setupMain: SetupMain, args: List<String>) {
+            setupMain.hotReload = true
+        }
+    },
+    CUSTOM_MAP_DATA("--custom-map-data", 1) {
+        override fun runOption(setupMain: SetupMain, args: List<String>) {
+            setupMain.customMapDataPath = java.nio.file.Paths.get(args[0])
         }
     },
     WC3_PATH("--wc3-path", 1) {

@@ -196,6 +196,12 @@ object InstallationManager {
         return arrayOf(java, "-jar", compiler.toAbsolutePath().toString(), *extraArgs)
     }
 
+    /** Runs [mainClass] from the installed compiler jar, for its entry points other than the compiler's main. */
+    fun compilerClassCommand(mainClass: String, vararg extraArgs: String): List<String> {
+        val compiler = detectCompilerJar() ?: compilerJar
+        return listOf(bundledJavaCommand(), "-cp", compiler.toAbsolutePath().toString(), mainClass, *extraArgs)
+    }
+
     private fun bundledJavaCommand(): String {
         return if (Files.exists(bundledJava) && Files.isExecutable(bundledJava)) {
             bundledJava.toAbsolutePath().toString()
