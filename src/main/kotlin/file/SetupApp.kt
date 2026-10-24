@@ -17,6 +17,7 @@ import net.ConnectionManager
 import org.slf4j.LoggerFactory
 import org.eclipse.jgit.api.Git
 import java.awt.GraphicsEnvironment
+import java.io.IOException
 import java.net.URL
 import java.nio.charset.StandardCharsets
 import java.nio.file.Files
@@ -1303,11 +1304,12 @@ object SetupApp {
                     sendHotReloadPayload()
                 }
                 if (client != null) {
-                    val map = try {
+                    val built = try {
                         Wc3MapRunner.builtMap(setup.projectRoot, configData, result.output)
                     } catch (e: Exception) {
                         launchFailed(e)
                     }
+                    val map = if (hot) hotRunMap(built) else built
                     // The session goes first: it deletes an earlier session's payloads, which the new map would read.
                     if (hot && !startHotReloadSession()) {
                         ExitHandler.exit(1)
@@ -1326,6 +1328,23 @@ object SetupApp {
                 ExitHandler.exit(1)
             }
         }
+    }
+
+    /**
+     * The map a hot run launches: a copy of the built map, because the game keeps the map it runs open and each
+     * `reload` builds the map again.
+     */
+    private fun hotRunMap(built: Path): Path {
+        val target = compilerOutputDir().resolve("hot-run").resolve(built.fileName)
+        try {
+            Files.createDirectories(target.parent)
+            Files.copy(built, target, StandardCopyOption.REPLACE_EXISTING)
+        } catch (e: IOException) {
+            fail("❌ Could not copy the map for the hot run: ${e.message}. Close Warcraft III if it still runs an earlier hot run.")
+            if (setup.debug) e.printStackTrace()
+            ExitHandler.exit(1)
+        }
+        return target.toAbsolutePath().normalize()
     }
 
     private fun launchFailed(e: Exception): Nothing {

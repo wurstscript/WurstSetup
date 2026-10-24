@@ -8,6 +8,8 @@ import org.testng.Assert
 import org.testng.annotations.Test
 import java.io.ByteArrayOutputStream
 import java.io.PrintStream
+import java.nio.channels.FileChannel
+import java.nio.file.StandardOpenOption
 import java.nio.file.Files
 import java.nio.file.Path
 import java.util.jar.Attributes
@@ -119,7 +121,26 @@ class HotReloadTests {
         val start = listOf("start|${project.root.resolve("_build").toAbsolutePath()}|${project.customMapData.toAbsolutePath()}")
         Assert.assertEquals(project.sessionCalls(), start)
         // The session is in place before the map starts polling.
-        Assert.assertEquals(launches, listOf(project.root.resolve("_build/Actual output.w3x").toAbsolutePath().normalize() to start))
+        Assert.assertEquals(launches.map { it.second }, listOf(start))
+    }
+
+    @Test
+    fun hotRunLaunchesACopySoThatReloadsCanRebuildTheMap() {
+        // The game holds the map it runs open, and each reload builds the map again: the two must be different files.
+        val project = Project()
+        val launches = mutableListOf<Pair<Path, List<String>>>()
+        Assert.assertEquals(project.grill("run", "--hot", "Input.w3x", launches = launches).code, 0)
+        val built = project.root.resolve("_build/Actual output.w3x").toAbsolutePath().normalize()
+        val launched = launches.single().first
+        Assert.assertNotEquals(launched, built)
+        Assert.assertEquals(launched.fileName, built.fileName)
+        Assert.assertEquals(Files.readString(launched), "fixture map")
+        FileChannel.open(launched, StandardOpenOption.READ, StandardOpenOption.WRITE).use { running ->
+            running.lock().use {
+                val outcome = project.grill("reload")
+                Assert.assertEquals(outcome.code, 0, outcome.err)
+            }
+        }
     }
 
     @Test
