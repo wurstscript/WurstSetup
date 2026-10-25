@@ -17,6 +17,41 @@ public class LuaHotReloadSession {
         Files.write(project.resolve("session-arguments.txt"), List.of(String.join("|", args)),
             StandardOpenOption.CREATE, StandardOpenOption.APPEND);
         Path session = buildDir.resolve("luaHotReload/session.json");
+        Path staged = session.resolveSibling("session-staged.json");
+        Path folder = customMapData.resolve("Wurst");
+        Path aside = folder.resolve("hotreload-set-aside");
+        if (Files.exists(project.resolve("fail-" + args[0]))) {
+            System.out.println("fixture " + args[0] + " failure");
+            System.exit(1);
+        }
+        if (args[0].equals("prepare")) {
+            Files.createDirectories(session.getParent());
+            Files.writeString(staged, "{}");
+            if (Files.isDirectory(folder)) {
+                Files.createDirectories(aside);
+                for (Path file : deliveries(folder)) Files.move(file, aside.resolve(file.getFileName()));
+            }
+            System.out.println("session prepared");
+            return;
+        }
+        if (args[0].equals("activate")) {
+            Files.move(staged, session, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+            if (Files.isDirectory(aside)) {
+                for (Path file : deliveries(aside)) Files.delete(file);
+                Files.delete(aside);
+            }
+            System.out.println("session activated");
+            return;
+        }
+        if (args[0].equals("abort")) {
+            Files.deleteIfExists(staged);
+            if (Files.isDirectory(aside)) {
+                for (Path file : deliveries(aside)) Files.move(file, folder.resolve(file.getFileName()));
+                Files.delete(aside);
+            }
+            System.out.println("previous session restored");
+            return;
+        }
         if (args[0].equals("start")) {
             Files.createDirectories(session.getParent());
             Files.writeString(session, "{}");
@@ -38,5 +73,11 @@ public class LuaHotReloadSession {
         Files.writeString(file, "payload");
         System.out.println("payload 1 (Hello_greet) written to " + file);
         System.out.println("warning: closure Hello_init_closure1 was removed; instances made before keep their old body");
+    }
+    private static List<Path> deliveries(Path folder) throws java.io.IOException {
+        try (var files = Files.list(folder)) {
+            return files.filter(p -> Files.isRegularFile(p) && p.getFileName().toString().startsWith("hotreload-")
+                && (p.toString().endsWith(".pld") || p.toString().endsWith(".pld.tmp"))).sorted().toList();
+        }
     }
 }

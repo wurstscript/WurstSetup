@@ -8,6 +8,7 @@ import org.testng.Assert
 import org.testng.annotations.Test
 import java.io.ByteArrayOutputStream
 import java.io.PrintStream
+import java.io.IOException
 import java.nio.channels.FileChannel
 import java.nio.file.StandardOpenOption
 import java.nio.file.Files
@@ -28,7 +29,7 @@ class HotReloadTests {
     private data class Outcome(val code: Int, val out: String, val err: String)
 
     private class Project(scriptMode: String = "lua", withSession: Boolean = true) {
-        val root: Path = Files.createTempDirectory("grill-hot")
+        val root: Path = Files.createTempDirectory("grill hot ")
         val install: Path = Files.createDirectories(root.resolve("install/wurst-compiler"))
         val customMapData: Path = root.resolve("CustomMapData")
         val client: Path = Files.createDirectories(root.resolve("Game/_retail_/x86_64"))
@@ -61,7 +62,8 @@ class HotReloadTests {
         }
 
         /** Each launch, with the session calls made before it. */
-        fun grill(vararg args: String, launches: MutableList<Pair<Path, List<String>>> = mutableListOf()): Outcome {
+        fun grill(vararg args: String, launches: MutableList<Pair<Path, List<String>>> = mutableListOf(),
+                  launchFailure: Exception? = null): Outcome {
             val previousInstall = System.getProperty("wurst.install.dir")
             val previousExit = ExitHandler.handler
             val previousLauncher = SetupApp.launchMap
@@ -73,7 +75,10 @@ class HotReloadTests {
             try {
                 System.setProperty("wurst.install.dir", install.parent.toString())
                 ExitHandler.handler = { throw TestExit(it) }
-                SetupApp.launchMap = { _, map -> launches.add(map to sessionCalls()) }
+                SetupApp.launchMap = { _, map ->
+                    launches.add(map to sessionCalls())
+                    launchFailure?.let { throw it }
+                }
                 System.setOut(PrintStream(out))
                 System.setErr(PrintStream(err))
                 try {
@@ -111,17 +116,17 @@ class HotReloadTests {
     }
 
     @Test
-    fun hotRunBuildsWithLuaHotReloadAndStartsTheSessionBeforeLaunching() {
+    fun hotRunPreparesBeforeLaunchingAndActivatesAfterward() {
         val project = Project()
         val launches = mutableListOf<Pair<Path, List<String>>>()
         val outcome = project.grill("run", "--hot", "Input.w3x", "--dev", launches = launches)
         Assert.assertEquals(outcome.code, 0, outcome.err)
         val arguments = project.compilerArguments()
         Assert.assertTrue(arguments.containsAll(listOf("-build", "-lua", "-luaHotReload", "-dev")), arguments.toString())
-        val start = listOf("start|${project.root.resolve("_build").toAbsolutePath()}|${project.customMapData.toAbsolutePath()}")
-        Assert.assertEquals(project.sessionCalls(), start)
-        // The session is in place before the map starts polling.
-        Assert.assertEquals(launches.map { it.second }, listOf(start))
+        val paths = "${project.root.resolve("_build").toAbsolutePath()}|${project.customMapData.toAbsolutePath()}"
+        Assert.assertEquals(project.sessionCalls(), listOf("prepare|$paths", "activate|$paths"))
+        Assert.assertEquals(launches.map { it.second }, listOf(listOf("prepare|$paths")))
+        Assert.assertTrue(Files.exists(project.root.resolve("_build/luaHotReload/session.json")))
     }
 
     @Test
@@ -144,7 +149,7 @@ class HotReloadTests {
     }
 
     @Test
-    fun failedSessionStartPreventsLaunch() {
+    fun failedSessionPreparationPreventsLaunch() {
         // A compiler without hot reload has no session class.
         val project = Project(withSession = false)
         val launches = mutableListOf<Pair<Path, List<String>>>()
@@ -152,6 +157,95 @@ class HotReloadTests {
         Assert.assertEquals(outcome.code, 1)
         Assert.assertTrue(outcome.err.contains("The installed compiler has no Lua hot reload"), outcome.err)
         Assert.assertEquals(launches, emptyList<Pair<Path, List<String>>>())
+    }
+
+    @Test
+    fun failedHotLaunchPreservesActiveSessionPayloadsAndBuildOptions() {
+        val project = Project()
+        val session = project.root.resolve("_build/luaHotReload/session.json")
+        Files.createDirectories(session.parent)
+        Files.writeString(session, "active session version 7")
+        val options = project.root.resolve("_build/grill/hot-run.properties")
+        Files.createDirectories(options.parent)
+        Files.writeString(options, "map=Input.w3x\ndev=true\n")
+        val oldOptions = Files.readAllBytes(options)
+        val payload = project.customMapData.resolve("Wurst/hotreload-8.pld")
+        Files.createDirectories(payload.parent)
+        Files.writeString(payload, "unread payload")
+        val partial = payload.resolveSibling("hotreload-9.pld.tmp")
+        Files.writeString(partial, "partial payload")
+        Files.writeString(project.root.resolve("Other.w3x"), "other map")
+
+        val outcome = project.grill("run", "--hot", "Other.w3x", launchFailure = IOException("fixture launch failure"))
+        Assert.assertEquals(outcome.code, 1, outcome.err)
+        Assert.assertTrue(outcome.err.contains("fixture launch failure"), outcome.err)
+        Assert.assertEquals(Files.readString(session), "active session version 7")
+        Assert.assertEquals(Files.readString(payload), "unread payload")
+        Assert.assertEquals(Files.readString(partial), "partial payload")
+        Assert.assertEquals(Files.readAllBytes(options), oldOptions)
+
+        Assert.assertEquals(project.grill("reload").code, 0)
+        val arguments = project.compilerArguments()
+        Assert.assertTrue(arguments.contains("-dev"), arguments.toString())
+        Assert.assertTrue(Files.isSameFile(Path.of(arguments[arguments.indexOf("-inputmap") + 1]),
+            project.root.resolve("./Input.w3x")))
+    }
+
+    @Test
+    fun preparationFailureLeavesTheActiveSessionAndPreventsLaunch() {
+        val project = Project()
+        val session = project.root.resolve("_build/luaHotReload/session.json")
+        Files.createDirectories(session.parent)
+        Files.writeString(session, "active session")
+        Files.writeString(project.root.resolve("fail-prepare"), "fixture")
+        val launches = mutableListOf<Pair<Path, List<String>>>()
+        val outcome = project.grill("run", "--hot", "Input.w3x", launches = launches)
+        Assert.assertEquals(outcome.code, 1)
+        Assert.assertEquals(launches.size, 0)
+        Assert.assertEquals(Files.readString(session), "active session")
+        Assert.assertTrue(outcome.err.contains("fixture prepare failure"), outcome.err)
+    }
+
+    @Test
+    fun activationFailureDoesNotRestoreOldPayloadsIntoTheLaunchedMap() {
+        val project = Project()
+        Files.writeString(project.root.resolve("fail-activate"), "fixture")
+        val launches = mutableListOf<Pair<Path, List<String>>>()
+        val outcome = project.grill("run", "--hot", "Input.w3x", launches = launches)
+        Assert.assertEquals(outcome.code, 1)
+        Assert.assertEquals(launches.size, 1)
+        Assert.assertTrue(outcome.err.contains("Warcraft III launched"), outcome.err)
+        Assert.assertEquals(project.sessionCalls().map { it.substringBefore('|') }, listOf("prepare", "activate"))
+    }
+
+    @Test
+    fun rollbackFailureReportsBothTheLaunchAndRecoveryFailures() {
+        val project = Project()
+        Files.writeString(project.root.resolve("fail-abort"), "fixture")
+        val outcome = project.grill("run", "--hot", "Input.w3x", launchFailure = IOException("fixture launch failure"))
+        Assert.assertEquals(outcome.code, 1)
+        Assert.assertTrue(outcome.err.contains("fixture launch failure"), outcome.err)
+        Assert.assertTrue(outcome.err.contains("Could not restore the previous hot reload session"), outcome.err)
+        Assert.assertTrue(outcome.err.contains("fixture abort failure"), outcome.err)
+        Assert.assertFalse(outcome.out.contains("previous session restored"), outcome.out)
+        Assert.assertEquals(project.sessionCalls().map { it.substringBefore('|') }, listOf("prepare", "abort"))
+    }
+
+    @Test
+    fun settingsFailureAfterLaunchNeverAbortsTheActivatedSession() {
+        val project = Project()
+        val options = project.root.resolve("_build/grill/hot-run.properties")
+        Files.createDirectories(options.parent)
+        Files.writeString(options, "map=Input.w3x\ndev=true\n")
+        val original = Files.readAllBytes(options)
+        Files.createDirectory(options.resolveSibling("hot-run.properties.tmp"))
+        val launches = mutableListOf<Pair<Path, List<String>>>()
+        val outcome = project.grill("run", "--hot", "Input.w3x", launches = launches)
+        Assert.assertEquals(outcome.code, 1)
+        Assert.assertEquals(launches.size, 1)
+        Assert.assertTrue(outcome.err.contains("hot-run settings could not be saved"), outcome.err)
+        Assert.assertEquals(Files.readAllBytes(options), original)
+        Assert.assertEquals(project.sessionCalls().map { it.substringBefore('|') }, listOf("prepare", "activate"))
     }
 
     @Test

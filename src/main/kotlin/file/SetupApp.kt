@@ -1198,7 +1198,7 @@ object SetupApp {
         return client
     }
 
-    /** The compiler's command line entry point for hot reload sessions (`start`, `send`). */
+    /** The compiler's command line entry point for hot reload sessions and staged launches. */
     private const val HOT_RELOAD_SESSION_CLASS = "de.peeeq.wurstio.languageserver.requests.LuaHotReloadSession"
 
     /** Starts Warcraft III with a built map; replaced in tests, which must never launch the game. */
@@ -1212,7 +1212,10 @@ object SetupApp {
         properties.setProperty("map", setup.commandArg)
         properties.setProperty("dev", setup.devBuild.toString())
         Files.createDirectories(compilerOutputDir())
-        Files.newBufferedWriter(hotRunRecord()).use { properties.store(it, "Written by grill run --hot") }
+        val target = hotRunRecord()
+        val partial = target.resolveSibling(target.fileName.toString() + ".tmp")
+        Files.newBufferedWriter(partial, StandardCharsets.UTF_8).use { properties.store(it, "Written by grill run --hot") }
+        Files.move(partial, target, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING)
     }
 
     /** `reload` builds with the map and `--dev` of the hot run, unless the command names another map. */
@@ -1246,15 +1249,36 @@ object SetupApp {
         return result
     }
 
-    private fun startHotReloadSession(): Boolean {
-        val result = runHotReloadSession("start")
+    private fun prepareHotReloadSession(): Boolean {
+        val result = runHotReloadSession("prepare")
         if (result.exitCode != 0) {
-            fail("❌ Could not start the hot reload session; Warcraft III was not launched.")
+            fail("❌ Could not prepare the hot reload session; Warcraft III was not launched.")
             return false
         }
-        recordHotRunBuildArgs()
-        progress("Hot reload session started. After an edit, run `grill reload`.")
         return true
+    }
+
+    private fun activateHotReloadSession() {
+        val result = runHotReloadSession("activate")
+        if (result.exitCode != 0) {
+            fail("Warcraft III launched, but the hot reload session could not be activated.")
+            ExitHandler.exit(1)
+        }
+        try {
+            recordHotRunBuildArgs()
+        } catch (e: IOException) {
+            fail("Warcraft III launched, but its hot-run settings could not be saved: ${e.message}")
+            if (setup.debug) e.printStackTrace()
+            ExitHandler.exit(1)
+        }
+        progress("Hot reload session started. After an edit, run `grill reload`.")
+    }
+
+    private fun abortHotReloadLaunch() {
+        val result = runHotReloadSession("abort")
+        if (result.exitCode != 0) {
+            fail("Could not restore the previous hot reload session (rollback exited ${result.exitCode}).")
+        }
     }
 
     private fun sendHotReloadPayload(): Nothing {
@@ -1310,16 +1334,26 @@ object SetupApp {
                         launchFailed(e)
                     }
                     val map = if (hot) hotRunMap(built) else built
-                    // The session goes first: it deletes an earlier session's payloads, which the new map would read.
-                    if (hot && !startHotReloadSession()) {
+                    // Hide old payloads before polling starts, but keep the active baseline until launch succeeds.
+                    if (hot && !prepareHotReloadSession()) {
                         ExitHandler.exit(1)
                     }
                     try {
                         launchMap(client, map)
-                        pass("Warcraft III launched.")
                     } catch (e: Exception) {
+                        if (hot) {
+                            try {
+                                abortHotReloadLaunch()
+                            } catch (cleanup: Exception) {
+                                fail("Could not restore the previous hot reload session: ${cleanup.message}")
+                                if (setup.debug) cleanup.printStackTrace()
+                            }
+                        }
                         launchFailed(e)
                     }
+                    // A failure here is after the new map launched: never restore obsolete payloads into it.
+                    if (hot) activateHotReloadSession()
+                    pass("Warcraft III launched.")
                 }
                 ExitHandler.exit(0)
             }
