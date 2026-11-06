@@ -283,6 +283,7 @@ class HotReloadTests {
         Assert.assertEquals(outcome.code, 1)
         Assert.assertTrue(outcome.err.contains("the type of field Hello_Unit_hp changed"), outcome.err)
         Assert.assertTrue(outcome.err.contains("Hot reload refused"), outcome.err)
+        Assert.assertTrue(outcome.err.contains("undo the incompatible part and run `grill reload` again"), outcome.err)
         Assert.assertFalse(outcome.out.contains("payload"), outcome.out)
     }
 
