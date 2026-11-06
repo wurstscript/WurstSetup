@@ -41,7 +41,7 @@ object SetupApp {
             get() = "Tests: $passed/$total passed"
     }
 
-    internal const val AGENTS_TEMPLATE_VERSION = "2026-09-06"
+    internal const val AGENTS_TEMPLATE_VERSION = "2026-11-06"
     private const val AGENTS_TEMPLATE_MARKER_PREFIX = "<!-- WURST_AGENTS_TEMPLATE_VERSION:"
     private const val AGENTS_TEMPLATE_MARKER = "<!-- WURST_AGENTS_TEMPLATE_VERSION: $AGENTS_TEMPLATE_VERSION -->"
     private const val AGENTS_TEMPLATE_SOURCE_HINT = "WurstScript Warcraft III map project notes"
@@ -1290,6 +1290,8 @@ object SetupApp {
         fail("❌ Hot reload refused; no payload was written.")
         if (result.output.any { it.contains("no map was started with hot run") }) {
             detail("Try: start the map with `grill run --hot` first.")
+        } else if (result.output.any { it.startsWith("The edit cannot be hot reloaded") }) {
+            detail("Try: undo the incompatible part and run `grill reload` again, or keep the edit and restart with `grill run --hot`.")
         } else {
             detail("Try: rebuild and restart the map with `grill run --hot`.")
         }
