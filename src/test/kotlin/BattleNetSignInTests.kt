@@ -1,4 +1,9 @@
+import config.WurstProjectConfig
+import file.BattleNetApp
 import file.BattleNetSignIn
+import java.net.InetAddress
+import java.net.InetSocketAddress
+import java.net.ServerSocket
 import file.Wc3ClientDetector
 import file.Wc3MapRunner
 import org.testng.Assert
@@ -69,6 +74,42 @@ class BattleNetSignInTests {
         Assert.assertNull(Wc3MapRunner.renewSignIn(reforgedClient(), editorLaunch, "auto", reports::add, { null }, { true }, "Windows 11"))
         Assert.assertEquals(reports.size, 1)
         Assert.assertTrue(reports[0].contains("may ask for a login"), reports[0])
+    }
+
+    @Test
+    fun aRenewalLockHeldElsewhereIsReportedAsBusy() {
+        if (!System.getProperty("os.name").startsWith("Windows", ignoreCase = true)) throw SkipException("Windows only")
+        val config = Files.createTempDirectory("grill-battlenet-lock").resolve("Battle.net.config")
+        ServerSocket().use { holder ->
+            holder.bind(InetSocketAddress(InetAddress.getByAddress(byteArrayOf(127, 0, 0, 1)), BattleNetSignIn.gatePort(config)))
+            var waited = false
+            try {
+                BattleNetSignIn.forTest(config).renew(gateWaitSeconds = 1, onWait = { waited = true })
+                Assert.fail("the lock is held elsewhere")
+            } catch (e: BattleNetSignIn.LockBusyException) {
+                Assert.assertTrue(waited, "the user is told why the launch waits")
+            }
+        }
+    }
+
+    @Test(expectedExceptions = [IllegalStateException::class])
+    fun aBusyRenewalLockStopsTheLaunchEvenInAutoMode() {
+        // Launching without the lock could spend the token another tool's client has not read yet.
+        val busy = object : BattleNetApp {
+            override fun isRunning() = true
+            override fun renew(onWait: () -> Unit): BattleNetSignIn.Renewal =
+                throw BattleNetSignIn.LockBusyException("another launch is signing in")
+        }
+        Wc3MapRunner.renewSignIn(reforgedClient(), editorLaunch, "auto", {}, { busy }, { true }, "Windows 11")
+    }
+
+    @Test
+    fun anInvalidConfiguredPathFallsBackToDetection() {
+        if (!System.getProperty("os.name").startsWith("Windows", ignoreCase = true)) throw SkipException("Windows path rules")
+        val project = Files.createTempDirectory("grill-bad-setting")
+        Files.writeString(Files.createDirectories(project.resolve(".vscode")).resolve("settings.json"),
+            """{ "wurst.wc3path": "C:\\Games\\War<craft" }""")
+        Assert.assertNull(WurstProjectConfig.configuredGamePath(project))
     }
 
     @Test(expectedExceptions = [IllegalStateException::class])

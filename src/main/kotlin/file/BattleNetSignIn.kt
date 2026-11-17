@@ -30,7 +30,21 @@ import java.util.concurrent.TimeUnit
  * WurstScript's Run Map (`BattleNetSignIn`) and the wc3-e2e-harness (`docs/BattleNetSignIn.md`) do the same, and all
  * hold the same localhost port as a lock from the renewal until the launched client has signed in.
  */
-internal class BattleNetSignIn private constructor(private val config: Path, private val launcher: Path) {
+/** What [Wc3MapRunner] needs from the Battle.net app; replaced in tests. */
+internal interface BattleNetApp {
+    fun isRunning(): Boolean
+
+    /** @param onWait called once if another launch holds the lock and this one has to wait for it */
+    fun renew(onWait: () -> Unit = {}): BattleNetSignIn.Renewal
+}
+
+internal class BattleNetSignIn private constructor(private val config: Path, private val launcher: Path) : BattleNetApp {
+
+    /**
+     * Another tool holds the renewal lock for longer than a renewal and a sign-in take. Not a reason to launch
+     * without it: that launch could spend the token the other tool's client has not read yet.
+     */
+    class LockBusyException(message: String) : IOException(message)
 
     /** The lock, held until the launched client has signed in; see [awaitSignIn]. */
     class Renewal internal constructor(private val gate: ServerSocket, private val token: String) : AutoCloseable {
@@ -60,14 +74,16 @@ internal class BattleNetSignIn private constructor(private val config: Path, pri
         }
     }
 
-    fun isRunning(): Boolean = ProcessHandle.allProcesses().anyMatch { named(command(it), LAUNCHER) }
+    override fun isRunning(): Boolean = ProcessHandle.allProcesses().anyMatch { named(command(it), LAUNCHER) }
+
+    override fun renew(onWait: () -> Unit): Renewal = renew(GATE_WAIT_SECONDS, onWait)
 
     /**
      * Stores a token from the app as `EDITOR_TOKEN` and returns the held lock. Throws, with a message for the user,
      * when the app cannot provide one: it is closed, signed out, updating, or running a client of its own.
      */
-    fun renew(): Renewal {
-        val gate = acquireGate()
+    fun renew(gateWaitSeconds: Long, onWait: () -> Unit = {}): Renewal {
+        val gate = acquireGate(gateWaitSeconds, onWait)
         try {
             return Renewal(gate, renewLocked())
         } catch (e: Throwable) {
@@ -128,8 +144,9 @@ internal class BattleNetSignIn private constructor(private val config: Path, pri
         return token
     }
 
-    private fun acquireGate(): ServerSocket {
-        val deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(30)
+    private fun acquireGate(waitSeconds: Long, onWait: () -> Unit): ServerSocket {
+        val deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(waitSeconds)
+        var waiting = false
         while (true) {
             val socket = ServerSocket()
             try {
@@ -138,7 +155,13 @@ internal class BattleNetSignIn private constructor(private val config: Path, pri
                 return socket
             } catch (e: BindException) {
                 socket.close()
-                if (System.nanoTime() >= deadline) throw IOException("Another Warcraft III test is using Battle.net.", e)
+                if (!waiting) {
+                    waiting = true
+                    onWait()
+                }
+                if (System.nanoTime() >= deadline) {
+                    throw LockBusyException("Another Warcraft III launch has held the Battle.net sign-in for over $waitSeconds s.")
+                }
                 Thread.sleep(250)
             } catch (e: IOException) {
                 socket.close()
@@ -156,6 +179,11 @@ internal class BattleNetSignIn private constructor(private val config: Path, pri
         private const val ASK_AGAIN_SECONDS = 25L
         private const val GAME_AFTER_TOKEN_SECONDS = 10L
         const val SIGN_IN_TIMEOUT_SECONDS = 120L
+        /** Another holder renews (up to [TIMEOUT_SECONDS]) and waits for its client's sign-in; outwait both. */
+        const val GATE_WAIT_SECONDS = TIMEOUT_SECONDS + SIGN_IN_TIMEOUT_SECONDS + 30
+
+        /** A renewal for [config] whose launcher is never started; for tests that only touch the lock. */
+        internal fun forTest(config: Path): BattleNetSignIn = BattleNetSignIn(config, Paths.get(LAUNCHER))
         private val REG_BINARY = Regex("""^\s*(\S+)\s+REG_BINARY\s+([0-9A-Fa-f]*)\s*$""", RegexOption.MULTILINE)
 
         /** A copy of the wc3-e2e-harness `node/src/runner/battlenet-window.ps1`; keep the two equal. */

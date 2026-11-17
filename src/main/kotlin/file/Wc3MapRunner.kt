@@ -126,7 +126,7 @@ internal object Wc3MapRunner {
      */
     internal fun renewSignIn(client: Wc3ClientDetector.ClientInfo, command: List<String>, launchMode: String,
                              report: (String) -> Unit,
-                             find: () -> BattleNetSignIn? = BattleNetSignIn::find,
+                             find: () -> BattleNetApp? = BattleNetSignIn::find,
                              registered: (Path) -> Boolean = BattleNetSignIn::isRegisteredGame,
                              osName: String = System.getProperty("os.name")): BattleNetSignIn.Renewal? {
         // The token lives in the Windows registry; other systems launch as before.
@@ -144,7 +144,10 @@ internal object Wc3MapRunner {
         }
         report("Renewing the Warcraft III sign-in from Battle.net...")
         return try {
-            battleNet.renew()
+            battleNet.renew { report("Another Warcraft III launch is signing in; waiting until it has...") }
+        } catch (e: BattleNetSignIn.LockBusyException) {
+            // In every mode: launching without the lock could spend the other client's unread token.
+            throw IllegalStateException("${e.message} Run the map again once it has signed in.", e)
         } catch (e: IOException) {
             failOrNull(launchMode, "Could not renew the Warcraft III sign-in: ${e.message}", report)
         }
