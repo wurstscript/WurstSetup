@@ -1202,7 +1202,9 @@ object SetupApp {
     private const val HOT_RELOAD_SESSION_CLASS = "de.peeeq.wurstio.languageserver.requests.LuaHotReloadSession"
 
     /** Starts Warcraft III with a built map; replaced in tests, which must never launch the game. */
-    internal var launchMap: (Wc3ClientDetector.ClientInfo, Path) -> Unit = Wc3MapRunner::launch
+    internal var launchMap: (Wc3ClientDetector.ClientInfo, Path) -> Unit = { client, map ->
+        Wc3MapRunner.launch(client, map, WurstProjectConfig.configuredLaunchMode(setup.projectRoot), ::detail)
+    }
 
     /** What `run --hot` built with, so that `reload` builds the same script. */
     private fun hotRunRecord(): Path = compilerOutputDir().resolve("hot-run.properties")

@@ -156,7 +156,12 @@ object WurstProjectConfig {
     /** The VS Code extension's `wurst.customMapDataPath`, which the language server's hot reload also uses. */
     fun configuredCustomMapDataPath(projectRoot: Path): Path? = configuredPath(projectRoot, "wurst.customMapDataPath")
 
-    private fun configuredPath(projectRoot: Path, setting: String): Path? {
+    /** The VS Code extension's `wurst.wc3LaunchMode` (auto, battlenet or legacy), which Run Map also follows. */
+    fun configuredLaunchMode(projectRoot: Path): String = configuredString(projectRoot, "wurst.wc3LaunchMode") ?: "auto"
+
+    private fun configuredPath(projectRoot: Path, setting: String): Path? = configuredString(projectRoot, setting)?.let(Paths::get)
+
+    private fun configuredString(projectRoot: Path, setting: String): String? {
         val settings = projectRoot.resolve(".vscode").resolve("settings.json")
         if (!Files.isRegularFile(settings)) {
             return null
@@ -166,7 +171,6 @@ object WurstProjectConfig {
                 ?.get(setting)
                 ?.asText()
                 ?.takeIf(String::isNotBlank)
-                ?.let(Paths::get)
         } catch (_: Exception) {
             null
         }
