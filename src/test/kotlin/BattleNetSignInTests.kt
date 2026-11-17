@@ -117,6 +117,26 @@ class BattleNetSignInTests {
     }
 
     @Test
+    fun theLauncherWindowWatcherOutlivesEveryRequestOfASlowRenewal() {
+        // The renewal asks the app again every 25 s for up to 90 s; each request can bring its window back.
+        Assert.assertTrue(BattleNetSignIn.WINDOW_WATCH_SECONDS > 90, "${BattleNetSignIn.WINDOW_WATCH_SECONDS} s")
+    }
+
+    @Test
+    fun releasingTheRenewalEndsTheLauncherWindowWatcher() {
+        // Otherwise it would go on minimizing a launcher the user opens after the map has started.
+        val windows = System.getProperty("os.name").startsWith("Windows", ignoreCase = true)
+        val watcher = (if (windows) ProcessBuilder("ping", "-n", "30", "127.0.0.1") else ProcessBuilder("sleep", "30"))
+            .redirectOutput(ProcessBuilder.Redirect.DISCARD).start()
+        val gate = ServerSocket().apply { bind(InetSocketAddress(InetAddress.getByAddress(byteArrayOf(127, 0, 0, 1)), 0)) }
+
+        BattleNetSignIn.Renewal(gate, "TOKEN", { "NEW" }, 1, watcher).close()
+
+        Assert.assertTrue(watcher.waitFor(5, java.util.concurrent.TimeUnit.SECONDS), "the watcher was ended")
+        Assert.assertTrue(gate.isClosed)
+    }
+
+    @Test
     fun aSignInIsAwaitedUntilTheClientReplacesTheToken() {
         val gate = ServerSocket().apply { bind(InetSocketAddress(InetAddress.getByAddress(byteArrayOf(127, 0, 0, 1)), 0)) }
         val reads = mutableListOf("TOKEN", "TOKEN", "NEW")
