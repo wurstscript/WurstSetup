@@ -99,11 +99,16 @@ internal object Wc3MapRunner {
         val command = launchCommand(client, launchMap)
         val renewal = renewSignIn(client, command, launchMode, report)
         try {
-            ProcessBuilder(command)
-                .directory(client.root.toFile())
-                .redirectOutput(ProcessBuilder.Redirect.DISCARD)
-                .redirectError(ProcessBuilder.Redirect.DISCARD)
-                .start()
+            if (System.getProperty("os.name").startsWith("Windows", ignoreCase = true)) {
+                // In the user's own registry view, where the sign-in is renewed, whatever view grill has.
+                OutsideStart.startOrHere(command, client.root, OutsideStart.Show.NORMAL)
+            } else {
+                ProcessBuilder(command)
+                    .directory(client.root.toFile())
+                    .redirectOutput(ProcessBuilder.Redirect.DISCARD)
+                    .redirectError(ProcessBuilder.Redirect.DISCARD)
+                    .start()
+            }
         } catch (e: Exception) {
             renewal?.close()
             throw e

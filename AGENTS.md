@@ -54,7 +54,7 @@ This repo builds the Grill CLI and project setup tooling. The generated map-proj
 
 ## Test Commands
 
-Use `HotReloadTests` for Grill's hot-run and reload transaction. For automated Warcraft III engine tests, use the `wc3-e2e-harness` sibling and follow its `docs/AgentQuickstart.md` for launch, loading-screen input and cleanup.
+Use `HotReloadTests` for Grill's hot-run and reload transaction.
 
 Run the full WurstSetup suite before publishing:
 

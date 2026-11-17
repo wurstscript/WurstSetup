@@ -41,7 +41,7 @@ object SetupApp {
             get() = "Tests: $passed/$total passed"
     }
 
-    internal const val AGENTS_TEMPLATE_VERSION = "2026-11-06"
+    internal const val AGENTS_TEMPLATE_VERSION = "2026-11-17"
     private const val AGENTS_TEMPLATE_MARKER_PREFIX = "<!-- WURST_AGENTS_TEMPLATE_VERSION:"
     private const val AGENTS_TEMPLATE_MARKER = "<!-- WURST_AGENTS_TEMPLATE_VERSION: $AGENTS_TEMPLATE_VERSION -->"
     private const val AGENTS_TEMPLATE_SOURCE_HINT = "WurstScript Warcraft III map project notes"

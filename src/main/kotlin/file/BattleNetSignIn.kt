@@ -1,5 +1,6 @@
 package file
 
+import global.Log
 import java.io.IOException
 import java.net.BindException
 import java.net.InetAddress
@@ -11,8 +12,11 @@ import java.nio.file.Path
 import java.nio.file.Paths
 import java.security.MessageDigest
 import java.util.Locale
+import java.util.UUID
 import java.util.concurrent.CountDownLatch
+import java.util.concurrent.ExecutionException
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.TimeoutException
 
 /**
  * Renews the sign-in that Warcraft III 3.x uses for `-editor` launches, from the Battle.net desktop app.
@@ -23,11 +27,20 @@ import java.util.concurrent.TimeUnit
  * not reach it: a client the app starts with `-loadfile` shows the login panel too.
  *
  * Just before the app starts the game it writes a one-time `WEB_TOKEN` (`...\Battle.net\Launch Options\W3`). Stored
- * as `EDITOR_TOKEN`, that token signs the next `-editor` client in. [renew] asks the app to start the game, closes
- * that client before it spends the token, and stores the token; the map is then launched as before.
+ * as `EDITOR_TOKEN`, that token signs the next `-editor` client in. [renew] runs [TOKEN_SCRIPT], which asks the app
+ * to start the game, closes that client before it spends the token, and stores the token; the map is then launched as
+ * before.
  *
- * WurstScript's Run Map (`BattleNetSignIn`) and the wc3-e2e-harness (`docs/BattleNetSignIn.md`) do the same, and all
- * hold the same localhost port as a lock from the renewal until the launched client has signed in.
+ * The app, the script and the map's client hand the sign-in to each other through `HKCU`, so all three must see the
+ * same registry. A process started from a packaged (MSIX) app, such as the Claude desktop app or an editor started from
+ * inside one, reads and writes `HKCU` through the package's private copy, and so does everything it starts. The script
+ * and the client therefore start through WMI, in the user's own registry view ([OutsideStart]), whatever view grill
+ * has. A Battle.net that was itself started from inside such an app writes its token where nothing else reads it; the
+ * script then sees the app start the game but no new token, and the user is told to start Battle.net from the Start
+ * menu.
+ *
+ * WurstScript's Run Map (`BattleNetSignIn`) does the same, and every tool that renews this sign-in holds the same
+ * localhost port as a lock from the renewal until the launched client has signed in.
  */
 /** What [Wc3MapRunner] needs from the Battle.net app; replaced in tests. */
 internal interface BattleNetApp {
@@ -48,9 +61,10 @@ internal class BattleNetSignIn private constructor(private val config: Path, pri
     /** The lock, held until the launched client has signed in; see [awaitSignIn]. */
     class Renewal internal constructor(
         private val gate: ServerSocket,
-        private val token: String,
-        private val currentToken: () -> String? = { readBinary(GAME_KEY, "EDITOR_TOKEN") },
-        private val pollMillis: Long = 500,
+        /** Whether the launched client has replaced the renewed `EDITOR_TOKEN` yet; throws when that cannot be told. */
+        private val signedIn: () -> Boolean,
+        private val pollMillis: Long = 250,
+        private val onClose: () -> Unit = {},
     ) : AutoCloseable {
         /**
          * Blocks until the launched client replaces `EDITOR_TOKEN`, which it does as it signs in (about ten seconds after
@@ -61,7 +75,7 @@ internal class BattleNetSignIn private constructor(private val config: Path, pri
             val deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(SIGN_IN_TIMEOUT_SECONDS)
             try {
                 while (System.nanoTime() < deadline) {
-                    if (currentToken() != token) return true
+                    if (signedIn()) return true
                     Thread.sleep(pollMillis)
                 }
                 return false
@@ -75,7 +89,67 @@ internal class BattleNetSignIn private constructor(private val config: Path, pri
                 gate.close()
             } catch (_: IOException) {
             }
+            onClose()
         }
+    }
+
+    /**
+     * [SIGNIN_SCRIPT] running in the user's own registry view, where the client replaces `EDITOR_TOKEN` as it signs in.
+     * Read from grill's own view, the token may never change: a packaged app's private copy keeps the old one.
+     */
+    internal class SignInWatcher(private val process: ProcessHandle?, private val output: Path) {
+        /** True once the client has signed in; throws once the watcher has ended without seeing it. */
+        fun signedIn(): Boolean {
+            val alive = process?.isAlive == true
+            // Read after the check, so a watcher that saw the sign-in and ended in between is not missed.
+            val lines = parseTokenScriptOutput(completeLines(readOutput(output))).lines
+            if ("signed-in" in lines) return true
+            if ("timeout" in lines || !alive) throw IOException("the sign-in watcher ended (${lines.lastOrNull() ?: "no output"})")
+            return false
+        }
+
+        fun ready(): Boolean = "ready" in parseTokenScriptOutput(completeLines(readOutput(output))).lines
+
+        fun stop() {
+            process?.destroyForcibly()
+            try {
+                process?.onExit()?.get(OUTPUT_RELEASE_SECONDS, TimeUnit.SECONDS)
+            } catch (_: Exception) {
+            }
+            try {
+                Files.deleteIfExists(output)
+            } catch (_: IOException) {
+                output.toFile().deleteOnExit()
+            }
+        }
+    }
+
+    /**
+     * How [Renewal] tells that the launched client has signed in: from [SignInWatcher] started outside grill's registry
+     * view, or, if that cannot start, by reading `EDITOR_TOKEN` from here. Called after the renewal and before the
+     * launch, so the token seen as the starting point is the renewed one.
+     */
+    private fun signInCheck(gate: ServerSocket): Renewal {
+        try {
+            val output = tempDir().resolve("grill-battlenet-signin-${UUID.randomUUID()}.log")
+            val command = listOf("powershell.exe", "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-Command",
+                "& ${powerShellQuote(scriptCopy(SIGNIN_SCRIPT, tempDir()).toString())}" +
+                    " -TimeoutSeconds ${SIGN_IN_TIMEOUT_SECONDS + 10} *> ${powerShellQuote(output.toString())}")
+            val pid = OutsideStart.startOrHere(command, null, OutsideStart.Show.HIDDEN)
+            val watcher = SignInWatcher(ProcessHandle.of(pid).orElse(null), output)
+            val deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(SIGNIN_READY_SECONDS)
+            while (!watcher.ready() && System.nanoTime() < deadline) Thread.sleep(50)
+            if (watcher.ready()) return Renewal(gate, watcher::signedIn, onClose = watcher::stop)
+            watcher.stop()
+        } catch (e: IOException) {
+            Log.println("Watching the Warcraft III sign-in from grill instead: ${e.message}")
+        }
+        val token = try {
+            readBinary(GAME_KEY, "EDITOR_TOKEN")
+        } catch (_: IOException) {
+            null
+        }
+        return Renewal(gate, { readBinary(GAME_KEY, "EDITOR_TOKEN") != token })
     }
 
     override fun isRunning(): Boolean = ProcessHandle.allProcesses().anyMatch { named(command(it), LAUNCHER) }
@@ -89,64 +163,55 @@ internal class BattleNetSignIn private constructor(private val config: Path, pri
     fun renew(gateWaitSeconds: Long, onWait: () -> Unit = {}): Renewal {
         val gate = acquireGate(gateWaitSeconds, onWait)
         try {
-            return Renewal(gate, renewLocked())
+            renewLocked()
+            return signInCheck(gate)
         } catch (e: Throwable) {
             gate.close()
             throw e
         }
     }
 
-    private fun renewLocked(): String {
+    private fun renewLocked() {
         if (!isRunning()) throw IOException("Battle.net is not running.")
-        val seen = HashSet<Long>()
-        for (game in games()) {
-            if (startedByLauncher(game)) {
-                throw IOException("Close the Warcraft III client started from Battle.net, then run the map again.")
-            }
-            seen.add(game.pid())
-        }
-        val before = readBinary(LAUNCH_KEY, "WEB_TOKEN")
+        if (games().any { startedByLauncher(it) }) throw IOException(APP_GAME_RUNNING)
+        val script = scriptCopy(TOKEN_SCRIPT, tempDir())
         // Asked to start the game, the app shows its window in front; the watcher minimizes it as soon as it appears
         // and brings the map's client forward once that has a window.
         watchLauncherWindow()
-        val start = System.nanoTime()
-        var askedAt = Long.MIN_VALUE
-        var token: String? = null
-        var tokenAt = 0L
-        var closed = 0
-        while (System.nanoTime() - start < TimeUnit.SECONDS.toNanos(TIMEOUT_SECONDS)) {
-            if (token == null && (askedAt == Long.MIN_VALUE
-                    || System.nanoTime() - askedAt >= TimeUnit.SECONDS.toNanos(ASK_AGAIN_SECONDS))) {
-                askedAt = System.nanoTime()
-                // An app that is still starting ignores the command, so it is repeated while waiting.
-                ProcessBuilder(launcher.toString(), "--exec=launch W3")
-                    .redirectOutput(ProcessBuilder.Redirect.DISCARD)
-                    .redirectError(ProcessBuilder.Redirect.DISCARD)
-                    .start()
-            }
-            for (game in games()) {
-                if (!seen.add(game.pid()) || !startedByLauncher(game)) continue
-                game.destroyForcibly()
-                closed++
-            }
-            if (token == null) {
-                val now = readBinary(LAUNCH_KEY, "WEB_TOKEN")
-                if (now != null && now != before) {
-                    token = now
-                    tokenAt = System.nanoTime()
-                }
-            }
-            // The app writes the token, then starts the game: wait briefly for that game so it is closed.
-            if (token != null && (closed > 0
-                    || System.nanoTime() - tokenAt >= TimeUnit.SECONDS.toNanos(GAME_AFTER_TOKEN_SECONDS))) break
-            Thread.sleep(50)
-        }
-        if (token == null) {
-            throw IOException("Battle.net did not start Warcraft III. Check that it is signed in and the game is ready to play.")
-        }
-        writeBinary(GAME_KEY, "EDITOR_TOKEN", token)
-        return token
+        val result = runTokenScript(script)
+        problem(result)?.let { throw IOException(it) }
     }
+
+    /**
+     * Runs [TOKEN_SCRIPT] hidden in the user's own registry view, where the app writes `WEB_TOKEN` and the client reads
+     * `EDITOR_TOKEN`, whatever view grill has. Only if WMI cannot start it does it run from here.
+     */
+    private fun runTokenScript(script: Path): TokenScriptResult {
+        val output = tempDir().resolve("grill-battlenet-renewal-${UUID.randomUUID()}.log")
+        try {
+            val pid = OutsideStart.startOrHere(tokenScriptCommand(script, launcher, TIMEOUT_SECONDS, output), null,
+                OutsideStart.Show.HIDDEN)
+            val handle = ProcessHandle.of(pid).orElse(null)
+            val result = awaitTokenScript(handle, output, TIMEOUT_SECONDS + SCRIPT_EXIT_GRACE_SECONDS)
+            // The script ends right after its result line; let it close the output file before that is removed.
+            try {
+                handle?.onExit()?.get(OUTPUT_RELEASE_SECONDS, TimeUnit.SECONDS)
+            } catch (_: ExecutionException) {
+            } catch (_: TimeoutException) {
+                // still running: the delete below falls back to deleteOnExit
+            }
+            return result
+        } finally {
+            try {
+                Files.deleteIfExists(output)
+            } catch (_: IOException) {
+                output.toFile().deleteOnExit()
+            }
+        }
+    }
+
+    /** What [TOKEN_SCRIPT] printed: its outcome, null until its `result` line, and every line. */
+    data class TokenScriptResult(val outcome: String?, val lines: List<String>)
 
     private fun acquireGate(waitSeconds: Long, onWait: () -> Unit): ServerSocket {
         val deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(waitSeconds)
@@ -154,7 +219,7 @@ internal class BattleNetSignIn private constructor(private val config: Path, pri
         while (true) {
             val socket = ServerSocket()
             try {
-                // 127.0.0.1 exactly, as the harness binds it; the loopback name could resolve to ::1.
+                // 127.0.0.1 exactly, as every holder binds it; the loopback name could resolve to ::1.
                 socket.bind(InetSocketAddress(InetAddress.getByAddress(byteArrayOf(127, 0, 0, 1)), gatePort(config)))
                 return socket
             } catch (e: BindException) {
@@ -175,14 +240,16 @@ internal class BattleNetSignIn private constructor(private val config: Path, pri
     }
 
     companion object {
-        const val LAUNCH_KEY = "HKCU\\Software\\Blizzard Entertainment\\Battle.net\\Launch Options\\W3"
         const val GAME_KEY = "HKCU\\Software\\Blizzard Entertainment\\Warcraft III"
         private const val LAUNCHER = "Battle.net.exe"
         private const val GAME = "Warcraft III.exe"
         private const val TIMEOUT_SECONDS = 90L
-        private const val ASK_AGAIN_SECONDS = 25L
-        private const val GAME_AFTER_TOKEN_SECONDS = 10L
+        /** How long past its own timeout the renewal script may take to start and to write its result. */
+        private const val SCRIPT_EXIT_GRACE_SECONDS = 30L
+        /** How long the renewal script may take to exit, and close its output file, after writing its result. */
+        private const val OUTPUT_RELEASE_SECONDS = 5L
         const val SIGN_IN_TIMEOUT_SECONDS = 120L
+        const val APP_GAME_RUNNING = "Close the Warcraft III client started from Battle.net, then run the map again."
         /** Another holder renews (up to [TIMEOUT_SECONDS]) and waits for its client's sign-in; outwait both. */
         const val GATE_WAIT_SECONDS = TIMEOUT_SECONDS + SIGN_IN_TIMEOUT_SECONDS + 30
 
@@ -190,26 +257,114 @@ internal class BattleNetSignIn private constructor(private val config: Path, pri
         internal fun forTest(config: Path): BattleNetSignIn = BattleNetSignIn(config, Paths.get(LAUNCHER))
         private val REG_BINARY = Regex("""^\s*(\S+)\s+REG_BINARY\s+([0-9A-Fa-f]*)\s*$""", RegexOption.MULTILINE)
 
-        /** A copy of the wc3-e2e-harness `node/src/runner/battlenet-window.ps1`; keep the two equal. */
+        /** The renewal script, run in the user's own registry view. */
+        const val TOKEN_SCRIPT = "battlenet-token.ps1"
+        /** The sign-in watcher, run in the user's own registry view ([SignInWatcher]). */
+        const val SIGNIN_SCRIPT = "battlenet-signin.ps1"
+        /** How long the sign-in watcher may take to start and read the renewed token before the game is launched. */
+        private const val SIGNIN_READY_SECONDS = 15L
+        /** The watcher that keeps the app's window out of sight during the renewal. */
         const val WINDOW_SCRIPT = "battlenet-window.ps1"
         /** The watcher's limit without a client: every request the renewal may send, then a launch and a slow sign-in. */
         const val WINDOW_WATCH_SECONDS = TIMEOUT_SECONDS + 150
         private const val WINDOW_READY_SECONDS = 3L
+        private val RESULT = Regex("""result (\S+)""")
 
-        /** The PowerShell command that runs [WINDOW_SCRIPT] with [arguments]; null if the script is missing. */
-        fun windowWatcherCommand(arguments: List<String>, dir: Path = Paths.get(System.getProperty("java.io.tmpdir"))): List<String>? {
-            val script = BattleNetSignIn::class.java.classLoader.getResourceAsStream(WINDOW_SCRIPT)?.use { it.readBytes() }
-                ?: return null
-            // A file, not -EncodedCommand: encoded, the script is close to Windows' 32,767-character command line limit.
-            // Named by content, so a grill of another version never runs this one's copy.
-            val hash = MessageDigest.getInstance("SHA-256").digest(script).take(6).joinToString("") { "%02x".format(it) }
-            val file = dir.resolve("grill-battlenet-window-$hash.ps1")
-            try {
-                if (!Files.isRegularFile(file) || !Files.readAllBytes(file).contentEquals(script)) Files.write(file, script)
+        private fun tempDir(): Path = Paths.get(System.getProperty("java.io.tmpdir"))
+
+        /**
+         * A copy of the resource [script] in [dir], named by its content, so a grill of another version never runs this
+         * one's copy. A file, not -EncodedCommand: encoded, the window watcher is close to Windows' 32,767-character
+         * command line limit.
+         */
+        fun scriptCopy(script: String, dir: Path): Path {
+            val content = BattleNetSignIn::class.java.classLoader.getResourceAsStream(script)?.use { it.readBytes() }
+                ?: throw IOException("$script is missing from grill")
+            val hash = MessageDigest.getInstance("SHA-256").digest(content).take(6).joinToString("") { "%02x".format(it) }
+            val file = dir.resolve("grill-${script.removeSuffix(".ps1")}-$hash.ps1")
+            if (!Files.isRegularFile(file) || !Files.readAllBytes(file).contentEquals(content)) Files.write(file, content)
+            return file
+        }
+
+        /** The PowerShell command that runs [WINDOW_SCRIPT] with [arguments]; null if the script cannot be provided. */
+        fun windowWatcherCommand(arguments: List<String>, dir: Path = tempDir()): List<String>? {
+            val file = try {
+                scriptCopy(WINDOW_SCRIPT, dir)
             } catch (_: IOException) {
                 return null
             }
             return listOf("powershell.exe", "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-File", file.toString()) + arguments
+        }
+
+        /** A PowerShell single-quoted string literal. PowerShell also reads the typographic single quotes as quotes. */
+        fun powerShellQuote(text: String): String = "'" + text.replace(Regex("['‘’‚‛]")) { it.value + it.value } + "'"
+
+        /**
+         * The command that runs [script] and redirects everything it prints to [output]. Started outside, the script's
+         * output cannot come back through a pipe, so it goes to a file.
+         */
+        fun tokenScriptCommand(script: Path, launcher: Path, timeoutSeconds: Long, output: Path): List<String> =
+            listOf("powershell.exe", "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-Command",
+                "& ${powerShellQuote(script.toString())} -BattleNetExe ${powerShellQuote(launcher.toString())}" +
+                    " -TimeoutSeconds $timeoutSeconds *> ${powerShellQuote(output.toString())}")
+
+        fun parseTokenScriptOutput(output: String): TokenScriptResult {
+            val lines = output.lines().map { it.trim() }.filter { it.isNotEmpty() }
+            return TokenScriptResult(lines.firstNotNullOfOrNull { RESULT.matchEntire(it)?.groupValues?.get(1) }, lines)
+        }
+
+        /**
+         * The complete lines of a script's redirected output: Windows PowerShell writes UTF-16 with a byte order mark,
+         * and a line still being written could read as a different result.
+         */
+        fun completeLines(output: ByteArray): String {
+            val utf16 = output.size >= 2 && output[0] == 0xFF.toByte() && output[1] == 0xFE.toByte()
+            val text = if (utf16) String(output, 2, output.size - 2, Charsets.UTF_16LE) else String(output, Charsets.UTF_8)
+            return text.substring(0, text.lastIndexOf('\n') + 1)
+        }
+
+        /** The message for the user when the renewal did not succeed; null when it did. */
+        fun problem(result: TokenScriptResult): String? = when (result.outcome) {
+            "refreshed" -> null
+            "no-token" -> "Battle.net did not start Warcraft III. Check that it is signed in and the game is ready to play."
+            "app-game-running" -> APP_GAME_RUNNING
+            "token-not-visible" -> "Battle.net started Warcraft III, but wrote its sign-in where other programs cannot" +
+                " read it, probably because Battle.net was started from a packaged app (such as the Claude desktop app)." +
+                " Quit Battle.net from its tray icon and start it from the Start menu."
+            else -> "The Battle.net sign-in renewal failed: " +
+                (if (result.lines.isEmpty()) "it printed nothing" else result.lines.takeLast(3).joinToString(" | ")) + "."
+        }
+
+        /**
+         * Waits for the script's result line, or for the script to end, and ends the script if it outlives
+         * [timeoutSeconds] or this thread is interrupted.
+         *
+         * @param script null when it has ended already
+         */
+        fun awaitTokenScript(script: ProcessHandle?, output: Path, timeoutSeconds: Long, pollMillis: Long = 250): TokenScriptResult {
+            val deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(timeoutSeconds)
+            var done = false
+            try {
+                while (true) {
+                    // Read after the check, so a script that wrote its result and ended in between is not missed.
+                    val running = script != null && script.isAlive
+                    val result = parseTokenScriptOutput(completeLines(readOutput(output)))
+                    if (result.outcome != null || !running) {
+                        done = true
+                        return result
+                    }
+                    if (System.nanoTime() >= deadline) return TokenScriptResult(null, result.lines + "the renewal script did not finish")
+                    Thread.sleep(pollMillis)
+                }
+            } finally {
+                if (!done) script?.destroyForcibly()
+            }
+        }
+
+        private fun readOutput(output: Path): ByteArray = try {
+            Files.readAllBytes(output)
+        } catch (_: IOException) {
+            ByteArray(0) // not created yet
         }
 
         /**
@@ -278,7 +433,7 @@ internal class BattleNetSignIn private constructor(private val config: Path, pri
                 .firstOrNull { it.groupValues[1].equals(value, ignoreCase = true) }
                 ?.groupValues?.get(2)?.uppercase(Locale.ROOT)
 
-        /** The lock port the wc3-e2e-harness and WurstScript use for the same Battle.net profile. */
+        /** The lock port every tool that renews this sign-in, WurstScript's Run Map among them, uses for a Battle.net profile. */
         fun gatePort(config: Path): Int {
             val key = config.toAbsolutePath().normalize().toString().lowercase(Locale.ROOT)
             val hash = MessageDigest.getInstance("SHA-256").digest(key.toByteArray(Charsets.UTF_8))
@@ -299,15 +454,6 @@ internal class BattleNetSignIn private constructor(private val config: Path, pri
 
         private fun readBinary(key: String, value: String): String? =
             parseBinary(readCommand("reg.exe", "query", key, "/v", value), value)
-
-        private fun writeBinary(key: String, value: String, hex: String) {
-            val process = ProcessBuilder("reg.exe", "add", key, "/v", value, "/t", "REG_BINARY", "/d", hex, "/f")
-                .redirectOutput(ProcessBuilder.Redirect.DISCARD).redirectError(ProcessBuilder.Redirect.DISCARD).start()
-            if (!process.waitFor(8, TimeUnit.SECONDS) || process.exitValue() != 0) {
-                process.destroyForcibly()
-                throw IOException("Could not store the Warcraft III sign-in.")
-            }
-        }
 
         private fun readCommand(vararg command: String): List<String> {
             val process = ProcessBuilder(*command).redirectError(ProcessBuilder.Redirect.DISCARD).start()
