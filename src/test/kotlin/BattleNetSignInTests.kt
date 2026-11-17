@@ -1,6 +1,7 @@
 import config.WurstProjectConfig
 import file.BattleNetApp
 import file.BattleNetSignIn
+import file.OutsideStart
 import java.net.InetAddress
 import java.net.InetSocketAddress
 import java.net.ServerSocket
@@ -37,10 +38,106 @@ class BattleNetSignInTests {
     }
 
     @Test
-    fun takesTheSameLockAsTheE2eHarnessAndWurstScript() {
+    fun takesTheSameLockAsWurstScript() {
         if (!System.getProperty("os.name").startsWith("Windows", ignoreCase = true)) throw SkipException("Windows paths")
-        // wc3-e2e-harness node/src/runner/battlenet.cjs: 33000 + sha256(lower-cased path) as uint32 BE % 10000
+        // 33000 + sha256(lower-cased path) as uint32 BE % 10000, the port every tool that renews this sign-in binds
         Assert.assertEquals(BattleNetSignIn.gatePort(Paths.get("C:\\Users\\tester\\AppData\\Roaming\\Battle.net\\Battle.net.config")), 36941)
+    }
+
+    @Test
+    fun theRenewalScriptShipsAndRunsWithItsOutputRedirectedToAFile() {
+        val dir = Files.createTempDirectory("grill renewal script")
+        val script = BattleNetSignIn.scriptCopy(BattleNetSignIn.TOKEN_SCRIPT, dir)
+        Assert.assertEquals(script.parent, dir)
+        val content = Files.readString(script)
+        Assert.assertTrue(content.contains("\"result token-not-visible\""))
+        Assert.assertTrue(content.all { it.code < 128 }, "Windows PowerShell reads a .ps1 without BOM as ANSI")
+        Assert.assertEquals(BattleNetSignIn.scriptCopy(BattleNetSignIn.TOKEN_SCRIPT, dir), script, "a second call reuses the file")
+
+        val command = BattleNetSignIn.tokenScriptCommand(Paths.get("C:\\it's here\\s.ps1"),
+            Paths.get("C:\\Program Files (x86)\\Battle.net\\Battle.net.exe"), 90, Paths.get("C:\\tmp\\out.log"))
+        Assert.assertEquals(command.subList(0, 6),
+            listOf("powershell.exe", "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-Command"))
+        Assert.assertEquals(command[6], "& 'C:\\it''s here\\s.ps1' -BattleNetExe 'C:\\Program Files (x86)\\Battle.net\\Battle.net.exe'" +
+            " -TimeoutSeconds 90 *> 'C:\\tmp\\out.log'")
+        Assert.assertEquals(BattleNetSignIn.powerShellQuote("O\u2019Neil"), "'O\u2019\u2019Neil'")
+    }
+
+    private fun utf16(text: String) = byteArrayOf(0xFF.toByte(), 0xFE.toByte()) + text.toByteArray(Charsets.UTF_16LE)
+
+    @Test
+    fun onlyCompleteLinesOfTheScriptsOutputCount() {
+        Assert.assertEquals(BattleNetSignIn.completeLines(utf16("asked 0.0\r\nresult refreshed\r\n")), "asked 0.0\r\nresult refreshed\r\n")
+        Assert.assertEquals(BattleNetSignIn.completeLines(utf16("asked 0.0\r\nresult refre")), "asked 0.0\r\n")
+        Assert.assertEquals(BattleNetSignIn.completeLines("asked 0.0\nresult no-token\n".toByteArray()), "asked 0.0\nresult no-token\n")
+        val parsed = BattleNetSignIn.parseTokenScriptOutput("asked 0.0\r\ntoken 0.5\r\nresult refreshed\r\n")
+        Assert.assertEquals(parsed.outcome, "refreshed")
+        Assert.assertEquals(parsed.lines, listOf("asked 0.0", "token 0.5", "result refreshed"))
+        Assert.assertNull(BattleNetSignIn.parseTokenScriptOutput("asked 0.0\r\n").outcome)
+    }
+
+    @Test
+    fun aScriptThatHasEndedIsReadOnceMoreAndOneStillRunningIsWaitedFor() {
+        val output = Files.createTempFile("grill-renewal", ".log")
+        Files.write(output, utf16("asked 0.0\r\nresult app-game-running\r\n"))
+        Assert.assertEquals(BattleNetSignIn.awaitTokenScript(null, output, 5).outcome, "app-game-running")
+        Files.write(output, utf16("asked 0.0\r\n"))
+        val ended = BattleNetSignIn.awaitTokenScript(null, output, 5)
+        Assert.assertNull(ended.outcome)
+        Assert.assertEquals(ended.lines, listOf("asked 0.0"))
+        if (!System.getProperty("os.name").startsWith("Windows", ignoreCase = true)) return
+        // A script still running without a result is ended at the timeout.
+        val script = ProcessBuilder("ping", "-n", "60", "127.0.0.1").redirectOutput(ProcessBuilder.Redirect.DISCARD).start()
+        val timedOut = BattleNetSignIn.awaitTokenScript(script.toHandle(), output, 0, pollMillis = 10)
+        Assert.assertNull(timedOut.outcome)
+        Assert.assertEquals(timedOut.lines.last(), "the renewal script did not finish")
+        Assert.assertTrue(script.waitFor(10, java.util.concurrent.TimeUnit.SECONDS), "the script was ended")
+    }
+
+    @Test
+    fun everyRenewalOutcomeHasItsMessage() {
+        fun problem(outcome: String?, vararg lines: String) =
+            BattleNetSignIn.problem(BattleNetSignIn.TokenScriptResult(outcome, lines.toList()))
+        Assert.assertNull(problem("refreshed"))
+        Assert.assertTrue(problem("no-token")!!.startsWith("Battle.net did not start Warcraft III."))
+        Assert.assertEquals(problem("app-game-running"), BattleNetSignIn.APP_GAME_RUNNING)
+        Assert.assertTrue(problem("token-not-visible")!!.contains("start it from the Start menu"))
+        Assert.assertEquals(problem(null), "The Battle.net sign-in renewal failed: it printed nothing.")
+        Assert.assertEquals(problem(null, "a", "b", "c", "d"), "The Battle.net sign-in renewal failed: b | c | d.")
+    }
+
+    @Test
+    fun commandLineQuotingKeepsArgumentsWhole() {
+        Assert.assertEquals(OutsideStart.quoteWindowsArg("-editor"), "-editor")
+        Assert.assertEquals(OutsideStart.quoteWindowsArg(""), "\"\"")
+        Assert.assertEquals(OutsideStart.quoteWindowsArg("C:\\Program Files\\x.exe"), "\"C:\\Program Files\\x.exe\"")
+        Assert.assertEquals(OutsideStart.quoteWindowsArg("say \"hi\""), "\"say \\\"hi\\\"\"")
+        Assert.assertEquals(OutsideStart.quoteWindowsArg("C:\\dir with space\\"), "\"C:\\dir with space\\\\\"")
+    }
+
+    @Test
+    fun aProcessStartedThroughWmiGetsItsArgumentsAndWorkingDirectory() {
+        if (!System.getProperty("os.name").startsWith("Windows", ignoreCase = true)) throw SkipException("WMI is Windows only")
+        val dir = Files.createTempDirectory("grill outside start")
+        val out = dir.resolve("args.txt")
+        val program = dir.resolve("Args.java")
+        Files.writeString(program, """
+            public class Args {
+                public static void main(String[] a) throws Exception {
+                    StringBuilder s = new StringBuilder(System.getProperty("user.dir"));
+                    for (int i = 1; i < a.length; i++) s.append('\n').append('[').append(a[i]).append(']');
+                    java.nio.file.Files.writeString(java.nio.file.Path.of(a[0]), s.toString());
+                }
+            }
+        """.trimIndent())
+        val args = listOf("plain", "with space", "quote\"inside", "trailing\\", "")
+        val java = ProcessHandle.current().info().command().orElseThrow()
+        val pid = OutsideStart.start(listOf(java, program.toString(), out.toString()) + args, dir, OutsideStart.Show.HIDDEN)
+        Assert.assertTrue(pid > 0)
+        val deadline = System.nanoTime() + 60_000_000_000L
+        while (!Files.exists(out) && System.nanoTime() < deadline) Thread.sleep(100)
+        Thread.sleep(200)
+        Assert.assertEquals(Files.readString(out).lines(), listOf(dir.toString()) + args.map { "[$it]" })
     }
 
     @Test

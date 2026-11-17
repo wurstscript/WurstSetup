@@ -51,7 +51,6 @@ Read `scriptMode` before adding `execute()` or timer chunking. Lua has no practi
 - For single-player Lua iteration, check that `grill help` lists `run --hot` and `reload`. Start with `grill run --hot ExampleMap.w3x`, then save edits and run `grill reload`. In VS Code, use **Hot run wurstscript map** and save, or invoke **Hot reload code**.
 - Fix compile errors and retry. If the reload refuses an incompatible change, read the reason. Undo the incompatible part and retry in the same game, or keep it and hot-run again for a fresh baseline.
 - Verify the behavior in game. If a payload was written but nothing changed, check the in-game status, active session and Warcraft III's `CustomMapData/Wurst` directory. See [Lua hot reload recovery](https://github.com/wurstscript/WurstScript/blob/master/docs/LUA_HOT_RELOAD.md).
-- Use `wc3-e2e-harness` for automated Warcraft III engine tests, including launch and loading-screen input.
 
 ## Validate
 
