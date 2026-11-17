@@ -104,6 +104,33 @@ class BattleNetSignInTests {
     }
 
     @Test
+    fun aSignInThatCannotBeWatchedNeitherFailsTheLaunchNorKeepsTheLock() {
+        // The map runs by now: an exception would make `grill run --hot` roll back a session the new map uses.
+        val gate = ServerSocket().apply { bind(InetSocketAddress(InetAddress.getByAddress(byteArrayOf(127, 0, 0, 1)), 0)) }
+        val renewal = BattleNetSignIn.Renewal(gate, "TOKEN", { throw java.io.IOException("registry query timed out") }, 1)
+        val reports = mutableListOf<String>()
+
+        Wc3MapRunner.awaitSignIn(renewal, reports::add)
+
+        Assert.assertTrue(gate.isClosed, "the lock is released")
+        Assert.assertTrue(reports.last().contains("registry query timed out"), reports.toString())
+    }
+
+    @Test
+    fun aSignInIsAwaitedUntilTheClientReplacesTheToken() {
+        val gate = ServerSocket().apply { bind(InetSocketAddress(InetAddress.getByAddress(byteArrayOf(127, 0, 0, 1)), 0)) }
+        val reads = mutableListOf("TOKEN", "TOKEN", "NEW")
+        val renewal = BattleNetSignIn.Renewal(gate, "TOKEN", { reads.removeAt(0) }, 1)
+        val reports = mutableListOf<String>()
+
+        Wc3MapRunner.awaitSignIn(renewal, reports::add)
+
+        Assert.assertTrue(reads.isEmpty(), "polled until the token changed")
+        Assert.assertTrue(gate.isClosed)
+        Assert.assertEquals(reports, listOf("Waiting for Warcraft III to sign in..."))
+    }
+
+    @Test
     fun anInvalidConfiguredPathFallsBackToDetection() {
         if (!System.getProperty("os.name").startsWith("Windows", ignoreCase = true)) throw SkipException("Windows path rules")
         val project = Files.createTempDirectory("grill-bad-setting")

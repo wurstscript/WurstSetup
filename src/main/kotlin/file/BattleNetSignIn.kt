@@ -47,7 +47,12 @@ internal class BattleNetSignIn private constructor(private val config: Path, pri
     class LockBusyException(message: String) : IOException(message)
 
     /** The lock, held until the launched client has signed in; see [awaitSignIn]. */
-    class Renewal internal constructor(private val gate: ServerSocket, private val token: String) : AutoCloseable {
+    class Renewal internal constructor(
+        private val gate: ServerSocket,
+        private val token: String,
+        private val currentToken: () -> String? = { readBinary(GAME_KEY, "EDITOR_TOKEN") },
+        private val pollMillis: Long = 500,
+    ) : AutoCloseable {
         /**
          * Blocks until the launched client replaces `EDITOR_TOKEN`, which it does as it signs in (about ten seconds after
          * launch), or [SIGN_IN_TIMEOUT_SECONDS] pass, then releases the lock. Released earlier, another tool's renewal
@@ -57,8 +62,8 @@ internal class BattleNetSignIn private constructor(private val config: Path, pri
             val deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(SIGN_IN_TIMEOUT_SECONDS)
             try {
                 while (System.nanoTime() < deadline) {
-                    if (readBinary(GAME_KEY, "EDITOR_TOKEN") != token) return true
-                    Thread.sleep(500)
+                    if (currentToken() != token) return true
+                    Thread.sleep(pollMillis)
                 }
                 return false
             } finally {

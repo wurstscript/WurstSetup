@@ -108,11 +108,26 @@ internal object Wc3MapRunner {
             renewal?.close()
             throw e
         }
-        if (renewal != null) {
-            report("Waiting for Warcraft III to sign in...")
+        if (renewal != null) awaitSignIn(renewal, report)
+    }
+
+    /**
+     * Holds the Battle.net lock until the launched client has signed in. The map is running by now, so nothing here
+     * may throw: callers treat an exception from a launch as a failed launch and roll back, as `grill run --hot` does
+     * with its session. A sign-in that cannot be watched is reported and the lock released.
+     */
+    internal fun awaitSignIn(renewal: BattleNetSignIn.Renewal, report: (String) -> Unit) {
+        report("Waiting for Warcraft III to sign in...")
+        try {
             if (!renewal.awaitSignIn()) {
                 report("Warcraft III did not sign in within ${BattleNetSignIn.SIGN_IN_TIMEOUT_SECONDS} s.")
             }
+        } catch (e: InterruptedException) {
+            Thread.currentThread().interrupt()
+        } catch (e: Exception) {
+            report("Could not watch the Warcraft III sign-in (${e.message}); released the Battle.net lock.")
+        } finally {
+            renewal.close()
         }
     }
 
