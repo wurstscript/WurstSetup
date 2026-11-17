@@ -39,6 +39,18 @@ class BattleNetSignInTests {
     }
 
     @Test
+    fun theWindowWatcherShipsAndRunsAsOneEncodedCommand() {
+        val command = BattleNetSignIn.windowWatcherCommand("-Seconds 30 -FocusGame")!!
+        Assert.assertEquals(command.subList(0, command.size - 1),
+            listOf("powershell.exe", "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-EncodedCommand"))
+        val script = String(java.util.Base64.getDecoder().decode(command.last()), Charsets.UTF_16LE)
+        Assert.assertTrue(script.startsWith("& {"), script.take(20))
+        Assert.assertTrue(script.contains("param([int]\$Seconds = 20, [switch]\$FocusGame, [switch]\$Log)"))
+        Assert.assertTrue(script.contains("\"ready\""), "the caller waits for this line")
+        Assert.assertTrue(script.trimEnd().endsWith("} -Seconds 30 -FocusGame"))
+    }
+
+    @Test
     fun legacyModeAndOtherSystemsNeverAskBattleNet() {
         val client = reforgedClient()
         val reports = mutableListOf<String>()

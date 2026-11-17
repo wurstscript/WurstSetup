@@ -10,7 +10,9 @@ import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.Paths
 import java.security.MessageDigest
+import java.util.Base64
 import java.util.Locale
+import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 
 /**
@@ -84,6 +86,9 @@ internal class BattleNetSignIn private constructor(private val config: Path, pri
             seen.add(game.pid())
         }
         val before = readBinary(LAUNCH_KEY, "WEB_TOKEN")
+        // Asked to start the game, the app shows its window in front; the watcher minimizes it as soon as it appears
+        // and brings the map's client forward once that has a window.
+        watchLauncherWindow()
         val start = System.nanoTime()
         var askedAt = Long.MIN_VALUE
         var token: String? = null
@@ -152,6 +157,49 @@ internal class BattleNetSignIn private constructor(private val config: Path, pri
         private const val GAME_AFTER_TOKEN_SECONDS = 10L
         const val SIGN_IN_TIMEOUT_SECONDS = 120L
         private val REG_BINARY = Regex("""^\s*(\S+)\s+REG_BINARY\s+([0-9A-Fa-f]*)\s*$""", RegexOption.MULTILINE)
+
+        /** A copy of the wc3-e2e-harness `node/src/runner/battlenet-window.ps1`; keep the two equal. */
+        const val WINDOW_SCRIPT = "battlenet-window.ps1"
+        private const val WINDOW_WATCH_SECONDS = 30
+        private const val WINDOW_READY_SECONDS = 3L
+
+        /** The PowerShell command that runs [WINDOW_SCRIPT] with [arguments]; null if the script is missing. */
+        fun windowWatcherCommand(arguments: String): List<String>? {
+            val script = BattleNetSignIn::class.java.classLoader.getResourceAsStream(WINDOW_SCRIPT)
+                ?.use { it.readBytes().toString(Charsets.UTF_8) } ?: return null
+            val encoded = Base64.getEncoder().encodeToString("& {\n$script\n} $arguments".toByteArray(Charsets.UTF_16LE))
+            return listOf("powershell.exe", "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-EncodedCommand", encoded)
+        }
+
+        /**
+         * Starts the window watcher and waits until it has noted the windows already open (at most
+         * [WINDOW_READY_SECONDS]); it then runs on its own for [WINDOW_WATCH_SECONDS]. Best effort: a watcher that does
+         * not start only means the app's window may stay in front.
+         */
+        private fun watchLauncherWindow() {
+            val command = windowWatcherCommand("-Seconds $WINDOW_WATCH_SECONDS -FocusGame") ?: return
+            val process = try {
+                ProcessBuilder(command).redirectError(ProcessBuilder.Redirect.DISCARD).start()
+            } catch (_: IOException) {
+                return
+            }
+            val ready = CountDownLatch(1)
+            Thread {
+                try {
+                    // The watcher prints nothing after "ready", so its output can be let go then.
+                    process.inputReader().use { reader ->
+                        while (true) {
+                            val line = reader.readLine() ?: break
+                            if (line.trim() == "ready") break
+                        }
+                    }
+                } catch (_: IOException) {
+                } finally {
+                    ready.countDown()
+                }
+            }.apply { isDaemon = true }.start()
+            ready.await(WINDOW_READY_SECONDS, TimeUnit.SECONDS)
+        }
 
         fun find(): BattleNetSignIn? {
             if (!System.getProperty("os.name").startsWith("Windows", ignoreCase = true)) return null
