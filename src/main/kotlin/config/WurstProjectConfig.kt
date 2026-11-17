@@ -15,6 +15,7 @@ import logging.KotlinLogging
 import java.io.IOException
 import java.nio.file.Files
 import java.nio.file.Path
+import java.nio.file.InvalidPathException
 import java.nio.file.Paths
 import java.nio.file.StandardOpenOption
 /**
@@ -156,7 +157,20 @@ object WurstProjectConfig {
     /** The VS Code extension's `wurst.customMapDataPath`, which the language server's hot reload also uses. */
     fun configuredCustomMapDataPath(projectRoot: Path): Path? = configuredPath(projectRoot, "wurst.customMapDataPath")
 
+    /** The VS Code extension's `wurst.wc3LaunchMode` (auto, battlenet or legacy), which Run Map also follows. */
+    fun configuredLaunchMode(projectRoot: Path): String = configuredString(projectRoot, "wurst.wc3LaunchMode") ?: "auto"
+
+    /** An optional setting: a path the system cannot represent counts as unset, so callers fall back as before. */
     private fun configuredPath(projectRoot: Path, setting: String): Path? {
+        val value = configuredString(projectRoot, setting) ?: return null
+        return try {
+            Paths.get(value)
+        } catch (_: InvalidPathException) {
+            null
+        }
+    }
+
+    private fun configuredString(projectRoot: Path, setting: String): String? {
         val settings = projectRoot.resolve(".vscode").resolve("settings.json")
         if (!Files.isRegularFile(settings)) {
             return null
@@ -166,7 +180,6 @@ object WurstProjectConfig {
                 ?.get(setting)
                 ?.asText()
                 ?.takeIf(String::isNotBlank)
-                ?.let(Paths::get)
         } catch (_: Exception) {
             null
         }

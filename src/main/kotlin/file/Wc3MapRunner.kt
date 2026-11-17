@@ -2,6 +2,7 @@ package file
 
 import config.WurstProjectConfig
 import config.WurstProjectConfigData
+import java.io.IOException
 import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.Paths
@@ -89,12 +90,87 @@ internal object Wc3MapRunner {
         }
     }
 
-    fun launch(client: Wc3ClientDetector.ClientInfo, map: Path) {
+    /**
+     * Starts Warcraft III on [map]. A Reforged client managed by Battle.net first has its sign-in renewed from the app
+     * (see [BattleNetSignIn]), and this returns once that client has signed in, so the shared lock covers it.
+     */
+    fun launch(client: Wc3ClientDetector.ClientInfo, map: Path, launchMode: String = "auto", report: (String) -> Unit = {}) {
         val launchMap = stageMap(client, map)
-        ProcessBuilder(launchCommand(client, launchMap))
-            .directory(client.root.toFile())
-            .redirectOutput(ProcessBuilder.Redirect.DISCARD)
-            .redirectError(ProcessBuilder.Redirect.DISCARD)
-            .start()
+        val command = launchCommand(client, launchMap)
+        val renewal = renewSignIn(client, command, launchMode, report)
+        try {
+            ProcessBuilder(command)
+                .directory(client.root.toFile())
+                .redirectOutput(ProcessBuilder.Redirect.DISCARD)
+                .redirectError(ProcessBuilder.Redirect.DISCARD)
+                .start()
+        } catch (e: Exception) {
+            renewal?.close()
+            throw e
+        }
+        if (renewal != null) awaitSignIn(renewal, report)
+    }
+
+    /**
+     * Holds the Battle.net lock until the launched client has signed in. The map is running by now, so nothing here
+     * may throw: callers treat an exception from a launch as a failed launch and roll back, as `grill run --hot` does
+     * with its session. A sign-in that cannot be watched is reported and the lock released.
+     */
+    internal fun awaitSignIn(renewal: BattleNetSignIn.Renewal, report: (String) -> Unit) {
+        report("Waiting for Warcraft III to sign in...")
+        try {
+            if (!renewal.awaitSignIn()) {
+                report("Warcraft III did not sign in within ${BattleNetSignIn.SIGN_IN_TIMEOUT_SECONDS} s.")
+            }
+        } catch (e: InterruptedException) {
+            Thread.currentThread().interrupt()
+        } catch (e: Exception) {
+            report("Could not watch the Warcraft III sign-in (${e.message}); released the Battle.net lock.")
+        } finally {
+            renewal.close()
+        }
+    }
+
+    /**
+     * `-editor` launches sign in with a stored token that lapses, after which the game asks for a login.
+     * [launchMode] is the VS Code setting `wurst.wc3LaunchMode`, as for the language server's Run Map: "auto" renews
+     * when Battle.net is open and otherwise launches on the stored token, "battlenet" fails the launch when it cannot
+     * renew, "legacy" never renews.
+     *
+     * @return the renewal holding the Battle.net lock, or null when there is none
+     */
+    internal fun renewSignIn(client: Wc3ClientDetector.ClientInfo, command: List<String>, launchMode: String,
+                             report: (String) -> Unit,
+                             find: () -> BattleNetApp? = BattleNetSignIn::find,
+                             registered: (Path) -> Boolean = BattleNetSignIn::isRegisteredGame,
+                             osName: String = System.getProperty("os.name")): BattleNetSignIn.Renewal? {
+        // The token lives in the Windows registry; other systems launch as before.
+        if (launchMode == "legacy" || "-editor" !in command || !osName.startsWith("Windows", ignoreCase = true)) return null
+        val battleNet = find() ?: return failOrNull(launchMode, "Battle.net was not found.", report)
+        val managed = try {
+            registered(client.executable)
+        } catch (e: IOException) {
+            false
+        }
+        if (!managed) return failOrNull(launchMode, "This Warcraft III install is not the one Battle.net manages.", report)
+        if (launchMode != "battlenet" && !battleNet.isRunning()) {
+            report("Battle.net is not running: launching with the stored sign-in, which may ask for a login.")
+            return null
+        }
+        report("Renewing the Warcraft III sign-in from Battle.net...")
+        return try {
+            battleNet.renew { report("Another Warcraft III launch is signing in; waiting until it has...") }
+        } catch (e: BattleNetSignIn.LockBusyException) {
+            // In every mode: launching without the lock could spend the other client's unread token.
+            throw IllegalStateException("${e.message} Run the map again once it has signed in.", e)
+        } catch (e: IOException) {
+            failOrNull(launchMode, "Could not renew the Warcraft III sign-in: ${e.message}", report)
+        }
+    }
+
+    private fun failOrNull(launchMode: String, problem: String, report: (String) -> Unit): BattleNetSignIn.Renewal? {
+        if (launchMode == "battlenet") throw IllegalStateException("$problem (wurst.wc3LaunchMode is \"battlenet\")")
+        report("$problem Warcraft III may ask for a login.")
+        return null
     }
 }
