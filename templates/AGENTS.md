@@ -1,4 +1,4 @@
-<!-- WURST_AGENTS_TEMPLATE_VERSION: 2026-11-06 -->
+<!-- WURST_AGENTS_TEMPLATE_VERSION: 2026-11-17 -->
 # AGENTS.md - WurstScript Map Project Notes
 
 WurstScript Warcraft III map project notes for editing `.wurst` code, dependencies, generated objects, tests, or map build logic.
