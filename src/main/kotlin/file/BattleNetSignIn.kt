@@ -51,8 +51,6 @@ internal class BattleNetSignIn private constructor(private val config: Path, pri
         private val token: String,
         private val currentToken: () -> String? = { readBinary(GAME_KEY, "EDITOR_TOKEN") },
         private val pollMillis: Long = 500,
-        /** The launcher window watcher, ended with the lock: the client is in front and signed in by then. */
-        private val watcher: Process? = null,
     ) : AutoCloseable {
         /**
          * Blocks until the launched client replaces `EDITOR_TOKEN`, which it does as it signs in (about ten seconds after
@@ -73,7 +71,6 @@ internal class BattleNetSignIn private constructor(private val config: Path, pri
         }
 
         override fun close() {
-            watcher?.destroy()
             try {
                 gate.close()
             } catch (_: IOException) {
@@ -92,16 +89,14 @@ internal class BattleNetSignIn private constructor(private val config: Path, pri
     fun renew(gateWaitSeconds: Long, onWait: () -> Unit = {}): Renewal {
         val gate = acquireGate(gateWaitSeconds, onWait)
         try {
-            val (token, watcher) = renewLocked()
-            return Renewal(gate, token, watcher = watcher)
+            return Renewal(gate, renewLocked())
         } catch (e: Throwable) {
             gate.close()
             throw e
         }
     }
 
-    /** @return the stored token, and the launcher window watcher (left to end on its own if this throws) */
-    private fun renewLocked(): Pair<String, Process?> {
+    private fun renewLocked(): String {
         if (!isRunning()) throw IOException("Battle.net is not running.")
         val seen = HashSet<Long>()
         for (game in games()) {
@@ -113,7 +108,7 @@ internal class BattleNetSignIn private constructor(private val config: Path, pri
         val before = readBinary(LAUNCH_KEY, "WEB_TOKEN")
         // Asked to start the game, the app shows its window in front; the watcher minimizes it as soon as it appears
         // and brings the map's client forward once that has a window.
-        val watcher = watchLauncherWindow()
+        watchLauncherWindow()
         val start = System.nanoTime()
         var askedAt = Long.MIN_VALUE
         var token: String? = null
@@ -150,7 +145,7 @@ internal class BattleNetSignIn private constructor(private val config: Path, pri
             throw IOException("Battle.net did not start Warcraft III. Check that it is signed in and the game is ready to play.")
         }
         writeBinary(GAME_KEY, "EDITOR_TOKEN", token)
-        return token to watcher
+        return token
     }
 
     private fun acquireGate(waitSeconds: Long, onWait: () -> Unit): ServerSocket {
@@ -197,8 +192,8 @@ internal class BattleNetSignIn private constructor(private val config: Path, pri
 
         /** A copy of the wc3-e2e-harness `node/src/runner/battlenet-window.ps1`; keep the two equal. */
         const val WINDOW_SCRIPT = "battlenet-window.ps1"
-        /** Covers every request the renewal may send (one every [ASK_AGAIN_SECONDS], up to [TIMEOUT_SECONDS]). */
-        const val WINDOW_WATCH_SECONDS = TIMEOUT_SECONDS + 15
+        /** The watcher's limit without a client: every request the renewal may send, then a launch and a slow sign-in. */
+        const val WINDOW_WATCH_SECONDS = TIMEOUT_SECONDS + 150
         private const val WINDOW_READY_SECONDS = 3L
 
         /** The PowerShell command that runs [WINDOW_SCRIPT] with [arguments]; null if the script is missing. */
@@ -219,15 +214,16 @@ internal class BattleNetSignIn private constructor(private val config: Path, pri
 
         /**
          * Starts the window watcher and waits until it has noted the windows already open (at most
-         * [WINDOW_READY_SECONDS]); it then runs on its own for at most [WINDOW_WATCH_SECONDS], and a successful renewal
-         * ends it with the lock. Best effort: a watcher that does not start only means the app's window may stay in front.
+         * [WINDOW_READY_SECONDS]). It then runs on its own: the app shows its window again as the map's client signs in,
+         * so it ends a minute after that client appears, or after [WINDOW_WATCH_SECONDS]. Best effort: a watcher that does
+         * not start only means the app's window may show.
          */
-        private fun watchLauncherWindow(): Process? {
-            val command = windowWatcherCommand(listOf("-Seconds", WINDOW_WATCH_SECONDS.toString(), "-FocusGame")) ?: return null
+        private fun watchLauncherWindow() {
+            val command = windowWatcherCommand(listOf("-Seconds", WINDOW_WATCH_SECONDS.toString(), "-FocusGame")) ?: return
             val process = try {
                 ProcessBuilder(command).redirectError(ProcessBuilder.Redirect.DISCARD).start()
             } catch (_: IOException) {
-                return null
+                return
             }
             val ready = CountDownLatch(1)
             Thread {
@@ -245,7 +241,6 @@ internal class BattleNetSignIn private constructor(private val config: Path, pri
                 }
             }.apply { isDaemon = true }.start()
             ready.await(WINDOW_READY_SECONDS, TimeUnit.SECONDS)
-            return process
         }
 
         fun find(): BattleNetSignIn? {

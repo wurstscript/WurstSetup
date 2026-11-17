@@ -8,9 +8,13 @@
 # the map's Warcraft III client to the front once that has a window: a client that started after this script and not
 # from the app, so never the user's own game or the renewal's short-lived one.
 #
+# The app shows its window again as the map's client signs in, so the watcher ends $GameSeconds after that client
+# (one that started after this script and not from the app) appears, or at $Seconds if none does. Until that client
+# appears, a new crash reporter (BlizzardError.exe) can only belong to the renewal's closed client and is closed.
+#
 # Prints "ready" once it has noted the windows already open, so the caller can ask the app only then; with -Log also
 # one line per action. WurstSetup embeds a copy; keep it self-contained.
-param([int]$Seconds = 20, [switch]$FocusGame, [switch]$Log)
+param([int]$Seconds = 20, [int]$GameSeconds = 60, [switch]$FocusGame, [switch]$Log)
 $ErrorActionPreference = "Stop"
 Add-Type @"
 using System; using System.Collections.Generic; using System.Diagnostics; using System.Runtime.InteropServices;
@@ -60,6 +64,7 @@ public static class BattleNetWindow {
   static HashSet<IntPtr> background = new HashSet<IntPtr>();
   static HashSet<uint> appPids = new HashSet<uint>();
   static readonly HashSet<uint> notOurGame = new HashSet<uint>();
+  static readonly HashSet<uint> oldReporters = new HashSet<uint>();
   static bool log;
   static WinEventProc callback;
 
@@ -113,25 +118,32 @@ public static class BattleNetWindow {
 
   static void OnEvent(IntPtr hook, uint ev, IntPtr h, int idObject, int idChild, uint thread, uint time) {
     if (idObject != 0 || idChild != 0 || h == IntPtr.Zero || !AppWindow(h)) return;
-    if (ev == EVENT_CREATE && !moved.ContainsKey(h)) {
-      RECT r; GetWindowRect(h, out r);
-      moved[h] = r;
-      SetWindowPos(h, IntPtr.Zero, OFF_SCREEN, OFF_SCREEN, 0, 0, SWP_MOVE_ONLY);
-    } else if (ev == EVENT_LOCATION && moved.ContainsKey(h) && !handled.Contains(h)) {
-      // The app may put the window back where it last was; keep it off-screen, and remember that as its place.
-      RECT r; GetWindowRect(h, out r);
-      if (r.Left > OFF_SCREEN / 2) {
+    RECT r; GetWindowRect(h, out r);
+    bool onScreen = r.Left > OFF_SCREEN / 2;
+    if (ev == EVENT_CREATE) {
+      if (!moved.ContainsKey(h)) {
         moved[h] = r;
         SetWindowPos(h, IntPtr.Zero, OFF_SCREEN, OFF_SCREEN, 0, 0, SWP_MOVE_ONLY);
       }
-    } else if (ev == EVENT_SHOW && moved.ContainsKey(h) && !handled.Contains(h)) {
-      RECT r; GetWindowRect(h, out r);
-      if (r.Left > OFF_SCREEN / 2) {
-        moved[h] = r;
-        SetWindowPos(h, IntPtr.Zero, OFF_SCREEN, OFF_SCREEN, 0, 0, SWP_MOVE_ONLY);
-      }
-      Minimize(h, "new window");
+      return;
     }
+    if (!IsWindowVisible(h)) {
+      // Not shown yet: the app may put it back where it last was; keep it off-screen and remember that as its place.
+      if (ev == EVENT_LOCATION && moved.ContainsKey(h) && !handled.Contains(h) && onScreen) {
+        moved[h] = r;
+        SetWindowPos(h, IntPtr.Zero, OFF_SCREEN, OFF_SCREEN, 0, 0, SWP_MOVE_ONLY);
+      }
+      return;
+    }
+    if (IsIconic(h)) return;
+    // Shown, or restored, in the open: unless it is a window the user had open in the background, move it out of
+    // sight at once and minimize it. Its restore position stays the one the app first gave it.
+    if (background.Contains(h) && GetForegroundWindow() != h) return;
+    if (onScreen) {
+      if (!moved.ContainsKey(h)) moved[h] = r;
+      SetWindowPos(h, IntPtr.Zero, OFF_SCREEN, OFF_SCREEN, 0, 0, SWP_MOVE_ONLY);
+    }
+    Minimize(h, ev == EVENT_SHOW ? "shown window" : "restored window");
   }
 
   public static void Prepare(bool logActions) {
@@ -139,19 +151,22 @@ public static class BattleNetWindow {
     var all = Processes();
     appPids = Pids(all, "Battle.net.exe");
     foreach (uint pid in Pids(all, "Warcraft III.exe")) notOurGame.Add(pid);
+    foreach (uint pid in Pids(all, "BlizzardError.exe")) oldReporters.Add(pid);
     IntPtr foreground = GetForegroundWindow();
     background = new HashSet<IntPtr>(Shown(appPids));
     background.Remove(foreground);
   }
 
-  public static void Run(int seconds, bool focusGame) {
+  public static void Run(int seconds, int gameSeconds, bool focusGame) {
     watch.Start();
     callback = OnEvent;
     IntPtr hook = SetWinEventHook(EVENT_CREATE, EVENT_LOCATION, IntPtr.Zero, callback, 0, 0, 0);
     bool focused = !focusGame;
     long lastScan = -1000;
+    double gameSeenAt = -1;
     try {
-      while (watch.Elapsed.TotalSeconds < seconds) {
+      // The app shows its window again as the map's client signs in, so watch until that client has run a while.
+      while (watch.Elapsed.TotalSeconds < seconds && (gameSeenAt < 0 || watch.Elapsed.TotalSeconds - gameSeenAt < gameSeconds)) {
         MsgWaitForMultipleObjects(0, null, false, 25, 0x04FF);
         MSG m;
         while (PeekMessage(out m, IntPtr.Zero, 0, 0, 1)) { TranslateMessage(ref m); DispatchMessage(ref m); }
@@ -165,15 +180,24 @@ public static class BattleNetWindow {
           if (background.Contains(h) && h != foreground) continue;
           Minimize(h, "shown window");
         }
-        if (!focused) {
-          var ours = new HashSet<uint>();
-          foreach (uint pid in Pids(all, "Warcraft III.exe")) {
-            if (notOurGame.Contains(pid)) continue;
-            PROCESSENTRY32 e; PROCESSENTRY32 parent;
-            if (all.TryGetValue(pid, out e) && all.TryGetValue(e.th32ParentProcessID, out parent)
-                && string.Equals(parent.szExeFile, "Battle.net.exe", StringComparison.OrdinalIgnoreCase)) { notOurGame.Add(pid); continue; }
-            ours.Add(pid);
+        var ours = new HashSet<uint>();
+        foreach (uint pid in Pids(all, "Warcraft III.exe")) {
+          if (notOurGame.Contains(pid)) continue;
+          PROCESSENTRY32 e; PROCESSENTRY32 parent;
+          if (all.TryGetValue(pid, out e) && all.TryGetValue(e.th32ParentProcessID, out parent)
+              && string.Equals(parent.szExeFile, "Battle.net.exe", StringComparison.OrdinalIgnoreCase)) { notOurGame.Add(pid); continue; }
+          ours.Add(pid);
+        }
+        if (ours.Count > 0 && gameSeenAt < 0) gameSeenAt = watch.Elapsed.TotalSeconds;
+        if (gameSeenAt < 0) {
+          // Until the map's client runs, a new crash reporter can only be the renewal's closed client's.
+          foreach (uint pid in Pids(all, "BlizzardError.exe")) {
+            if (oldReporters.Contains(pid)) continue;
+            oldReporters.Add(pid);
+            try { Process.GetProcessById((int)pid).Kill(); Note("closed crash reporter"); } catch (Exception) { }
           }
+        }
+        if (!focused) {
           var game = Shown(ours);
           if (game.Count > 0) {
             if (!game.Contains(foreground)) SetForegroundWindow(game[0]);
@@ -196,4 +220,4 @@ public static class BattleNetWindow {
 "@
 [BattleNetWindow]::Prepare([bool]$Log)
 "ready"
-[BattleNetWindow]::Run($Seconds, [bool]$FocusGame)
+[BattleNetWindow]::Run($Seconds, $GameSeconds, [bool]$FocusGame)
