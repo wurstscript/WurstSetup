@@ -10,7 +10,6 @@ import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.Paths
 import java.security.MessageDigest
-import java.util.Base64
 import java.util.Locale
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
@@ -203,11 +202,19 @@ internal class BattleNetSignIn private constructor(private val config: Path, pri
         private const val WINDOW_READY_SECONDS = 3L
 
         /** The PowerShell command that runs [WINDOW_SCRIPT] with [arguments]; null if the script is missing. */
-        fun windowWatcherCommand(arguments: String): List<String>? {
-            val script = BattleNetSignIn::class.java.classLoader.getResourceAsStream(WINDOW_SCRIPT)
-                ?.use { it.readBytes().toString(Charsets.UTF_8) } ?: return null
-            val encoded = Base64.getEncoder().encodeToString("& {\n$script\n} $arguments".toByteArray(Charsets.UTF_16LE))
-            return listOf("powershell.exe", "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-EncodedCommand", encoded)
+        fun windowWatcherCommand(arguments: List<String>, dir: Path = Paths.get(System.getProperty("java.io.tmpdir"))): List<String>? {
+            val script = BattleNetSignIn::class.java.classLoader.getResourceAsStream(WINDOW_SCRIPT)?.use { it.readBytes() }
+                ?: return null
+            // A file, not -EncodedCommand: encoded, the script is close to Windows' 32,767-character command line limit.
+            // Named by content, so a grill of another version never runs this one's copy.
+            val hash = MessageDigest.getInstance("SHA-256").digest(script).take(6).joinToString("") { "%02x".format(it) }
+            val file = dir.resolve("grill-battlenet-window-$hash.ps1")
+            try {
+                if (!Files.isRegularFile(file) || !Files.readAllBytes(file).contentEquals(script)) Files.write(file, script)
+            } catch (_: IOException) {
+                return null
+            }
+            return listOf("powershell.exe", "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-File", file.toString()) + arguments
         }
 
         /**
@@ -216,7 +223,7 @@ internal class BattleNetSignIn private constructor(private val config: Path, pri
          * ends it with the lock. Best effort: a watcher that does not start only means the app's window may stay in front.
          */
         private fun watchLauncherWindow(): Process? {
-            val command = windowWatcherCommand("-Seconds $WINDOW_WATCH_SECONDS -FocusGame") ?: return null
+            val command = windowWatcherCommand(listOf("-Seconds", WINDOW_WATCH_SECONDS.toString(), "-FocusGame")) ?: return null
             val process = try {
                 ProcessBuilder(command).redirectError(ProcessBuilder.Redirect.DISCARD).start()
             } catch (_: IOException) {

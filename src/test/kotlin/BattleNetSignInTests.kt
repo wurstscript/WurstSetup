@@ -44,15 +44,20 @@ class BattleNetSignInTests {
     }
 
     @Test
-    fun theWindowWatcherShipsAndRunsAsOneEncodedCommand() {
-        val command = BattleNetSignIn.windowWatcherCommand("-Seconds 30 -FocusGame")!!
-        Assert.assertEquals(command.subList(0, command.size - 1),
-            listOf("powershell.exe", "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-EncodedCommand"))
-        val script = String(java.util.Base64.getDecoder().decode(command.last()), Charsets.UTF_16LE)
-        Assert.assertTrue(script.startsWith("& {"), script.take(20))
+    fun theWindowWatcherShipsAndRunsFromAFileNamedByItsContent() {
+        val dir = Files.createTempDirectory("grill-window-watcher")
+        val command = BattleNetSignIn.windowWatcherCommand(listOf("-Seconds", "30", "-FocusGame"), dir)!!
+        Assert.assertEquals(command.subList(0, 6),
+            listOf("powershell.exe", "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-File"))
+        Assert.assertEquals(command.subList(7, command.size), listOf("-Seconds", "30", "-FocusGame"))
+        val file = Paths.get(command[6])
+        Assert.assertEquals(file.parent, dir)
+        val script = Files.readString(file)
         Assert.assertTrue(script.contains("param([int]\$Seconds = 20, [switch]\$FocusGame, [switch]\$Log)"))
         Assert.assertTrue(script.contains("\"ready\""), "the caller waits for this line")
-        Assert.assertTrue(script.trimEnd().endsWith("} -Seconds 30 -FocusGame"))
+        Assert.assertTrue(script.all { it.code < 128 }, "Windows PowerShell reads a .ps1 without BOM as ANSI")
+        // A second call reuses the same file.
+        Assert.assertEquals(BattleNetSignIn.windowWatcherCommand(listOf(), dir)!![6], command[6])
     }
 
     @Test
