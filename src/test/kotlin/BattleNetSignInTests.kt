@@ -209,7 +209,7 @@ class BattleNetSignInTests {
     fun aSignInThatCannotBeWatchedNeitherFailsTheLaunchNorKeepsTheLock() {
         // The map runs by now: an exception would make `grill run --hot` roll back a session the new map uses.
         val gate = ServerSocket().apply { bind(InetSocketAddress(InetAddress.getByAddress(byteArrayOf(127, 0, 0, 1)), 0)) }
-        val renewal = BattleNetSignIn.Renewal(gate, "TOKEN", { throw java.io.IOException("registry query timed out") }, 1)
+        val renewal = BattleNetSignIn.Renewal(gate, { throw java.io.IOException("registry query timed out") }, 1)
         val reports = mutableListOf<String>()
 
         Wc3MapRunner.awaitSignIn(renewal, reports::add)
@@ -229,15 +229,59 @@ class BattleNetSignInTests {
     @Test
     fun aSignInIsAwaitedUntilTheClientReplacesTheToken() {
         val gate = ServerSocket().apply { bind(InetSocketAddress(InetAddress.getByAddress(byteArrayOf(127, 0, 0, 1)), 0)) }
-        val reads = mutableListOf("TOKEN", "TOKEN", "NEW")
-        val renewal = BattleNetSignIn.Renewal(gate, "TOKEN", { reads.removeAt(0) }, 1)
+        val reads = mutableListOf(false, false, true)
+        var stopped = false
+        val renewal = BattleNetSignIn.Renewal(gate, { reads.removeAt(0) }, 1, onClose = { stopped = true })
         val reports = mutableListOf<String>()
 
         Wc3MapRunner.awaitSignIn(renewal, reports::add)
 
         Assert.assertTrue(reads.isEmpty(), "polled until the token changed")
         Assert.assertTrue(gate.isClosed)
+        Assert.assertTrue(stopped, "the sign-in watcher is stopped with the lock")
         Assert.assertEquals(reports, listOf("Waiting for Warcraft III to sign in..."))
+    }
+
+    @Test
+    fun theSignInWatcherReportsWhenTheTokenItStartedWithIsReplaced() {
+        if (!System.getProperty("os.name").startsWith("Windows", ignoreCase = true)) throw SkipException("Windows registry")
+        val key = "HKCU\\Software\\WurstSetupTests\\SignIn-${java.util.UUID.randomUUID()}"
+        fun reg(vararg args: String) = Assert.assertEquals(ProcessBuilder("reg.exe", *args).redirectErrorStream(true)
+            .redirectOutput(ProcessBuilder.Redirect.DISCARD).start().waitFor(), 0)
+        reg("add", key, "/v", "EDITOR_TOKEN", "/t", "REG_BINARY", "/d", "0102", "/f")
+        val dir = Files.createTempDirectory("grill signin watcher")
+        val output = dir.resolve("out.log")
+        val script = BattleNetSignIn.scriptCopy(BattleNetSignIn.SIGNIN_SCRIPT, dir)
+        val process = ProcessBuilder("powershell.exe", "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-Command",
+            "& ${BattleNetSignIn.powerShellQuote(script.toString())} -TimeoutSeconds 30" +
+                " -Key ${BattleNetSignIn.powerShellQuote(key.replaceFirst("HKCU\\", "HKCU:\\"))}" +
+                " *> ${BattleNetSignIn.powerShellQuote(output.toString())}").start()
+        val watcher = BattleNetSignIn.SignInWatcher(process.toHandle(), output)
+        try {
+            val deadline = System.nanoTime() + 30_000_000_000L
+            while (!watcher.ready() && System.nanoTime() < deadline) Thread.sleep(50)
+            Assert.assertTrue(watcher.ready())
+            Assert.assertFalse(watcher.signedIn(), "the token it started with is still there")
+            reg("add", key, "/v", "EDITOR_TOKEN", "/t", "REG_BINARY", "/d", "0304", "/f")
+            while (!watcher.signedIn() && System.nanoTime() < deadline) Thread.sleep(50)
+            Assert.assertTrue(watcher.signedIn())
+        } finally {
+            watcher.stop()
+            reg("delete", key, "/f")
+        }
+        Assert.assertFalse(Files.exists(output), "stop removes its output")
+        Assert.assertTrue(Files.readString(script).all { it.code < 128 }, "Windows PowerShell reads a .ps1 without BOM as ANSI")
+    }
+
+    @Test
+    fun aSignInWatcherThatEndedWithoutTheSignInIsNotTakenForOne() {
+        val output = Files.createTempFile("grill-signin", ".log")
+        Files.write(output, utf16("ready\r\ntimeout\r\n"))
+        val watcher = BattleNetSignIn.SignInWatcher(null, output)
+        Assert.assertTrue(watcher.ready())
+        Assert.assertThrows(java.io.IOException::class.java) { watcher.signedIn() }
+        Files.write(output, utf16("ready\r\nsigned-in\r\n"))
+        Assert.assertTrue(watcher.signedIn(), "a watcher that saw the sign-in and ended still reports it")
     }
 
     @Test

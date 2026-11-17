@@ -1,5 +1,6 @@
 package file
 
+import global.Log
 import java.io.IOException
 import java.net.BindException
 import java.net.InetAddress
@@ -60,10 +61,10 @@ internal class BattleNetSignIn private constructor(private val config: Path, pri
     /** The lock, held until the launched client has signed in; see [awaitSignIn]. */
     class Renewal internal constructor(
         private val gate: ServerSocket,
-        /** The renewed `EDITOR_TOKEN` as grill reads it; null if it could not be read. */
-        private val token: String?,
-        private val currentToken: () -> String? = { readBinary(GAME_KEY, "EDITOR_TOKEN") },
-        private val pollMillis: Long = 500,
+        /** Whether the launched client has replaced the renewed `EDITOR_TOKEN` yet; throws when that cannot be told. */
+        private val signedIn: () -> Boolean,
+        private val pollMillis: Long = 250,
+        private val onClose: () -> Unit = {},
     ) : AutoCloseable {
         /**
          * Blocks until the launched client replaces `EDITOR_TOKEN`, which it does as it signs in (about ten seconds after
@@ -74,7 +75,7 @@ internal class BattleNetSignIn private constructor(private val config: Path, pri
             val deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(SIGN_IN_TIMEOUT_SECONDS)
             try {
                 while (System.nanoTime() < deadline) {
-                    if (currentToken() != token) return true
+                    if (signedIn()) return true
                     Thread.sleep(pollMillis)
                 }
                 return false
@@ -88,7 +89,67 @@ internal class BattleNetSignIn private constructor(private val config: Path, pri
                 gate.close()
             } catch (_: IOException) {
             }
+            onClose()
         }
+    }
+
+    /**
+     * [SIGNIN_SCRIPT] running in the user's own registry view, where the client replaces `EDITOR_TOKEN` as it signs in.
+     * Read from grill's own view, the token may never change: a packaged app's private copy keeps the old one.
+     */
+    internal class SignInWatcher(private val process: ProcessHandle?, private val output: Path) {
+        /** True once the client has signed in; throws once the watcher has ended without seeing it. */
+        fun signedIn(): Boolean {
+            val alive = process?.isAlive == true
+            // Read after the check, so a watcher that saw the sign-in and ended in between is not missed.
+            val lines = parseTokenScriptOutput(completeLines(readOutput(output))).lines
+            if ("signed-in" in lines) return true
+            if ("timeout" in lines || !alive) throw IOException("the sign-in watcher ended (${lines.lastOrNull() ?: "no output"})")
+            return false
+        }
+
+        fun ready(): Boolean = "ready" in parseTokenScriptOutput(completeLines(readOutput(output))).lines
+
+        fun stop() {
+            process?.destroyForcibly()
+            try {
+                process?.onExit()?.get(OUTPUT_RELEASE_SECONDS, TimeUnit.SECONDS)
+            } catch (_: Exception) {
+            }
+            try {
+                Files.deleteIfExists(output)
+            } catch (_: IOException) {
+                output.toFile().deleteOnExit()
+            }
+        }
+    }
+
+    /**
+     * How [Renewal] tells that the launched client has signed in: from [SignInWatcher] started outside grill's registry
+     * view, or, if that cannot start, by reading `EDITOR_TOKEN` from here. Called after the renewal and before the
+     * launch, so the token seen as the starting point is the renewed one.
+     */
+    private fun signInCheck(gate: ServerSocket): Renewal {
+        try {
+            val output = tempDir().resolve("grill-battlenet-signin-${UUID.randomUUID()}.log")
+            val command = listOf("powershell.exe", "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-Command",
+                "& ${powerShellQuote(scriptCopy(SIGNIN_SCRIPT, tempDir()).toString())}" +
+                    " -TimeoutSeconds ${SIGN_IN_TIMEOUT_SECONDS + 10} *> ${powerShellQuote(output.toString())}")
+            val pid = OutsideStart.startOrHere(command, null, OutsideStart.Show.HIDDEN)
+            val watcher = SignInWatcher(ProcessHandle.of(pid).orElse(null), output)
+            val deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(SIGNIN_READY_SECONDS)
+            while (!watcher.ready() && System.nanoTime() < deadline) Thread.sleep(50)
+            if (watcher.ready()) return Renewal(gate, watcher::signedIn, onClose = watcher::stop)
+            watcher.stop()
+        } catch (e: IOException) {
+            Log.println("Watching the Warcraft III sign-in from grill instead: ${e.message}")
+        }
+        val token = try {
+            readBinary(GAME_KEY, "EDITOR_TOKEN")
+        } catch (_: IOException) {
+            null
+        }
+        return Renewal(gate, { readBinary(GAME_KEY, "EDITOR_TOKEN") != token })
     }
 
     override fun isRunning(): Boolean = ProcessHandle.allProcesses().anyMatch { named(command(it), LAUNCHER) }
@@ -102,15 +163,15 @@ internal class BattleNetSignIn private constructor(private val config: Path, pri
     fun renew(gateWaitSeconds: Long, onWait: () -> Unit = {}): Renewal {
         val gate = acquireGate(gateWaitSeconds, onWait)
         try {
-            return Renewal(gate, renewLocked())
+            renewLocked()
+            return signInCheck(gate)
         } catch (e: Throwable) {
             gate.close()
             throw e
         }
     }
 
-    /** @return the renewed `EDITOR_TOKEN` as grill reads it, to see the client replace it; null if unreadable */
-    private fun renewLocked(): String? {
+    private fun renewLocked() {
         if (!isRunning()) throw IOException("Battle.net is not running.")
         if (games().any { startedByLauncher(it) }) throw IOException(APP_GAME_RUNNING)
         val script = scriptCopy(TOKEN_SCRIPT, tempDir())
@@ -119,11 +180,6 @@ internal class BattleNetSignIn private constructor(private val config: Path, pri
         watchLauncherWindow()
         val result = runTokenScript(script)
         problem(result)?.let { throw IOException(it) }
-        return try {
-            readBinary(GAME_KEY, "EDITOR_TOKEN")
-        } catch (_: IOException) {
-            null
-        }
     }
 
     /**
@@ -203,6 +259,10 @@ internal class BattleNetSignIn private constructor(private val config: Path, pri
 
         /** The renewal script, run in the user's own registry view. */
         const val TOKEN_SCRIPT = "battlenet-token.ps1"
+        /** The sign-in watcher, run in the user's own registry view ([SignInWatcher]). */
+        const val SIGNIN_SCRIPT = "battlenet-signin.ps1"
+        /** How long the sign-in watcher may take to start and read the renewed token before the game is launched. */
+        private const val SIGNIN_READY_SECONDS = 15L
         /** The watcher that keeps the app's window out of sight during the renewal. */
         const val WINDOW_SCRIPT = "battlenet-window.ps1"
         /** The watcher's limit without a client: every request the renewal may send, then a launch and a slow sign-in. */
