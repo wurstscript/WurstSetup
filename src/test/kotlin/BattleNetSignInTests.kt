@@ -227,6 +227,16 @@ class BattleNetSignInTests {
     }
 
     @Test
+    fun theFallbackKeepsTheLockWhileTheRenewedTokenIsUnknownOrUnchanged() {
+        Assert.assertFalse(BattleNetSignIn.tokenReplaced(null) { null }(), "an unreadable renewed token is no sign-in")
+        Assert.assertFalse(BattleNetSignIn.tokenReplaced(null) { "0102" }(),
+            "an unreadable renewed token is no sign-in, whatever is read later")
+        Assert.assertFalse(BattleNetSignIn.tokenReplaced("0102") { "0102" }())
+        Assert.assertTrue(BattleNetSignIn.tokenReplaced("0102") { "0304" }())
+        Assert.assertTrue(BattleNetSignIn.tokenReplaced("0102") { null }(), "a spent token is a sign-in")
+    }
+
+    @Test
     fun aSignInIsAwaitedUntilTheClientReplacesTheToken() {
         val gate = ServerSocket().apply { bind(InetSocketAddress(InetAddress.getByAddress(byteArrayOf(127, 0, 0, 1)), 0)) }
         val reads = mutableListOf(false, false, true)

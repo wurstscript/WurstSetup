@@ -149,7 +149,7 @@ internal class BattleNetSignIn private constructor(private val config: Path, pri
         } catch (_: IOException) {
             null
         }
-        return Renewal(gate, { readBinary(GAME_KEY, "EDITOR_TOKEN") != token })
+        return Renewal(gate, tokenReplaced(token) { readBinary(GAME_KEY, "EDITOR_TOKEN") })
     }
 
     override fun isRunning(): Boolean = ProcessHandle.allProcesses().anyMatch { named(command(it), LAUNCHER) }
@@ -240,6 +240,14 @@ internal class BattleNetSignIn private constructor(private val config: Path, pri
     }
 
     companion object {
+        /**
+         * The fallback sign-in check: whether the client has replaced [renewed], the token as grill read it after the
+         * renewal. If that read failed, the sign-in cannot be told, and the lock is held until the timeout rather than
+         * released at the next read that succeeds.
+         */
+        internal fun tokenReplaced(renewed: String?, current: () -> String?): () -> Boolean =
+            if (renewed == null) ({ false }) else ({ current() != renewed })
+
         const val GAME_KEY = "HKCU\\Software\\Blizzard Entertainment\\Warcraft III"
         private const val LAUNCHER = "Battle.net.exe"
         private const val GAME = "Warcraft III.exe"
